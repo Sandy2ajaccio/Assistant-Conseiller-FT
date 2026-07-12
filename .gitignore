@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env.*
+.venv/
+venv/
+pyproject.toml
+
+# Node
+node_modules/
+dist/
+/build/
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Docker
+*.log
+
+# Test artifacts
+.pytest_cache/
+
+# SQLite
+*.sqlite3
