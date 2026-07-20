@@ -444,6 +444,10 @@ const pushUniqueTexte = (collection, texte) => {
 }
 
 const analyserSituationDossier = (situation) => {
+  const freins = Array.isArray(situation.freins) ? situation.freins : []
+  const freinsPriorises = calculerPrioriteFreins(freins)
+const freinBloquant = freinBloquantFormation(freins)
+const ordreFreins = freinsPriorises.map((f) => f.nom)
   let score = 0
   let priorite = 'Normale'
 
@@ -477,7 +481,6 @@ const analyserSituationDossier = (situation) => {
 
   const projetTexte = String(situation.projetProfessionnel || situation.projet || '').trim()
   const projetMin = projetTexte.toLowerCase()
-  const freins = Array.isArray(situation.freins) ? situation.freins : []
   const difficulteNumerique =
     isOui(situation.difficulteNumerique) ||
     isOui(situation.difficulte_numérique) ||
@@ -634,23 +637,38 @@ const analyserSituationDossier = (situation) => {
     'Le conseiller reste le seul décideur final.',
   ].join(' ')
 
-  return {
-    score,
-    priorite,
-    pourquoi,
-    alertes,
-    verifications,
-    questions,
-    creu,
-    actions,
-    ateliers,
-    prestations,
-    partenaires,
-    portefeuilleConseille,
-    synthese,
-  }
-}
+if (freinBloquant) {
+  alertes.push(
+    `Frein prioritaire identifié : ${freinBloquant.nom}. Stabiliser cette situation avant une entrée en formation.`
+  )
 
+  verifications.push(
+    `Traiter en priorité le frein "${freinBloquant.nom}" avant toute prescription de formation.`
+  )
+}
+if (ordreFreins.length > 0) {
+  actions.unshift({
+    nom: "Traiter les freins prioritaires",
+    pourquoi: `Ordre recommandé : ${ordreFreins.join(" → ")}.`
+  })
+}
+return {
+  score,
+  priorite,
+  pourquoi,
+  freinsPriorises,
+  alertes,
+  verifications,
+  questions,
+  creu,
+  actions,
+  ateliers,
+  prestations,
+  partenaires,
+  portefeuilleConseille,
+  synthese,
+}
+}
 export function analyserSituation(situation) {
   if (isMissionPayload(situation)) {
     return analyserSituationMission(situation)

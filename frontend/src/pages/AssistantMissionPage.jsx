@@ -721,8 +721,22 @@ function AssistantMissionPage() {
         <Grid container spacing={0.75}>
           <Grid item xs={12} md={6}>
             <Stack spacing={0.75}>
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
-                  <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+  
+  <CockpitBlockCard
+  title="1. Analyse de la situation"
+  sx={{ minHeight: UNIFORM_CARD_HEIGHT }}
+>
+  <Accordion
+    disableGutters
+    defaultExpanded={false}
+    sx={{
+      boxShadow: 'none',
+      '&:before': { display: 'none' },
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 1,
+    }}
+  >
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
                     </AccordionSummary>

@@ -203,7 +203,7 @@ const buildSteps = (diagnostic = {}, recommendations = {}) => {
   }
 
   if (asArray(recommendations.partenaires).length > 0) {
-    etapes.push(`4. Orienter vers les partenaires : ${formatList(recommandations.partenaires)}.`)
+    etapes.push(`4. Orienter vers les partenaires : ${formatList(recommendations.partenaires)}.`)
   }
 
   if (asArray(recommendations.formations).length > 0) {

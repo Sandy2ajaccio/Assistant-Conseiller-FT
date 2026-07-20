@@ -449,7 +449,7 @@ export const analyseDiagnostic = (dossier = {}) => {
   const autonomie = getAutonomie(dossier, freinsDetectes, atouts, signals)
   const distanceEmploi = getDistanceEmploi(dossier, freinsDetectes, autonomie, signals)
   const maturiteProjet = getMaturiteProjet(dossier, signals)
-  const employabilite = getEmployability({ autonomie, distanceEmploi, maturiteProjet, freinsDetectes, atouts })
+  const employabilite = detectEmployability({ autonomie, distanceEmploi, maturiteProjet, freinsDetectes, atouts })
   const urgence = getUrgence({ freinsDetectes, autonomie, distanceEmploi, maturiteProjet, dossier, signals })
   const scoreGlobal = getScoreGlobal({ autonomie, distanceEmploi, maturiteProjet, employabilite: employabilite === 'forte' ? 85 : employabilite === 'moyenne' ? 60 : 35, freinsDetectes, atouts })
   const vigilance = buildVigilance({ dossier, freinsDetectes, autonomie, distanceEmploi, maturiteProjet, signals })
