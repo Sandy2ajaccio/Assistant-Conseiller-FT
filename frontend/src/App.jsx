@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
 import ParametresPage from './pages/ParametresPage'
 import AssistantMissionPage from './pages/AssistantMissionPage'
+import CockpitPage from './pages/cockpit/CockpitPage'
 import DemandeurPage from './pages/DemandeurPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<AccueilMissionsPage />} />
           <Route path="/assistant" element={<AssistantMissionPage />} />
+          <Route path="/cockpit" element={<CockpitPage />} />
           <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
           <Route path="/analyse" element={<AnalyseSituationPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
