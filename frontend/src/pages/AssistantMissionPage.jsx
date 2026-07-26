@@ -360,6 +360,16 @@ function AssistantMissionPage() {
     if (/boulanger|restauration|commerce|batiment|industrie|administr/.test(texte)) {
       constats.push('Une expérience professionnelle exploitable est mentionnée.')
     }
+    if (/\d+\s*ans?.*(experience|boulanger|restauration|commerce|batiment|industrie)/.test(texte)) {
+      constats.push('Le parcours comporte une expérience longue à valoriser dans le futur projet.')
+    }
+    if (/rqth|reconnaissance.*handicap|travailleur handicape/.test(texte)) {
+      freinsDetectes.push('Santé / RQTH')
+      constats.push('La RQTH doit être intégrée au choix du métier, de la formation et des conditions de travail.')
+    }
+    if (/\brsa\b/.test(texte)) {
+      constats.push('La situation RSA nécessite de coordonner les démarches et le contrat d’engagement.')
+    }
     if (/enfant|garde|creche/.test(texte)) {
       freinsDetectes.push('Garde d’enfants')
       constats.push('La garde des enfants conditionne la disponibilité.')
@@ -386,6 +396,33 @@ function AssistantMissionPage() {
       objectifs: Array.from(new Set(objectifsDetectes)),
     }
   }, [ceQueDitLaPersonne, besoinIdentifieConseiller])
+
+  const diagnosticAutonome = useMemo(() => {
+    const freins = analyseDemandeAutomatique.freins
+    const garde = freins.includes('Garde d’enfants')
+    const mobilite = freins.includes('Mobilité')
+    const rqth = freins.includes('Santé / RQTH')
+    const projetFlou = freins.includes('Projet professionnel')
+
+    const priorites = []
+    if (garde || mobilite) {
+      priorites.push(`Sécuriser les conditions pratiques${garde ? ' de garde' : ''}${garde && mobilite ? ' et' : ''}${mobilite ? ' de mobilité' : ''}.`)
+    }
+    if (rqth) priorites.push('Vérifier la compatibilité du projet et de la formation avec la RQTH.')
+    if (projetFlou) priorites.push('Transformer l’expérience acquise en deux ou trois pistes professionnelles réalistes.')
+    if (analyseDemandeAutomatique.objectifs.includes('Formation')) {
+      priorites.push('Choisir une formation seulement après validation du métier visé et de sa faisabilité.')
+    }
+
+    return {
+      conclusion: freins.length >= 3
+        ? 'L’entrée immédiate en formation ou en emploi serait prématurée. Les conditions de réussite doivent d’abord être sécurisées.'
+        : freins.length > 0
+          ? 'Le projet peut avancer à condition de traiter les points de vigilance identifiés.'
+          : 'Aucun frein majeur n’est détecté dans le récit actuel ; le plan peut être orienté vers la mise en action.',
+      priorites: priorites.slice(0, 3),
+    }
+  }, [analyseDemandeAutomatique])
 
   const capaciteAAgir = useMemo(() => {
     const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
@@ -675,17 +712,24 @@ function AssistantMissionPage() {
     const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
     const premierFrein = analyseDemandeAutomatique.freins[0] || freinsSelectionnes[0]
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
+    const plusieursFreins = analyseDemandeAutomatique.freins.length >= 2
+    const rqthDetectee = analyseDemandeAutomatique.freins.includes('Santé / RQTH')
+    const formationDemandee = analyseDemandeAutomatique.objectifs.includes('Formation')
 
     return [
       {
         quand: 'Aujourd’hui',
-        action: demande
-          ? `Valider avec la personne l’objectif suivant : ${demande.replace(/[.]+$/, '')}.`
+        action: plusieursFreins
+          ? `Valider l’ordre des priorités : ${analyseDemandeAutomatique.freins.slice(0, 3).join(', ')}.`
+          : demande
+            ? `Valider avec la personne l’objectif suivant : ${demande.replace(/[.]+$/, '')}.`
           : 'Faire formuler à la personne son objectif prioritaire avec ses propres mots.',
       },
       {
         quand: 'Sous 7 jours',
-        action: premierFrein
+        action: rqthDetectee
+          ? 'Vérifier les restrictions, besoins d’aménagement et appuis mobilisables liés à la RQTH avant de retenir un métier ou une formation.'
+          : premierFrein
           ? `Traiter en priorité le frein « ${premierFrein} » et noter la solution retenue dans le dossier.`
           : premiereSolution
             ? `Vérifier les conditions d’accès et la disponibilité de « ${premiereSolution} ».`
@@ -693,7 +737,9 @@ function AssistantMissionPage() {
       },
       {
         quand: 'Prochain entretien',
-        action: premiereSolution
+        action: formationDemandee
+          ? 'Comparer les pistes de formation avec le métier visé, les prérequis, le financement, la mobilité et la garde, puis valider une seule prochaine étape.'
+          : premiereSolution
           ? `Vérifier la réalisation, mesurer le résultat puis décider de maintenir ou d’adapter « ${premiereSolution} ».`
           : 'Faire le point sur l’action engagée et décider de la prochaine étape.',
       },
@@ -703,6 +749,7 @@ function AssistantMissionPage() {
     recommandationsMoteur.prestations,
     freinsSelectionnes,
     analyseDemandeAutomatique.freins,
+    analyseDemandeAutomatique.objectifs,
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
   ])
@@ -1327,10 +1374,59 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
+        {workspaceTab === 'entretien' && (ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) ? (
+          <CockpitBlockCard
+            title="Diagnostic automatique et plan proposé"
+            subtitle="Résultat produit à partir du récit saisi. Vous pouvez corriger les informations avec le mode Approfondir."
+            sx={{ borderTop: '6px solid #0b6fb8', boxShadow: '0 4px 16px rgba(15,35,65,0.12)' }}
+          >
+            <Grid container spacing={1.25}>
+              <Grid size={{ xs: 12, lg: 4 }}>
+                <Box sx={{ height: '100%', p: 1.25, bgcolor: '#eef6ff', borderRadius: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#174f86' }}>Diagnostic</Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 700 }}>
+                    {diagnosticAutonome.conclusion}
+                  </Typography>
+                  <Stack spacing={0.35} sx={{ mt: 0.75 }}>
+                    {analyseDemandeAutomatique.constats.map((constat) => (
+                      <Typography key={constat} variant="body2">• {constat}</Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 12, lg: 3 }}>
+                <Box sx={{ height: '100%', p: 1.25, bgcolor: '#fff8e8', borderRadius: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#8a4b00' }}>Priorités</Typography>
+                  <Stack spacing={0.65} sx={{ mt: 0.5 }}>
+                    {diagnosticAutonome.priorites.map((priorite, index) => (
+                      <Typography key={priorite} variant="body2" sx={{ fontWeight: index === 0 ? 800 : 500 }}>
+                        {index + 1}. {priorite}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 12, lg: 5 }}>
+                <Box sx={{ height: '100%', p: 1.25, bgcolor: '#f0f8f1', borderRadius: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#256b2b' }}>Plan d’action</Typography>
+                  <Stack spacing={0.65} sx={{ mt: 0.5 }}>
+                    {planActionConcret.map((etape) => (
+                      <Stack key={etape.quand} direction="row" spacing={0.75} alignItems="flex-start">
+                        <Chip size="small" color="success" label={etape.quand} sx={{ minWidth: 105, fontWeight: 800 }} />
+                        <Typography variant="body2">{etape.action}</Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
+            </Grid>
+          </CockpitBlockCard>
+        ) : null}
+
         <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: modeApprofondi ? 'block' : 'none' }}>
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
+              <CockpitBlockCard title="1. Analyse de la situation" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
@@ -1372,7 +1468,7 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
+              <CockpitBlockCard title="3. Freins identifiés" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
                     options={FREINS_OPTIONS}
@@ -1445,8 +1541,8 @@ function AssistantMissionPage() {
             </Stack>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
+          <Grid size={{ xs: 12, md: modeApprofondi ? 6 : 12 }}>
+            <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: modeApprofondi ? '1fr 1fr' : '1fr 1fr 1.25fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
               <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
                   <TextField
                     label="Demande ou objectif du rendez-vous"
@@ -1477,7 +1573,7 @@ function AssistantMissionPage() {
                   ) : null}
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
+              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
                     options={RESSOURCES_OPTIONS}
@@ -1523,43 +1619,6 @@ function AssistantMissionPage() {
                       Les recommandations ci-dessous tiennent compte du besoin actuellement renseigné.
                     </Alert>
                   )}
-                  {analyseDemandeAutomatique.constats.length > 0 ? (
-                    <Box sx={{ p: 1.25, bgcolor: '#fff8e8', border: '1px solid #efc36d', borderRadius: 1.5 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#8a4b00', mb: 0.5 }}>
-                        Ce que le logiciel a compris
-                      </Typography>
-                      {analyseDemandeAutomatique.constats.map((constat) => (
-                        <Typography key={constat} variant="body2">• {constat}</Typography>
-                      ))}
-                      {analyseDemandeAutomatique.freins.length > 0 ? (
-                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
-                          {analyseDemandeAutomatique.freins.map((frein) => (
-                            <Chip key={frein} size="small" color="warning" label={`Priorité : ${frein}`} />
-                          ))}
-                        </Stack>
-                      ) : null}
-                    </Box>
-                  ) : null}
-                  <Box sx={{ p: 1.25, bgcolor: '#eef6ff', border: '1px solid #9fc5eb', borderRadius: 1.5 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#174f86', mb: 0.75 }}>
-                      Plan concret proposé
-                    </Typography>
-                    <Stack spacing={0.75}>
-                      {planActionConcret.map((etape, index) => (
-                        <Stack key={etape.quand} direction="row" spacing={1} alignItems="flex-start">
-                          <Chip
-                            size="small"
-                            color={index === 0 ? 'primary' : index === 1 ? 'warning' : 'success'}
-                            label={etape.quand}
-                            sx={{ minWidth: 105, fontWeight: 800 }}
-                          />
-                          <Typography variant="body2" sx={{ fontWeight: index === 0 ? 700 : 500 }}>
-                            {etape.action}
-                          </Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Box>
                   <Tabs
                     value={recommandationTab}
                     onChange={(_, value) => setRecommandationTab(value)}
