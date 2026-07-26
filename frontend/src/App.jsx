@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AccueilMissionsPage from './pages/AccueilMissionsPage'
@@ -13,6 +14,32 @@ import PrescriptionsPage from './pages/PrescriptionsPage'
 import AuthGate from './components/AuthGate'
 
 export default function App() {
+  useEffect(() => {
+    const verifierNouvelleVersion = async () => {
+      try {
+        const response = await fetch(`/index.html?version=${Date.now()}`, { cache: 'no-store' })
+        const html = await response.text()
+        const nouvelleSource = html.match(/assets\/index-[^"]+\.js/)?.[0]
+        const sourceChargee = Array.from(document.scripts)
+          .map((script) => script.src)
+          .find((source) => source.includes('/assets/index-'))
+
+        if (nouvelleSource && sourceChargee && !sourceChargee.includes(nouvelleSource)) {
+          window.location.reload()
+        }
+      } catch {
+        // Une indisponibilité réseau ne doit jamais interrompre le travail en cours.
+      }
+    }
+
+    const premiereVerification = window.setTimeout(verifierNouvelleVersion, 5000)
+    const verificationReguliere = window.setInterval(verifierNouvelleVersion, 60000)
+    return () => {
+      window.clearTimeout(premiereVerification)
+      window.clearInterval(verificationReguliere)
+    }
+  }, [])
+
   return (
     <AuthGate>
       <BrowserRouter>
