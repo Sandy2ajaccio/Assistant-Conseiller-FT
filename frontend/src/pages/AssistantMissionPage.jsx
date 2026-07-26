@@ -45,6 +45,7 @@ import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { portefeuillesCorse } from '../data/configurationCorse'
+import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { listPortfolioRecords } from '../services/portfolioImportService'
 
 const ENTRETIEN_TYPES = [
@@ -358,10 +359,23 @@ function AssistantMissionPage() {
     [analyseInput, diagnosticMetierCalcule, recommandationsMetierCalculees],
   )
 
+  const analyseReferentielReseauEmploi = useMemo(
+    () => analyserAvecReferentielReseauEmploi(
+      `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel}`,
+    ),
+    [
+      ceQueDitLaPersonne,
+      besoinIdentifieConseiller,
+      situationAdministrative,
+      situationPersonnelle,
+      parcoursProfessionnel,
+    ],
+  )
+
   const questionsEntretien = useMemo(() => {
     const fromEngine = Array.isArray(analyseMetier.questions) ? analyseMetier.questions : []
-    return Array.from(new Set([...fromEngine, ...QUESTIONS_FALLBACK]))
-  }, [analyseMetier.questions])
+    return Array.from(new Set([...analyseReferentielReseauEmploi.questions, ...fromEngine, ...QUESTIONS_FALLBACK]))
+  }, [analyseMetier.questions, analyseReferentielReseauEmploi.questions])
 
   const questionCourante = questionsEntretien[questionIndex] || ''
 
@@ -1976,6 +1990,38 @@ function AssistantMissionPage() {
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 1.25 }}>
+                <Box sx={{ p: 1, mb: 1, bgcolor: '#f5f8fc', borderRadius: 1.5, border: '1px solid #c7d5e5' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#244d78' }}>
+                    Lecture selon le Référentiel de diagnostic du Réseau pour l’emploi
+                  </Typography>
+                  <Grid container spacing={1} sx={{ mt: 0.15 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 900 }}>Projet professionnel</Typography>
+                      <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.35 }}>
+                        {analyseReferentielReseauEmploi.objectifs.length > 0
+                          ? analyseReferentielReseauEmploi.objectifs.map((item) => (
+                            <Chip key={item.id} size="small" color="primary" variant="outlined" label={item.label} />
+                          ))
+                          : <Typography variant="body2">Objectif professionnel à préciser.</Typography>}
+                      </Stack>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 900 }}>Contraintes personnelles</Typography>
+                      <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.35 }}>
+                        {analyseReferentielReseauEmploi.contraintes.length > 0
+                          ? analyseReferentielReseauEmploi.contraintes.map((item) => (
+                            <Chip key={item.id} size="small" color="warning" variant="outlined" label={item.label} />
+                          ))
+                          : <Typography variant="body2">Aucune contrainte détectée dans le récit actuel.</Typography>}
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                  {analyseReferentielReseauEmploi.questions.length > 0 ? (
+                    <Typography variant="body2" sx={{ mt: 0.75, fontWeight: 700 }}>
+                      Question prioritaire : {analyseReferentielReseauEmploi.questions[0]}
+                    </Typography>
+                  ) : null}
+                </Box>
                 <Stack spacing={0.65} sx={{ mb: 1 }}>
                   {alertesDiagnosticAutonome.map((alerte) => (
                     <Alert key={alerte.texte} severity={alerte.severity} sx={{ py: 0.15 }}>
