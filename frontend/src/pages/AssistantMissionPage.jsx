@@ -1243,15 +1243,34 @@ function AssistantMissionPage() {
     const manquants = []
     const contradictions = []
     const vigilances = []
+    const confirmations = []
+    const texteSituation = [
+      ceQueDitLaPersonne,
+      besoinIdentifieConseiller,
+      situationAdministrative,
+      situationPersonnelle,
+      parcoursProfessionnel,
+      projet,
+    ].join(' ').toLowerCase()
+    const aujourdHui = new Date()
+    aujourdHui.setHours(0, 0, 0, 0)
+    const actionCorrespond = (expression) => actionsRetenues.some((item) => expression.test(`${item.nom} ${item.objectif || ''}`))
+    const actionsActives = actionsRetenues.filter((item) => !['Réalisé', 'Abandonné'].includes(item.suiviStatut))
 
     if (!identifiantDemandeur.trim()) manquants.push('Identifiant France Travail')
     if (!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim()) manquants.push('Demande ou objectif de l’entretien')
     if (ressourcesSelectionnees.length === 0) manquants.push('Au moins un point d’appui à confirmer')
-    if (freins.includes('Santé / RQTH') && !actionsRetenues.some((item) => /cap emploi|handicap/i.test(item.nom))) {
+    if (actionsRetenues.length === 0 && actionsImmediatesValidees.length === 0) {
+      manquants.push('Au moins une action ou prescription à retenir')
+    }
+    if (!portefeuilleChoisi && !decisions.demandeAffectation) {
+      manquants.push('Portefeuille à retenir ou affectation à demander')
+    }
+    if (freins.includes('Santé / RQTH') && !actionCorrespond(/cap emploi|handicap|rqth/i)) {
       vigilances.push('RQTH détectée mais aucun appui handicap ou Cap emploi n’est encore retenu.')
     }
-    if (freins.includes('Garde d’enfants')) {
-      vigilances.push('La disponibilité réelle doit être confirmée avant une action à horaires fixes.')
+    if (freins.includes('Garde d’enfants') && actionsActives.some((item) => !/distance|en ligne|numérique|pix/i.test(`${item.nom} ${item.conditions || ''}`))) {
+      contradictions.push('Une action à horaires ou présence imposés est retenue sans solution de garde confirmée.')
     }
     if (freins.includes('Projet professionnel') && analyseDemandeAutomatique.objectifs.includes('Formation')) {
       contradictions.push('Une formation est envisagée alors que le métier cible n’est pas encore défini.')
@@ -1259,12 +1278,50 @@ function AssistantMissionPage() {
     if (freins.length >= 3 && actionsRetenues.some((item) => /emploi stable|recherche emploi|mise en emploi/i.test(item.nom))) {
       contradictions.push('Une mise en emploi directe est retenue alors que plusieurs freins actifs restent à sécuriser.')
     }
-    if (freins.includes('Compétences numériques') && !actionsRetenues.some((item) => /pix|numérique/i.test(item.nom))) {
+    if (freins.includes('Compétences numériques') && !actionCorrespond(/pix|numérique/i)) {
       vigilances.push('Difficulté numérique détectée mais aucune action PIX Emploi ou numérique n’est retenue.')
     }
-    if (freins.includes('Absence de CV') && !actionsRetenues.some((item) => /\bcv\b/i.test(item.nom))) {
+    if (freins.includes('Absence de CV') && !actionCorrespond(/\bcv\b/i)) {
       vigilances.push('Absence de CV détectée mais aucune action CV n’est retenue.')
     }
+    if (
+      (freins.includes('Mobilité') || /sans (véhicule|permis|moyen de locomotion)|mobilité/.test(texteSituation))
+      && actionsActives.some((item) => !/distance|en ligne|domicile|téléphone|visioconférence|corse/i.test(`${item.duree || ''} ${item.localisation || ''} ${item.conditions || ''}`))
+    ) {
+      vigilances.push('Mobilité limitée : vérifier le lieu, le déplacement et l’accessibilité de chaque action en présentiel.')
+    }
+    if (actionsActives.some((item) => !`${item.objectif || item.resultatAttendu || ''}`.trim())) {
+      manquants.push('Justification ou résultat attendu de chaque action retenue')
+    }
+    actionsActives.forEach((item) => {
+      if (!item.echeanceAction) {
+        manquants.push(`Échéance de l’action « ${item.nom} »`)
+        return
+      }
+      const echeance = new Date(`${item.echeanceAction}T12:00:00`)
+      if (!Number.isNaN(echeance.getTime()) && echeance < aujourdHui) {
+        contradictions.push(`L’échéance de « ${item.nom} » est dépassée.`)
+      }
+      if (!Number.isNaN(echeance.getTime()) && (echeance.getTime() - aujourdHui.getTime()) > 366 * 24 * 60 * 60 * 1000) {
+        vigilances.push(`L’échéance de « ${item.nom} » dépasse un an : confirmer qu’elle est réaliste.`)
+      }
+    })
+    if (portefeuilleChoisi && portefeuillePropose && portefeuilleChoisi !== portefeuillePropose) {
+      vigilances.push(`Le portefeuille retenu (${portefeuilleChoisi}) diffère de la proposition du logiciel (${portefeuillePropose}) : justifier ce choix.`)
+    }
+    actionsRetenues.forEach((item) => {
+      if (!syntheseEntretien.toLowerCase().includes(item.nom.toLowerCase()) && !/pix emploi/i.test(item.nom)) {
+        contradictions.push(`La synthèse ne mentionne pas l’action retenue « ${item.nom} ».`)
+      }
+    })
+    if (actionsRetenues.length > 4) {
+      vigilances.push('Plus de quatre actions sont retenues : vérifier que le plan reste priorisé et réalisable.')
+    }
+
+    if (identifiantDemandeur.trim()) confirmations.push('Identité du dossier renseignée')
+    if (actionsRetenues.length > 0) confirmations.push(`${actionsRetenues.length} action(s) retenue(s) et suivie(s)`)
+    if (portefeuilleChoisi || decisions.demandeAffectation) confirmations.push('Orientation ou demande d’affectation renseignée')
+    if (syntheseEntretien.trim()) confirmations.push('Synthèse générée à partir des décisions retenues')
 
     const bloquants = contradictions.length + manquants.filter((item) => !item.includes('point d’appui')).length
     const niveauRisque = contradictions.length > 0 || freins.length >= 4
@@ -1287,15 +1344,28 @@ function AssistantMissionPage() {
             ? 'Valider la proposition avec la personne puis enregistrer la décision.'
             : 'Retenir au moins une action interne adaptée avant la clôture.'
 
-    return { manquants, contradictions, vigilances, niveauRisque, statut, prochaineAction }
+    const couleur = bloquants > 0 ? 'rouge' : vigilances.length > 0 ? 'orange' : 'vert'
+
+    return { manquants, contradictions, vigilances, confirmations, niveauRisque, statut, prochaineAction, couleur, bloquants }
   }, [
     analyseDemandeAutomatique,
     identifiantDemandeur,
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
     ressourcesSelectionnees,
     actionsRetenues,
+    actionsImmediatesValidees,
+    portefeuilleChoisi,
+    portefeuillePropose,
+    decisions.demandeAffectation,
+    syntheseEntretien,
   ])
+
+  const dossierCoherentEtComplet = dossierPretACloturer && controleDecision.bloquants === 0
 
   const dureeRendezVous = useMemo(() => {
     if (typeEntretien === 'premier-physique') return '60 min'
@@ -1472,7 +1542,7 @@ function AssistantMissionPage() {
     decisionConseillerCommentaire,
     chronoSecondes,
     controleCloture,
-    clotureValidee: dossierPretACloturer && decisionConseillerStatut === 'Acceptee',
+    clotureValidee: dossierCoherentEtComplet && decisionConseillerStatut === 'Acceptee',
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
 
@@ -1699,8 +1769,12 @@ function AssistantMissionPage() {
   }
 
   const cloturerEtPasserAuSuivant = () => {
-    if (!dossierPretACloturer) {
-      setStorageStatus('Clôture impossible : complétez les éléments signalés en rouge.')
+    if (!dossierCoherentEtComplet) {
+      setStorageStatus(
+        controleDecision.bloquants > 0
+          ? `Clôture impossible : ${controleDecision.prochaineAction}`
+          : 'Clôture impossible : complétez les éléments signalés en rouge.',
+      )
       return
     }
     const result = saveStoredDossier(identifiantDemandeur, {
@@ -2298,7 +2372,7 @@ function AssistantMissionPage() {
               <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1} alignItems={{ lg: 'center' }}>
                 <Chip
                   color={controleDecision.niveauRisque === 'Élevé' ? 'error' : controleDecision.niveauRisque === 'Modéré' ? 'warning' : 'success'}
-                  label={`${controleDecision.statut} · Risque ${controleDecision.niveauRisque}`}
+                  label={`${controleDecision.couleur === 'rouge' ? '🔴' : controleDecision.couleur === 'orange' ? '🟠' : '🟢'} ${controleDecision.statut} · Risque ${controleDecision.niveauRisque}`}
                   sx={{ fontWeight: 900, fontSize: '0.9rem' }}
                 />
                 <Typography variant="body1" sx={{ flex: 1, fontWeight: 900 }}>
@@ -2322,6 +2396,9 @@ function AssistantMissionPage() {
                       ))}
                       {controleDecision.vigilances.map((item) => (
                         <Typography key={item} variant="caption">● À vérifier : {item}</Typography>
+                      ))}
+                      {controleDecision.confirmations.map((item) => (
+                        <Typography key={item} variant="caption" color="success.main">✓ Conforme : {item}</Typography>
                       ))}
                       {controleDecision.manquants.length === 0
                         && controleDecision.contradictions.length === 0
@@ -2639,17 +2716,21 @@ function AssistantMissionPage() {
                   </Button>
                 </Grid>
               </Grid>
-              <Box sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierPretACloturer ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierPretACloturer ? '#8bc593' : '#efb45d' }}>
+              <Box sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d' }}>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }} justifyContent="space-between">
                   <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierPretACloturer ? '#1f6b36' : '#9a5100' }}>
-                      {dossierPretACloturer
-                        ? '✓ Dossier prêt à être clôturé'
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierCoherentEtComplet ? '#1f6b36' : '#9a5100' }}>
+                      {dossierCoherentEtComplet
+                        ? '✓ Dossier complet, cohérent et prêt à être clôturé'
+                        : controleDecision.bloquants > 0
+                          ? `⛔ ${controleDecision.bloquants} incohérence(s) ou manque(s) bloquant(s)`
                         : `${controleCloture.filter((item) => !item.ok).length} élément(s) à compléter avant clôture`}
                     </Typography>
-                    {!dossierPretACloturer ? (
+                    {!dossierCoherentEtComplet ? (
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        Prochain manque : {controleCloture.find((item) => !item.ok)?.label}.
+                        À faire maintenant : {controleDecision.bloquants > 0
+                          ? controleDecision.prochaineAction
+                          : controleCloture.find((item) => !item.ok)?.label}.
                       </Typography>
                     ) : null}
                     <Accordion disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&::before': { display: 'none' } }}>
@@ -2682,7 +2763,7 @@ function AssistantMissionPage() {
                       variant="contained"
                       color="success"
                       fullWidth
-                      disabled={!dossierPretACloturer}
+                      disabled={!dossierCoherentEtComplet}
                       onClick={cloturerEtPasserAuSuivant}
                     >
                       Clôturer et DE suivant
