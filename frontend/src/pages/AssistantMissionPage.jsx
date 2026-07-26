@@ -305,6 +305,8 @@ function AssistantMissionPage() {
   const [copyStatus, setCopyStatus] = useState('')
   const [modeApprofondi, setModeApprofondi] = useState(false)
   const [actionsRetenues, setActionsRetenues] = useState([])
+  const [actionsEcartees, setActionsEcartees] = useState([])
+  const [classementTab, setClassementTab] = useState('maintenant')
   const [portefeuilleChoisi, setPortefeuilleChoisi] = useState('')
   const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
@@ -764,6 +766,49 @@ function AssistantMissionPage() {
       .slice(0, 12)
   }, [prescriptionsDetaillees, recommandationsMoteur.partenaires, analyseDemandeAutomatique.freins])
 
+  const actionsClassees = useMemo(() => {
+    const freins = analyseDemandeAutomatique.freins
+    const projetFlou = freins.includes('Projet professionnel')
+    const nombreuxFreins = freins.length >= 3
+    const garde = freins.includes('Garde d’enfants')
+    const numerique = freins.includes('Compétences numériques')
+
+    return actionsDecisionPriorisees.map((item) => {
+      const nom = item.nom.toLowerCase()
+      let categorie = item.interne ? 'maintenant' : 'conditions'
+      let raison = item.interne
+        ? 'Offre interne prioritaire et cohérente avec le besoin détecté.'
+        : 'Solution mobilisable après vérification des conditions d’accès.'
+      const conditions = []
+
+      if (projetFlou && /formation|emploi stable|recherche emploi/.test(nom)) {
+        categorie = 'prematuree'
+        raison = 'Le métier cible doit d’abord être clarifié.'
+      } else if (nombreuxFreins && /mise en emploi|emploi stable/.test(nom)) {
+        categorie = 'prematuree'
+        raison = 'Plusieurs freins actifs limitent une mise en emploi directe.'
+      } else if (/focus compétences|activ.?projet/.test(nom) && projetFlou) {
+        categorie = 'maintenant'
+        raison = 'Cette action répond directement au besoin de clarification du projet.'
+      } else if (/\bcv\b/.test(nom) && freins.includes('Absence de CV')) {
+        categorie = 'maintenant'
+        raison = 'Le CV est absent et l’expérience doit être valorisée.'
+      } else if (/pix|numérique/.test(nom) && numerique) {
+        categorie = 'maintenant'
+        raison = 'Une difficulté numérique est détectée.'
+      } else if (/cap emploi/.test(nom) && freins.includes('Santé / RQTH')) {
+        categorie = 'maintenant'
+        raison = 'La RQTH nécessite de vérifier les compensations et appuis mobilisables.'
+      }
+
+      if (garde && !/distance|numérique|pix/.test(nom)) conditions.push('Confirmer la solution de garde et les horaires.')
+      if (!item.interne) conditions.push('Vérifier l’éligibilité et la disponibilité du partenaire.')
+      if (item.conditions) conditions.push(item.conditions)
+
+      return { ...item, categorieClassement: categorie, raisonClassement: raison, conditionsClassement: conditions.slice(0, 2) }
+    })
+  }, [actionsDecisionPriorisees, analyseDemandeAutomatique.freins])
+
   const toutesActionsDisponibles = useMemo(() => {
     const suggerees = new Set(
       actionsDecisionPriorisees.map((item) => `${item.categorieDecision}|${item.nom}`),
@@ -1217,6 +1262,8 @@ function AssistantMissionPage() {
           ? [{ nom: dossier.actionRetenue, type: 'Atelier' }]
           : [],
     )
+    setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
+    setClassementTab(dossier.classementTab || 'maintenant')
     setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
   }, [location.search])
@@ -1335,6 +1382,8 @@ function AssistantMissionPage() {
     mapMetier,
     synthese: { contenu: syntheseEntretien },
     actionsRetenues,
+    actionsEcartees,
+    classementTab,
     portefeuilleChoisi,
     workspaceTab,
     modeApprofondi,
@@ -1378,6 +1427,8 @@ function AssistantMissionPage() {
         setActionsImmediatesValidees(Array.isArray(dossier.actionsImmediatesValidees) ? dossier.actionsImmediatesValidees : [])
         setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
         setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues : [])
+        setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
+        setClassementTab(dossier.classementTab || 'maintenant')
         setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
         setWorkspaceTab(dossier.workspaceTab || 'entretien')
         setModeApprofondi(Boolean(dossier.modeApprofondi))
@@ -1427,6 +1478,8 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     historiqueEntretiens,
     actionsRetenues,
+    actionsEcartees,
+    classementTab,
     portefeuilleChoisi,
     workspaceTab,
     modeApprofondi,
@@ -1529,6 +1582,8 @@ function AssistantMissionPage() {
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
     setActionsImmediatesValidees([])
     setActionsRetenues([])
+    setActionsEcartees([])
+    setClassementTab('maintenant')
     setPortefeuilleChoisi('')
     setHistoriqueEntretiens([])
     setDecisionConseillerStatut('Modifiee')
@@ -2196,6 +2251,75 @@ function AssistantMissionPage() {
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
                 Décision à enregistrer
               </Typography>
+              <Box sx={{ mt: 0.5, mb: 1, border: '1px solid #b9cbe0', borderRadius: 1.5, overflow: 'hidden' }}>
+                <Tabs
+                  value={classementTab}
+                  onChange={(_, value) => setClassementTab(value)}
+                  variant="fullWidth"
+                  sx={{ minHeight: 36, bgcolor: '#f5f8fc', '& .MuiTab-root': { minHeight: 36, py: 0.5, fontWeight: 900 } }}
+                >
+                  <Tab value="maintenant" label={`Recommandées maintenant (${actionsClassees.filter((item) => item.categorieClassement === 'maintenant' && !actionsEcartees.includes(item.nom)).length})`} />
+                  <Tab value="conditions" label={`Sous conditions (${actionsClassees.filter((item) => item.categorieClassement === 'conditions' && !actionsEcartees.includes(item.nom)).length})`} />
+                  <Tab value="prematuree" label={`Prématurées (${actionsClassees.filter((item) => item.categorieClassement === 'prematuree' && !actionsEcartees.includes(item.nom)).length})`} />
+                </Tabs>
+                <Grid container spacing={0.75} sx={{ p: 0.75 }}>
+                  {actionsClassees
+                    .filter((item) => item.categorieClassement === classementTab && !actionsEcartees.includes(item.nom))
+                    .slice(0, 4)
+                    .map((item) => {
+                      const retenue = actionsRetenues.some((action) => action.nom === item.nom)
+                      return (
+                        <Grid key={`classement-${item.type}-${item.nom}`} size={{ xs: 12, md: 6, xl: 3 }}>
+                          <Box sx={{ height: '100%', p: 0.8, border: '1px solid #d3dce7', borderRadius: 1, bgcolor: '#fff' }}>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 900 }}>{item.nom}</Typography>
+                              {item.interne ? <Chip size="small" color="success" label="Interne" /> : null}
+                            </Stack>
+                            <Typography variant="body2" sx={{ mt: 0.4 }}>{item.raisonClassement}</Typography>
+                            {item.conditionsClassement[0] ? (
+                              <Typography variant="caption" sx={{ display: 'block', mt: 0.35, color: 'warning.dark' }}>
+                                À vérifier : {item.conditionsClassement[0]}
+                              </Typography>
+                            ) : null}
+                            <Stack direction="row" spacing={0.5} sx={{ mt: 0.65 }}>
+                              <Button
+                                size="small"
+                                variant={retenue ? 'contained' : 'outlined'}
+                                color="success"
+                                onClick={() => {
+                                  const option = toutesActionsDisponibles.find((candidate) => candidate.nom === item.nom) || item
+                                  setActionsRetenues((prev) => retenue ? prev.filter((action) => action.nom !== item.nom) : [...prev, option])
+                                }}
+                              >
+                                {retenue ? 'Retenue' : 'Retenir'}
+                              </Button>
+                              <Button
+                                size="small"
+                                color="inherit"
+                                onClick={() => {
+                                  setActionsEcartees((prev) => [...new Set([...prev, item.nom])])
+                                  setActionsRetenues((prev) => prev.filter((action) => action.nom !== item.nom))
+                                }}
+                              >
+                                Écarter
+                              </Button>
+                            </Stack>
+                          </Box>
+                        </Grid>
+                      )
+                    })}
+                  {actionsClassees.filter((item) => item.categorieClassement === classementTab && !actionsEcartees.includes(item.nom)).length === 0 ? (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">Aucune proposition dans cette catégorie.</Typography>
+                    </Grid>
+                  ) : null}
+                </Grid>
+                {actionsEcartees.length > 0 ? (
+                  <Button size="small" sx={{ ml: 0.5, mb: 0.5 }} onClick={() => setActionsEcartees([])}>
+                    Réafficher les {actionsEcartees.length} proposition(s) écartée(s)
+                  </Button>
+                ) : null}
+              </Box>
               <Grid container spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
                 <Grid size={{ xs: 12, lg: 7 }}>
                   <Typography variant="caption" sx={{ fontWeight: 800 }}>
