@@ -94,6 +94,8 @@ const ADVP_STEPS = [
   'Realiser',
 ]
 
+const ENTRETIEN_DRAFT_KEY = 'cap-decision-ft-entretien-en-cours'
+
 const SITUATION_ADMINISTRATIVE_OPTIONS = [
   'Inscription France Travail active',
   'Actualisation à jour',
@@ -302,6 +304,8 @@ function AssistantMissionPage() {
   const [modeApprofondi, setModeApprofondi] = useState(false)
   const [actionsRetenues, setActionsRetenues] = useState([])
   const [portefeuilleChoisi, setPortefeuilleChoisi] = useState('')
+  const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
+  const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
@@ -1296,10 +1300,104 @@ function AssistantMissionPage() {
     synthese: { contenu: syntheseEntretien },
     actionsRetenues,
     portefeuilleChoisi,
+    workspaceTab,
+    modeApprofondi,
+    recommandationTab,
+    advpTab,
+    questionIndex,
+    decisionConseillerStatut,
+    decisionConseillerCommentaire,
+    chronoSecondes,
     controleCloture,
     clotureValidee: dossierPretACloturer && decisionConseillerStatut === 'Acceptee',
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
+
+  useEffect(() => {
+    if (getEntryDossierId(location.search)) {
+      setBrouillonAutomatiquePret(true)
+      return
+    }
+    try {
+      const brut = window.localStorage.getItem(ENTRETIEN_DRAFT_KEY)
+      if (brut) {
+        const dossier = JSON.parse(brut)
+        setIdentifiantDemandeur(dossier.identifiant || '')
+        setTypeEntretien(dossier.typeEntretien || 'premier-physique')
+        setSituationAdministrative(dossier.situationAdministrative || '')
+        setSituationPersonnelle(dossier.situationPersonnelle || '')
+        setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
+        setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
+        setBesoinIdentifieConseiller(dossier.besoinIdentifieConseiller || '')
+        setProjet(dossier.projet || '')
+        setFormation(dossier.formation || '')
+        setNotes(dossier.notes || '')
+        setFreinsSelectionnes(Array.isArray(dossier.freinsSelectionnes) ? dossier.freinsSelectionnes : [])
+        setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
+        setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
+        setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+        setAssistantAnswers(dossier.assistantAnswers || {})
+        setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
+        setActionsImmediatesValidees(Array.isArray(dossier.actionsImmediatesValidees) ? dossier.actionsImmediatesValidees : [])
+        setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
+        setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues : [])
+        setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
+        setWorkspaceTab(dossier.workspaceTab || 'entretien')
+        setModeApprofondi(Boolean(dossier.modeApprofondi))
+        setRecommandationTab(dossier.recommandationTab || 'orientation')
+        setAdvpTab(dossier.advpTab || ADVP_STEPS[0])
+        setQuestionIndex(Number.isInteger(dossier.questionIndex) ? dossier.questionIndex : 0)
+        setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
+        setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
+        setChronoSecondes(Number(dossier.chronoSecondes) || 0)
+        setBrouillonAutomatiqueStatut('Entretien en cours restauré automatiquement.')
+      }
+    } catch {
+      window.localStorage.removeItem(ENTRETIEN_DRAFT_KEY)
+    } finally {
+      setBrouillonAutomatiquePret(true)
+    }
+  }, [location.search])
+
+  useEffect(() => {
+    if (!brouillonAutomatiquePret) return undefined
+    const timer = window.setTimeout(() => {
+      const snapshot = buildSnapshot()
+      window.localStorage.setItem(ENTRETIEN_DRAFT_KEY, JSON.stringify(snapshot))
+      if (identifiantDemandeur.trim()) saveStoredDossier(identifiantDemandeur, snapshot)
+      setBrouillonAutomatiqueStatut(`Brouillon enregistré automatiquement à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`)
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [
+    brouillonAutomatiquePret,
+    identifiantDemandeur,
+    typeEntretien,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    projet,
+    formation,
+    notes,
+    freinsSelectionnes,
+    ressourcesSelectionnees,
+    freinsEngine,
+    decisions,
+    assistantAnswers,
+    advpNotes,
+    actionsImmediatesValidees,
+    historiqueEntretiens,
+    actionsRetenues,
+    portefeuilleChoisi,
+    workspaceTab,
+    modeApprofondi,
+    recommandationTab,
+    advpTab,
+    questionIndex,
+    decisionConseillerStatut,
+    decisionConseillerCommentaire,
+  ])
 
   const enregistrerAnalyse = () => {
     const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
@@ -1362,6 +1460,11 @@ function AssistantMissionPage() {
   }
 
   const nouveauDossier = () => {
+    const confirmation = window.confirm(
+      'Effacer entièrement l’entretien en cours ? Toutes les saisies, sélections et prescriptions de ce brouillon seront supprimées.',
+    )
+    if (!confirmation) return
+    window.localStorage.removeItem(ENTRETIEN_DRAFT_KEY)
     setIdentifiantDemandeur('')
     setTypeEntretien('premier-physique')
     setSituationAdministrative('')
@@ -1386,10 +1489,20 @@ function AssistantMissionPage() {
     setAssistantAnswers({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
     setActionsImmediatesValidees([])
+    setActionsRetenues([])
+    setPortefeuilleChoisi('')
     setHistoriqueEntretiens([])
+    setDecisionConseillerStatut('Modifiee')
+    setDecisionConseillerCommentaire('')
+    setQuestionIndex(0)
+    setAdvpTab(ADVP_STEPS[0])
+    setRecommandationTab('orientation')
+    setModeApprofondi(false)
+    setChronoSecondes(0)
     setWorkspaceTab('entretien')
     setCopyStatus('')
-    setStorageStatus('Nouveau dossier initialise.')
+    setBrouillonAutomatiqueStatut('')
+    setStorageStatus('Entretien effacé. Vous pouvez commencer un nouveau dossier.')
   }
 
   const enregistrerEtPasserAuSuivant = () => {
@@ -1558,9 +1671,19 @@ function AssistantMissionPage() {
             </Grid>
           </Grid>
 
-          <Typography variant="caption" color="text.secondary">
-            Dernière actualisation : {formatDateFr(new Date().toISOString())}
-          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ sm: 'center' }} justifyContent="space-between">
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Dernière actualisation : {formatDateFr(new Date().toISOString())}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', color: 'success.main', fontWeight: 800 }}>
+                ✓ {brouillonAutomatiqueStatut || 'Sauvegarde automatique active'}
+              </Typography>
+            </Box>
+            <Button size="small" color="error" variant="outlined" onClick={nouveauDossier}>
+              Effacer l’entretien
+            </Button>
+          </Stack>
         </CockpitBlockCard>
 
         <Tabs
