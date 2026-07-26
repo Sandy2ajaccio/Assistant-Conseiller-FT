@@ -232,6 +232,25 @@ const STATUTS_PRESCRIPTION = [
   'Résultat à analyser',
 ]
 
+const RESPONSABLES_ACTION = [
+  'Demandeur d’emploi',
+  'Conseiller',
+  'Conseiller et demandeur d’emploi',
+  'Partenaire',
+]
+
+const normaliserSuiviAction = (action = {}) => ({
+  ...action,
+  suiviStatut: action.suiviStatut || 'À prescrire',
+  responsableAction: action.responsableAction || (
+    action.categorieDecision === 'Partenaire' || action.type === 'Partenaire'
+      ? 'Conseiller'
+      : 'Conseiller et demandeur d’emploi'
+  ),
+  resultatAttendu: action.resultatAttendu || action.objectif || `Mettre en œuvre l’action « ${action.nom || 'retenue'} ».`,
+  echeanceAction: action.echeanceAction || '',
+})
+
 const formatListeCourte = (items) => {
   const values = [...new Set(items.filter(Boolean))]
   if (values.length === 0) return ''
@@ -860,6 +879,10 @@ function AssistantMissionPage() {
         categorieDecision: item.type,
         interne,
         suggeree: suggerees.has(`${item.type}|${item.nom}`),
+        suiviStatut: 'À prescrire',
+        responsableAction: 'Conseiller et demandeur d’emploi',
+        resultatAttendu: item.objectif || '',
+        echeanceAction: '',
       }
     })
     const partenaires = (recommandationsMoteur.partenaires || []).map((nom, index) => ({
@@ -870,6 +893,10 @@ function AssistantMissionPage() {
       interne: false,
       suggeree: true,
       objectif: 'Partenaire proposé selon les besoins identifiés.',
+      suiviStatut: 'À prescrire',
+      responsableAction: 'Conseiller',
+      resultatAttendu: `Obtenir l’appui adapté de ${nom}.`,
+      echeanceAction: '',
     }))
     return [...catalogue, ...partenaires]
       .filter((item, index, items) => items.findIndex(
@@ -1147,7 +1174,7 @@ function AssistantMissionPage() {
           ? `votre orientation vers ${item.nom}`
           : /pix emploi/i.test(item.nom)
             ? 'la réalisation à votre domicile de l’atelier PIX Emploi depuis votre espace personnel France Travail, afin d’identifier vos connaissances informatiques de base'
-          : `votre participation à ${item.nom}`
+          : `votre participation à ${item.nom}${item.echeanceAction ? ` avant le ${new Date(`${item.echeanceAction}T12:00:00`).toLocaleDateString('fr-FR')}` : ''}`
       )),
     ].filter(Boolean).filter((item, index, items) => items.indexOf(item) === index).slice(0, 4)
     paragraphes.push(
@@ -1185,7 +1212,16 @@ function AssistantMissionPage() {
     { id: 'diagnostic', label: 'Diagnostic et capacité à agir calculés', ok: Boolean(diagnosticAutonome?.conclusion && capaciteAAgir?.statut) },
     { id: 'prescriptions', label: 'Au moins une action ou prescription retenue', ok: actionsRetenues.length > 0 || actionsImmediatesValidees.length > 0 },
     { id: 'portefeuille', label: 'Portefeuille retenu ou affectation demandée', ok: Boolean(portefeuilleChoisi || decisions.demandeAffectation) },
-    { id: 'suivi', label: 'État de chaque prescription renseigné', ok: actionsRetenues.every((item) => Boolean(item.suiviStatut || 'À prescrire')) },
+    {
+      id: 'suivi',
+      label: 'Responsable, échéance, état et résultat de chaque prescription renseignés',
+      ok: actionsRetenues.every((item) => (
+        Boolean(item.suiviStatut)
+        && Boolean(item.responsableAction)
+        && Boolean(item.resultatAttendu?.trim())
+        && (Boolean(item.echeanceAction) || ['Réalisé', 'Abandonné'].includes(item.suiviStatut))
+      )),
+    },
     { id: 'synthese', label: 'Synthèse destinée au DE générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
@@ -1298,9 +1334,9 @@ function AssistantMissionPage() {
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
       Array.isArray(dossier.actionsRetenues)
-        ? dossier.actionsRetenues
+        ? dossier.actionsRetenues.map(normaliserSuiviAction)
         : dossier.actionRetenue
-          ? [{ nom: dossier.actionRetenue, type: 'Atelier' }]
+          ? [normaliserSuiviAction({ nom: dossier.actionRetenue, type: 'Atelier' })]
           : [],
     )
     setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
@@ -1468,7 +1504,7 @@ function AssistantMissionPage() {
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
         setActionsImmediatesValidees(Array.isArray(dossier.actionsImmediatesValidees) ? dossier.actionsImmediatesValidees : [])
         setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
-        setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues : [])
+        setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
         setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
         setClassementTab(dossier.classementTab || 'maintenant')
         setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
@@ -2482,30 +2518,85 @@ function AssistantMissionPage() {
                         Suivi des prescriptions retenues
                       </Typography>
                       {actionsRetenues.map((action, index) => (
-                        <Stack
+                        <Accordion
                           key={`suivi-${action.categorieDecision || action.type}-${action.nom}`}
-                          direction={{ xs: 'column', sm: 'row' }}
-                          spacing={0.75}
-                          alignItems={{ sm: 'center' }}
+                          disableGutters
+                          elevation={0}
+                          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '6px !important', '&::before': { display: 'none' } }}
                         >
-                          <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
-                            {action.nom}
-                          </Typography>
-                          <TextField
-                            select
-                            size="small"
-                            label="État"
-                            value={action.suiviStatut || 'À prescrire'}
-                            onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
-                              itemIndex === index ? { ...item, suiviStatut: event.target.value } : item
-                            )))}
-                            sx={{ minWidth: 180 }}
-                          >
-                            {STATUTS_PRESCRIPTION.map((statut) => (
-                              <MenuItem key={statut} value={statut}>{statut}</MenuItem>
-                            ))}
-                          </TextField>
-                        </Stack>
+                          <AccordionSummary sx={{ minHeight: 38, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ width: '100%', minWidth: 0 }}>
+                              <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 800 }}>
+                                {action.code ? `${action.code} - ` : ''}{action.nom}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                color={action.suiviStatut === 'Réalisé' ? 'success' : action.echeanceAction ? 'info' : 'warning'}
+                                label={action.suiviStatut || 'Suivi à compléter'}
+                              />
+                            </Stack>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ pt: 0.5 }}>
+                            <Grid container spacing={1}>
+                              <Grid size={{ xs: 12, md: 3 }}>
+                                <TextField
+                                  select
+                                  fullWidth
+                                  size="small"
+                                  label="Responsable"
+                                  value={action.responsableAction || 'Conseiller et demandeur d’emploi'}
+                                  onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
+                                    itemIndex === index ? { ...item, responsableAction: event.target.value } : item
+                                  )))}
+                                >
+                                  {RESPONSABLES_ACTION.map((responsable) => (
+                                    <MenuItem key={responsable} value={responsable}>{responsable}</MenuItem>
+                                  ))}
+                                </TextField>
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 2 }}>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="date"
+                                  label="Échéance"
+                                  value={action.echeanceAction || ''}
+                                  onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
+                                    itemIndex === index ? { ...item, echeanceAction: event.target.value } : item
+                                  )))}
+                                  InputLabelProps={{ shrink: true }}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 2 }}>
+                                <TextField
+                                  select
+                                  fullWidth
+                                  size="small"
+                                  label="État"
+                                  value={action.suiviStatut || 'À prescrire'}
+                                  onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
+                                    itemIndex === index ? { ...item, suiviStatut: event.target.value } : item
+                                  )))}
+                                >
+                                  {STATUTS_PRESCRIPTION.map((statut) => (
+                                    <MenuItem key={statut} value={statut}>{statut}</MenuItem>
+                                  ))}
+                                </TextField>
+                              </Grid>
+                              <Grid size={{ xs: 12, md: 5 }}>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  label="Résultat attendu"
+                                  value={action.resultatAttendu || action.objectif || ''}
+                                  onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
+                                    itemIndex === index ? { ...item, resultatAttendu: event.target.value } : item
+                                  )))}
+                                />
+                              </Grid>
+                            </Grid>
+                          </AccordionDetails>
+                        </Accordion>
                       ))}
                     </Stack>
                   ) : null}
