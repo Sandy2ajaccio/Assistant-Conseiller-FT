@@ -5,6 +5,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -90,6 +91,101 @@ const ADVP_STEPS = [
   'Specifier',
   'Realiser',
 ]
+
+const SITUATION_ADMINISTRATIVE_OPTIONS = [
+  'Inscription France Travail active',
+  'Actualisation à jour',
+  'Contrat d’engagement signé',
+  'Contrat d’engagement à signer',
+  'Indemnisation ARE',
+  'Allocation ASS',
+  'Bénéficiaire du RSA',
+  'Sans indemnisation',
+  'Reconnaissance RQTH',
+  'Demande RQTH en cours',
+  'Titre de séjour valide',
+  'Titre de séjour à renouveler',
+  'Permis de conduire',
+  'Sans permis de conduire',
+  'Manquement ou absence à traiter',
+  'Démarche administrative en cours',
+]
+
+const SITUATION_PERSONNELLE_OPTIONS = [
+  'Logement stable',
+  'Difficulté de logement',
+  'Mobilité autonome',
+  'Difficulté de mobilité',
+  'Véhicule disponible',
+  'Problématique de santé',
+  'Garde d’enfants organisée',
+  'Difficulté de garde d’enfants',
+  'Difficultés financières',
+  'À l’aise avec le numérique',
+  'Difficultés numériques',
+  'Maîtrise du français',
+  'Difficultés avec le français',
+  'Disponible immédiatement',
+  'Disponibilité restreinte',
+  'Soutien familial ou social',
+  'Isolement social',
+]
+
+const PARCOURS_PROFESSIONNEL_OPTIONS = [
+  'Expérience professionnelle significative',
+  'Première recherche d’emploi',
+  'Sans expérience récente',
+  'Compétences transférables identifiées',
+  'Diplôme ou certification',
+  'Qualification à actualiser',
+  'Projet professionnel défini',
+  'Projet professionnel à préciser',
+  'Projet de reconversion',
+  'Projet de création d’entreprise',
+  'Recherche active d’emploi',
+  'Besoin de travailler le CV',
+  'Besoin de préparer les entretiens',
+  'Besoin de découvrir les métiers',
+  'Besoin d’une immersion professionnelle',
+  'Projet de formation',
+  'Formation en cours',
+  'Reprise d’activité récente',
+]
+
+const parseSituationValues = (value) => String(value || '')
+  .split(' · ')
+  .map((item) => item.trim())
+  .filter(Boolean)
+
+const SituationMultiSelect = ({ label, value, onChange, options }) => (
+  <Autocomplete
+    multiple
+    freeSolo
+    options={options}
+    value={parseSituationValues(value)}
+    onChange={(_, nextValue) => onChange(nextValue.join(' · '))}
+    filterSelectedOptions
+    renderTags={(items, getTagProps) => items.map((item, index) => (
+      <Chip
+        {...getTagProps({ index })}
+        key={item}
+        label={item}
+        color="primary"
+        variant="outlined"
+        size="small"
+      />
+    ))}
+    renderInput={(params) => (
+      <TextField
+        {...params}
+        label={label}
+        placeholder="Choisir ou saisir une précision…"
+        helperText="Plusieurs choix possibles. Tapez une précision puis appuyez sur Entrée."
+        size="small"
+      />
+    )}
+  />
+)
 
 const QUESTIONS_FALLBACK = [
   'Quel est l objectif prioritaire du rendez-vous ?',
@@ -1120,14 +1216,11 @@ function AssistantMissionPage() {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ px: 1, pt: 0, pb: 1 }}>
-                      <TextField
+                      <SituationMultiSelect
                         label="Situation administrative"
                         value={situationAdministrative}
-                        onChange={(event) => setSituationAdministrative(event.target.value)}
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        size="small"
+                        onChange={setSituationAdministrative}
+                        options={SITUATION_ADMINISTRATIVE_OPTIONS}
                       />
                     </AccordionDetails>
                   </Accordion>
@@ -1136,14 +1229,11 @@ function AssistantMissionPage() {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation personnelle</Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ px: 1, pt: 0, pb: 1 }}>
-                      <TextField
+                      <SituationMultiSelect
                         label="Situation personnelle"
                         value={situationPersonnelle}
-                        onChange={(event) => setSituationPersonnelle(event.target.value)}
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        size="small"
+                        onChange={setSituationPersonnelle}
+                        options={SITUATION_PERSONNELLE_OPTIONS}
                       />
                     </AccordionDetails>
                   </Accordion>
@@ -1152,14 +1242,11 @@ function AssistantMissionPage() {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Parcours professionnel</Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ px: 1, pt: 0, pb: 1 }}>
-                      <TextField
+                      <SituationMultiSelect
                         label="Parcours professionnel"
                         value={parcoursProfessionnel}
-                        onChange={(event) => setParcoursProfessionnel(event.target.value)}
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        size="small"
+                        onChange={setParcoursProfessionnel}
+                        options={PARCOURS_PROFESSIONNEL_OPTIONS}
                       />
                     </AccordionDetails>
                   </Accordion>
