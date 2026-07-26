@@ -347,8 +347,49 @@ function AssistantMissionPage() {
 
   const questionCourante = questionsEntretien[questionIndex] || ''
 
+  const analyseDemandeAutomatique = useMemo(() => {
+    const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.trim()
+    const texte = texteOriginal
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    const constats = []
+    const freinsDetectes = []
+    const objectifsDetectes = []
+
+    if (/boulanger|restauration|commerce|batiment|industrie|administr/.test(texte)) {
+      constats.push('Une expérience professionnelle exploitable est mentionnée.')
+    }
+    if (/enfant|garde|creche/.test(texte)) {
+      freinsDetectes.push('Garde d’enfants')
+      constats.push('La garde des enfants conditionne la disponibilité.')
+    }
+    if (/sans vehicule|pas de vehicule|permis|transport|mobilite/.test(texte)) {
+      freinsDetectes.push('Mobilité')
+      constats.push('La mobilité doit être sécurisée avant une entrée en formation ou en emploi.')
+    }
+    if (/financ|dette|budget|rsa/.test(texte)) freinsDetectes.push('Finances')
+    if (/numerique|ordinateur|internet/.test(texte)) freinsDetectes.push('Compétences numériques')
+    if (/formation|former|reconversion/.test(texte)) {
+      objectifsDetectes.push('Formation')
+      constats.push('Une demande de formation est exprimée.')
+    }
+    if (/projet non defini|projet a definir|ne sait pas|hesite|sans projet/.test(texte)) {
+      freinsDetectes.push('Projet professionnel')
+      objectifsDetectes.push('Clarifier le projet professionnel')
+      constats.push('Le projet n’est pas encore défini : une phase d’exploration est prioritaire.')
+    }
+
+    return {
+      constats: Array.from(new Set(constats)),
+      freins: Array.from(new Set(freinsDetectes)),
+      objectifs: Array.from(new Set(objectifsDetectes)),
+    }
+  }, [ceQueDitLaPersonne, besoinIdentifieConseiller])
+
   const capaciteAAgir = useMemo(() => {
-    const nbFreins = freinsSelectionnes.length
+    const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    const nbFreins = freinsComplets.length
     const motivation = ressourcesSelectionnees.includes('Motivation')
     const projetRenseigne = Boolean(projet.trim())
 
@@ -365,7 +406,7 @@ function AssistantMissionPage() {
         `Projet: ${projetRenseigne ? 'formule et a structurer' : 'a formaliser'}`,
         `Freins: ${nbFreins > 0 ? `${nbFreins} frein(s) actif(s)` : 'freins limites'}`,
         `Autonomie: ${ressourcesSelectionnees.includes('Autonomie') ? 'appui present' : 'appui a renforcer'}`,
-        `Mobilite: ${freinsSelectionnes.includes('Mobilite') ? 'a travailler' : 'exploitable'}`,
+        `Mobilite: ${freinsComplets.some((item) => item.toLowerCase().includes('mobilit')) ? 'a travailler' : 'exploitable'}`,
         `Disponibilite: ${ressourcesSelectionnees.includes('Disponibilite') ? 'identifiee' : 'a confirmer'}`,
       ],
       consequence:
@@ -380,6 +421,7 @@ function AssistantMissionPage() {
     parcoursProfessionnel,
     besoinIdentifieConseiller,
     ceQueDitLaPersonne,
+    analyseDemandeAutomatique.freins,
   ])
 
   const capaciteFondSx = useMemo(() => {
@@ -403,7 +445,7 @@ function AssistantMissionPage() {
       rechercheEmploi: `${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.trim(),
       advp: advpTab,
       capaciteAgir: capaciteAAgir.statut,
-      freins: freinsSelectionnes,
+      freins: Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])),
       ressources: ressourcesSelectionnees,
     }),
     [
@@ -417,6 +459,7 @@ function AssistantMissionPage() {
       capaciteAAgir.statut,
       freinsSelectionnes,
       ressourcesSelectionnees,
+      analyseDemandeAutomatique.freins,
     ],
   )
 
@@ -630,7 +673,7 @@ function AssistantMissionPage() {
 
   const planActionConcret = useMemo(() => {
     const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
-    const premierFrein = freinsSelectionnes[0]
+    const premierFrein = analyseDemandeAutomatique.freins[0] || freinsSelectionnes[0]
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
 
     return [
@@ -659,6 +702,7 @@ function AssistantMissionPage() {
     recommandationsMoteur.ateliers,
     recommandationsMoteur.prestations,
     freinsSelectionnes,
+    analyseDemandeAutomatique.freins,
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
   ])
@@ -1479,6 +1523,23 @@ function AssistantMissionPage() {
                       Les recommandations ci-dessous tiennent compte du besoin actuellement renseigné.
                     </Alert>
                   )}
+                  {analyseDemandeAutomatique.constats.length > 0 ? (
+                    <Box sx={{ p: 1.25, bgcolor: '#fff8e8', border: '1px solid #efc36d', borderRadius: 1.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#8a4b00', mb: 0.5 }}>
+                        Ce que le logiciel a compris
+                      </Typography>
+                      {analyseDemandeAutomatique.constats.map((constat) => (
+                        <Typography key={constat} variant="body2">• {constat}</Typography>
+                      ))}
+                      {analyseDemandeAutomatique.freins.length > 0 ? (
+                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                          {analyseDemandeAutomatique.freins.map((frein) => (
+                            <Chip key={frein} size="small" color="warning" label={`Priorité : ${frein}`} />
+                          ))}
+                        </Stack>
+                      ) : null}
+                    </Box>
+                  ) : null}
                   <Box sx={{ p: 1.25, bgcolor: '#eef6ff', border: '1px solid #9fc5eb', borderRadius: 1.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#174f86', mb: 0.75 }}>
                       Plan concret proposé
