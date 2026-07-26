@@ -45,6 +45,7 @@ import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { portefeuillesCorse } from '../data/configurationCorse'
+import { listPortfolioRecords } from '../services/portfolioImportService'
 
 const ENTRETIEN_TYPES = [
   { value: 'premier-physique', label: 'Premier entretien (60 min)' },
@@ -217,6 +218,16 @@ const findPrescriptionInCatalogue = (suggestion) => {
       || expectedTokens.some((token) => candidate.includes(token))
   }) || null
 }
+
+const STATUTS_PRESCRIPTION = [
+  'À prescrire',
+  'Prescrit',
+  'Convoqué',
+  'Commencé',
+  'Réalisé',
+  'Abandonné',
+  'Résultat à analyser',
+]
 
 const formatListeCourte = (items) => {
   const values = [...new Set(items.filter(Boolean))]
@@ -918,6 +929,29 @@ function AssistantMissionPage() {
     actionsRetenues,
   ])
 
+  const controleCloture = useMemo(() => [
+    { id: 'identifiant', label: 'Identifiant France Travail renseigné', ok: Boolean(identifiantDemandeur.trim()) },
+    { id: 'demande', label: 'Demande ou objectif de l’entretien renseigné', ok: Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) },
+    { id: 'diagnostic', label: 'Diagnostic et capacité à agir calculés', ok: Boolean(diagnosticAutonome?.conclusion && capaciteAAgir?.statut) },
+    { id: 'prescriptions', label: 'Au moins une action ou prescription retenue', ok: actionsRetenues.length > 0 || actionsImmediatesValidees.length > 0 },
+    { id: 'portefeuille', label: 'Portefeuille retenu ou affectation demandée', ok: Boolean(portefeuilleChoisi || decisions.demandeAffectation) },
+    { id: 'suivi', label: 'État de chaque prescription renseigné', ok: actionsRetenues.every((item) => Boolean(item.suiviStatut || 'À prescrire')) },
+    { id: 'synthese', label: 'Synthèse destinée au DE générée', ok: Boolean(syntheseEntretien.trim()) },
+  ], [
+    identifiantDemandeur,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    diagnosticAutonome,
+    capaciteAAgir,
+    actionsRetenues,
+    actionsImmediatesValidees,
+    portefeuilleChoisi,
+    decisions.demandeAffectation,
+    syntheseEntretien,
+  ])
+
+  const dossierPretACloturer = controleCloture.every((item) => item.ok)
+
   const dureeRendezVous = useMemo(() => {
     if (typeEntretien === 'premier-physique') return '60 min'
     if (typeEntretien === 'suivi-physique') return '30 min'
@@ -1067,6 +1101,8 @@ function AssistantMissionPage() {
     synthese: { contenu: syntheseEntretien },
     actionsRetenues,
     portefeuilleChoisi,
+    controleCloture,
+    clotureValidee: dossierPretACloturer && decisionConseillerStatut === 'Acceptee',
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
 
@@ -1159,6 +1195,46 @@ function AssistantMissionPage() {
     setWorkspaceTab('entretien')
     setCopyStatus('')
     setStorageStatus('Nouveau dossier initialise.')
+  }
+
+  const enregistrerEtPasserAuSuivant = () => {
+    const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
+    if (!result.ok) {
+      setStorageStatus(result.message || 'Enregistrement impossible.')
+      return
+    }
+    const dossiers = listPortfolioRecords()
+    const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
+    const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
+    if (!suivant) {
+      setStorageStatus('Dossier enregistré. Aucun autre DE à ouvrir.')
+      navigate('/tableau-de-bord')
+      return
+    }
+    setStorageStatus(`Dossier ${identifiantDemandeur} enregistré. Ouverture de ${suivant.identifiant}.`)
+    navigate(`/assistant?dossier=${encodeURIComponent(suivant.identifiant)}`)
+  }
+
+  const cloturerEtPasserAuSuivant = () => {
+    if (!dossierPretACloturer) {
+      setStorageStatus('Clôture impossible : complétez les éléments signalés en rouge.')
+      return
+    }
+    const result = saveStoredDossier(identifiantDemandeur, {
+      ...buildSnapshot(),
+      clotureValidee: true,
+      dossierStatut: 'termine',
+    })
+    if (!result.ok) {
+      setStorageStatus(result.message || 'Clôture impossible.')
+      return
+    }
+    setDecisionConseillerStatut('Acceptee')
+    const dossiers = listPortfolioRecords()
+    const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
+    const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
+    if (suivant) navigate(`/assistant?dossier=${encodeURIComponent(suivant.identifiant)}`)
+    else navigate('/tableau-de-bord')
   }
 
   const ouvrirPrescriptionAdaptee = (type, nom = '') => {
@@ -1658,6 +1734,39 @@ function AssistantMissionPage() {
                       })}
                     </Stack>
                   ) : null}
+                  {actionsRetenues.length > 0 ? (
+                    <Stack spacing={0.6} sx={{ mt: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                        Suivi des prescriptions retenues
+                      </Typography>
+                      {actionsRetenues.map((action, index) => (
+                        <Stack
+                          key={`suivi-${action.categorieDecision || action.type}-${action.nom}`}
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={0.75}
+                          alignItems={{ sm: 'center' }}
+                        >
+                          <Typography variant="body2" sx={{ flex: 1, fontWeight: 700 }}>
+                            {action.nom}
+                          </Typography>
+                          <TextField
+                            select
+                            size="small"
+                            label="État"
+                            value={action.suiviStatut || 'À prescrire'}
+                            onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
+                              itemIndex === index ? { ...item, suiviStatut: event.target.value } : item
+                            )))}
+                            sx={{ minWidth: 180 }}
+                          >
+                            {STATUTS_PRESCRIPTION.map((statut) => (
+                              <MenuItem key={statut} value={statut}>{statut}</MenuItem>
+                            ))}
+                          </TextField>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  ) : null}
                 </Grid>
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
                   {portefeuillePropose ? (
@@ -1697,6 +1806,43 @@ function AssistantMissionPage() {
                   </Button>
                 </Grid>
               </Grid>
+              <Box sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierPretACloturer ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierPretACloturer ? '#8bc593' : '#efb45d' }}>
+                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }} justifyContent="space-between">
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierPretACloturer ? '#1f6b36' : '#9a5100' }}>
+                      {dossierPretACloturer ? '✓ Dossier prêt à être clôturé' : 'Contrôle avant clôture'}
+                    </Typography>
+                    <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
+                      {controleCloture.map((item) => (
+                        <Chip
+                          key={item.id}
+                          size="small"
+                          color={item.ok ? 'success' : 'error'}
+                          variant={item.ok ? 'outlined' : 'filled'}
+                          label={`${item.ok ? '✓' : 'À compléter'} · ${item.label}`}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} sx={{ minWidth: { lg: 420 } }}>
+                    <Button variant="outlined" fullWidth onClick={enregistrerAnalyse}>
+                      Enregistrer le brouillon
+                    </Button>
+                    <Button variant="contained" fullWidth onClick={enregistrerEtPasserAuSuivant} disabled={!identifiantDemandeur.trim()}>
+                      Enregistrer et DE suivant
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      fullWidth
+                      disabled={!dossierPretACloturer}
+                      onClick={cloturerEtPasserAuSuivant}
+                    >
+                      Clôturer et DE suivant
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Box>
             </Box>
           </CockpitBlockCard>
         ) : null}
