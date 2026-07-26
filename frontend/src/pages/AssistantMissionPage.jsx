@@ -405,7 +405,7 @@ function AssistantMissionPage() {
 
   const reponsesGuideesTexte = useMemo(
     () => Object.entries(assistantAnswers)
-      .filter(([, reponse]) => ['Oui', 'À vérifier'].includes(reponse))
+      .filter(([, reponse]) => reponse && !['Non', 'Non concerné'].includes(reponse))
       .map(([question, reponse]) => `${question} ${reponse}. ${questionPrecisions[question] || ''}`)
       .join(' '),
     [assistantAnswers, questionPrecisions],
@@ -431,6 +431,8 @@ function AssistantMissionPage() {
   }, [analyseMetier.questions, analyseReferentielReseauEmploi.questions])
 
   const questionCourante = questionsEntretien[questionIndex] || ''
+  const questionCouranteOuverte = /^(quel|quelle|quels|quelles|comment|pourquoi|dans quel|dans quelle|decrivez|décrivez|precisez|précisez)/i
+    .test(questionCourante.trim())
 
   const analyseDemandeAutomatique = useMemo(() => {
     const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${reponsesGuideesTexte}`.trim()
@@ -1862,6 +1864,20 @@ function AssistantMissionPage() {
     decisionConseillerCommentaire,
   ]
   const missionCompletion = Math.round((completionSignals.filter(Boolean).length / completionSignals.length) * 100)
+  const informationsAConfirmer = [
+    !projet.trim(),
+    !ressourcesSelectionnees.length,
+    /à confirmer|à formaliser|à consolider/i.test(`${capaciteAAgir.statut} ${capaciteAAgir.observations.join(' ')}`),
+    questionsEntretien.filter((question) => assistantAnswers[question]).length < Math.min(3, questionsEntretien.length),
+  ].filter(Boolean).length
+  const niveauConfianceAffiche = missionCompletion < 40 || informationsAConfirmer >= 3
+    ? 'Faible'
+    : missionCompletion < 70 || informationsAConfirmer >= 2
+      ? 'Moyen'
+      : recommandationsMoteur.niveauConfiance === 'Très élevé'
+        ? 'Élevé'
+        : recommandationsMoteur.niveauConfiance || 'Moyen'
+  const confianceSousReserve = niveauConfianceAffiche !== 'Élevé'
 
   return (
     <Box
@@ -2017,27 +2033,34 @@ function AssistantMissionPage() {
                   {questionCourante}
                 </Typography>
               </Box>
-              <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap">
-                {['Oui', 'Non', 'À vérifier', 'Non concerné'].map((reponse) => (
-                  <Button
-                    key={reponse}
-                    size="small"
-                    variant={assistantAnswers[questionCourante] === reponse ? 'contained' : 'outlined'}
-                    color={reponse === 'Non' ? 'error' : reponse === 'À vérifier' ? 'warning' : 'primary'}
-                    onClick={() => repondreEtContinuer(reponse)}
-                  >
-                    {reponse}
-                  </Button>
-                ))}
-              </Stack>
+              {!questionCouranteOuverte ? (
+                <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap">
+                  {['Oui', 'Non', 'À vérifier', 'Non concerné'].map((reponse) => (
+                    <Button
+                      key={reponse}
+                      size="small"
+                      variant={assistantAnswers[questionCourante] === reponse ? 'contained' : 'outlined'}
+                      color={reponse === 'Non' ? 'error' : reponse === 'À vérifier' ? 'warning' : 'primary'}
+                      onClick={() => repondreEtContinuer(reponse)}
+                    >
+                      {reponse}
+                    </Button>
+                  ))}
+                </Stack>
+              ) : null}
             </Stack>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} sx={{ mt: 1 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="Précision facultative"
-                value={questionPrecisions[questionCourante] || ''}
-                onChange={(event) => setQuestionPrecisions((prev) => ({ ...prev, [questionCourante]: event.target.value }))}
+                label={questionCouranteOuverte ? 'Votre réponse' : 'Précision facultative'}
+                placeholder={questionCouranteOuverte ? 'Saisissez les éléments donnés par la personne…' : ''}
+                value={questionCouranteOuverte ? assistantAnswers[questionCourante] || '' : questionPrecisions[questionCourante] || ''}
+                onChange={(event) => (
+                  questionCouranteOuverte
+                    ? onAssistantAnswer(questionCourante, event.target.value)
+                    : setQuestionPrecisions((prev) => ({ ...prev, [questionCourante]: event.target.value }))
+                )}
               />
               <Button
                 size="small"
@@ -2050,9 +2073,10 @@ function AssistantMissionPage() {
               <Button
                 size="small"
                 variant="contained"
+                disabled={questionCouranteOuverte && !`${assistantAnswers[questionCourante] || ''}`.trim()}
                 onClick={() => setQuestionIndex((prev) => Math.min(questionsEntretien.length - 1, prev + 1))}
               >
-                Suivante
+                {questionCouranteOuverte ? 'Enregistrer et continuer' : 'Suivante'}
               </Button>
             </Stack>
           </Paper>
@@ -2975,8 +2999,8 @@ function AssistantMissionPage() {
                   <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                     <Chip
                       size="small"
-                      color={recommandationsMoteur.niveauConfiance === 'Élevé' ? 'success' : 'warning'}
-                      label={`Confiance : ${recommandationsMoteur.niveauConfiance || 'Faible'}`}
+                      color={niveauConfianceAffiche === 'Élevé' ? 'success' : niveauConfianceAffiche === 'Moyen' ? 'warning' : 'error'}
+                      label={`Confiance : ${niveauConfianceAffiche}`}
                     />
                     <Chip
                       size="small"
@@ -2986,9 +3010,14 @@ function AssistantMissionPage() {
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={`Portefeuille : ${recommandationsMoteur.portefeuille || 'À préciser'}`}
+                      label={`Portefeuille : ${recommandationsMoteur.portefeuille || 'À préciser'}${confianceSousReserve ? ' · sous réserve' : ''}`}
                     />
                   </Stack>
+                  {confianceSousReserve ? (
+                    <Alert severity={niveauConfianceAffiche === 'Faible' ? 'warning' : 'info'} sx={{ py: 0 }}>
+                      Diagnostic provisoire : complétez l’exploration avant de valider l’orientation ou une formation.
+                    </Alert>
+                  ) : null}
                   {!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
                     <Alert severity="warning" sx={{ py: 0 }}>
                       Complétez d’abord la demande exprimée pour fiabiliser les recommandations.
