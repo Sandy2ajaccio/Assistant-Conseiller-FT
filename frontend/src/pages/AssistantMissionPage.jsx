@@ -1114,7 +1114,7 @@ function AssistantMissionPage() {
         <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
@@ -1165,7 +1165,7 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
                     options={FREINS_OPTIONS}
@@ -1174,7 +1174,7 @@ function AssistantMissionPage() {
                   />
               </CockpitBlockCard>
 
-              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #7b1fa2' }}>
                   <Tabs
                     value={advpTab}
                     onChange={(_, value) => setAdvpTab(value)}
@@ -1217,7 +1217,7 @@ function AssistantMissionPage() {
 
               <CockpitBlockCard
                 title="7. Lecture du conseiller"
-                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#f8fafc', borderColor: '#d5dde8' }}
+                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#faf7fc', borderColor: '#d5dde8', borderTop: '5px solid #7b1fa2' }}
                 titleSx={{ fontSize: '1rem', fontWeight: 800 }}
               >
                   <Stack spacing={0.25}>
@@ -1240,7 +1240,7 @@ function AssistantMissionPage() {
 
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
-              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
                   <TextField
                     label="Ce que dit la personne"
                     value={ceQueDitLaPersonne}
@@ -1261,7 +1261,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
                     options={RESSOURCES_OPTIONS}
@@ -1270,7 +1270,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx }}>
+              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx, borderTop: '5px solid #7b1fa2' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{capaciteAAgir.statut}</Typography>
                   <Stack spacing={0.25}>
                     {capaciteAAgir.observations.map((line) => (
@@ -1280,7 +1280,7 @@ function AssistantMissionPage() {
                   <Typography variant="body2">Consequence pour l accompagnement: {capaciteAAgir.consequence}</Typography>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #7b1fa2' }}>
                   <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                     <Chip
                       size="small"
@@ -1335,7 +1335,7 @@ function AssistantMissionPage() {
 
         <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
-            <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
+            <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Grid container spacing={1}>
                     <Grid size={12}>
                       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>Objectifs</Typography>
@@ -1358,7 +1358,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
-            <CockpitBlockCard title="10. Actions immédiates" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
+            <CockpitBlockCard title="10. Actions immédiates" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                 {actionsImmediatesActives.length === 0 ? (
                   <Typography variant="body2">Toutes les actions immediates sont validees.</Typography>
                 ) : (
@@ -1377,7 +1377,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
-            <CockpitBlockCard title="Conduite d’entretien" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
+            <CockpitBlockCard title="Conduite d’entretien" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Typography variant="body2">Question en cours: {questionCourante || 'Aucune question'}</Typography>
                   <TextField
                     label="Reponse"
@@ -1428,7 +1428,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
-            <CockpitBlockCard title="Actions du dossier" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
+            <CockpitBlockCard title="Actions du dossier" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
                     <Button variant="outlined" onClick={nouveauDossier}>Nouveau dossier</Button>
                     <Button variant="outlined" onClick={ouvrirListeAnalyses}>Ouvrir</Button>
