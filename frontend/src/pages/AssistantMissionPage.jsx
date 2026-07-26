@@ -373,7 +373,14 @@ function AssistantMissionPage() {
           ? 'Il est recommande de consolider la demande et le projet avant une orientation vers une recherche active.'
           : 'Un plan d action operationnel peut etre engage avec un suivi regulier.',
     }
-  }, [freinsSelectionnes, ressourcesSelectionnees, projet])
+  }, [
+    freinsSelectionnes,
+    ressourcesSelectionnees,
+    projet,
+    parcoursProfessionnel,
+    besoinIdentifieConseiller,
+    ceQueDitLaPersonne,
+  ])
 
   const capaciteFondSx = useMemo(() => {
     const statut = (capaciteAAgir.statut || '').toLowerCase()
@@ -391,13 +398,26 @@ function AssistantMissionPage() {
 
   const diagnosticRecommandation = useMemo(
     () => ({
-      projet: projet.trim(),
+      situation: `${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel}`.trim(),
+      projet: projet.trim() || parcoursProfessionnel.trim() || besoinIdentifieConseiller.trim() || ceQueDitLaPersonne.trim(),
+      rechercheEmploi: `${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.trim(),
       advp: advpTab,
       capaciteAgir: capaciteAAgir.statut,
       freins: freinsSelectionnes,
       ressources: ressourcesSelectionnees,
     }),
-    [projet, advpTab, capaciteAAgir.statut, freinsSelectionnes, ressourcesSelectionnees],
+    [
+      situationAdministrative,
+      situationPersonnelle,
+      parcoursProfessionnel,
+      projet,
+      besoinIdentifieConseiller,
+      ceQueDitLaPersonne,
+      advpTab,
+      capaciteAAgir.statut,
+      freinsSelectionnes,
+      ressourcesSelectionnees,
+    ],
   )
 
   const recommandationsMoteur = useMemo(
@@ -512,7 +532,12 @@ function AssistantMissionPage() {
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
     const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
-    const projetRenseigne = Boolean(projet.trim())
+    const projetRenseigne = Boolean(
+      projet.trim()
+      || parcoursProfessionnel.trim()
+      || besoinIdentifieConseiller.trim()
+      || ceQueDitLaPersonne.trim(),
+    )
 
     if (!besoinRenseigne) {
       alertes.push({
@@ -549,6 +574,7 @@ function AssistantMissionPage() {
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
     projet,
+    parcoursProfessionnel,
     freinsSelectionnes,
     prescriptionsDetaillees,
   ])
@@ -602,6 +628,41 @@ function AssistantMissionPage() {
     [recommandationsMoteur],
   )
 
+  const planActionConcret = useMemo(() => {
+    const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
+    const premierFrein = freinsSelectionnes[0]
+    const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
+
+    return [
+      {
+        quand: 'Aujourd’hui',
+        action: demande
+          ? `Valider avec la personne l’objectif suivant : ${demande.replace(/[.]+$/, '')}.`
+          : 'Faire formuler à la personne son objectif prioritaire avec ses propres mots.',
+      },
+      {
+        quand: 'Sous 7 jours',
+        action: premierFrein
+          ? `Traiter en priorité le frein « ${premierFrein} » et noter la solution retenue dans le dossier.`
+          : premiereSolution
+            ? `Vérifier les conditions d’accès et la disponibilité de « ${premiereSolution} ».`
+            : 'Choisir une première action réalisable et fixer son échéance.',
+      },
+      {
+        quand: 'Prochain entretien',
+        action: premiereSolution
+          ? `Vérifier la réalisation, mesurer le résultat puis décider de maintenir ou d’adapter « ${premiereSolution} ».`
+          : 'Faire le point sur l’action engagée et décider de la prochaine étape.',
+      },
+    ]
+  }, [
+    recommandationsMoteur.ateliers,
+    recommandationsMoteur.prestations,
+    freinsSelectionnes,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+  ])
+
   const syntheseEntretien = useMemo(() => {
     const paragraphes = []
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
@@ -627,9 +688,9 @@ function AssistantMissionPage() {
 
     const actions = [
       ...actionsImmediatesValidees,
+      ...planActionConcret.slice(0, 2).map((etape) => etape.action),
       ...(recommandationsMoteur.ateliers || []).slice(0, 1),
       ...(recommandationsMoteur.prestations || []).slice(0, 1),
-      ...(actionsImmediatesActives || []).slice(0, 2),
     ].filter(Boolean).slice(0, 4)
     paragraphes.push(
       actions.length > 0
@@ -650,7 +711,7 @@ function AssistantMissionPage() {
     freinsSelectionnes,
     ressourcesSelectionnees,
     actionsImmediatesValidees,
-    actionsImmediatesActives,
+    planActionConcret,
     recommandationsMoteur,
   ])
 
@@ -1418,6 +1479,26 @@ function AssistantMissionPage() {
                       Les recommandations ci-dessous tiennent compte du besoin actuellement renseigné.
                     </Alert>
                   )}
+                  <Box sx={{ p: 1.25, bgcolor: '#eef6ff', border: '1px solid #9fc5eb', borderRadius: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#174f86', mb: 0.75 }}>
+                      Plan concret proposé
+                    </Typography>
+                    <Stack spacing={0.75}>
+                      {planActionConcret.map((etape, index) => (
+                        <Stack key={etape.quand} direction="row" spacing={1} alignItems="flex-start">
+                          <Chip
+                            size="small"
+                            color={index === 0 ? 'primary' : index === 1 ? 'warning' : 'success'}
+                            label={etape.quand}
+                            sx={{ minWidth: 105, fontWeight: 800 }}
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: index === 0 ? 700 : 500 }}>
+                            {etape.action}
+                          </Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Box>
                   <Tabs
                     value={recommandationTab}
                     onChange={(_, value) => setRecommandationTab(value)}
