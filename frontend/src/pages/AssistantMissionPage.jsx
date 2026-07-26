@@ -4,8 +4,12 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -37,6 +41,7 @@ import {
 import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
+import { offreServiceCorse } from '../data/offreServiceCorse'
 
 const ENTRETIEN_TYPES = [
   { value: 'premier-physique', label: 'Premier entretien (60 min)' },
@@ -92,6 +97,28 @@ const QUESTIONS_FALLBACK = [
 ]
 
 const CARD_MIN_HEIGHT = 230
+
+const normalizePrescriptionLabel = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+
+const findPrescriptionInCatalogue = (suggestion) => {
+  const expected = normalizePrescriptionLabel(suggestion.nom)
+  const expectedTokens = expected
+    .split(' ')
+    .filter((token) => token.length >= 3 && !['atelier', 'prestation'].includes(token))
+
+  return offreServiceCorse.find((item) => {
+    if (item.type !== suggestion.type) return false
+    const candidate = normalizePrescriptionLabel(`${item.code || ''} ${item.nom}`)
+    return candidate.includes(expected)
+      || expected.includes(candidate)
+      || expectedTokens.some((token) => candidate.includes(token))
+  }) || null
+}
 
 const formatDateFr = (isoLike) => {
   if (!isoLike) return 'Non renseignee'
@@ -354,6 +381,69 @@ function AssistantMissionPage() {
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
       .slice(0, 6)
   }, [recommandationsMoteur])
+
+  const prescriptionsDetaillees = useMemo(
+    () => prescriptionsSuggerees.map((suggestion) => {
+      const catalogueEntry = findPrescriptionInCatalogue(suggestion)
+      return catalogueEntry || {
+        id: `suggestion-${suggestion.type}-${suggestion.nom}`,
+        nom: suggestion.nom,
+        type: suggestion.type,
+        public: 'À vérifier',
+        objectif: 'Proposition issue du moteur métier selon la situation renseignée.',
+        duree: 'À confirmer',
+        intervenants: 'À confirmer',
+        conditions: "Vérifier l'adéquation avec le besoin et les conditions d'accès.",
+        prescription: 'À confirmer dans le référentiel France Travail',
+        localisation: 'Corse',
+      }
+    }),
+    [prescriptionsSuggerees],
+  )
+
+  const alertesPrescriptions = useMemo(() => {
+    const alertes = []
+    const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
+    const projetRenseigne = Boolean(projet.trim())
+
+    if (!besoinRenseigne) {
+      alertes.push({
+        severity: 'error',
+        texte: 'Besoin non renseigné : complétez la demande exprimée avant de valider une prescription.',
+      })
+    }
+    if (!projetRenseigne) {
+      alertes.push({
+        severity: 'warning',
+        texte: 'Projet professionnel à préciser : les propositions restent provisoires.',
+      })
+    }
+    if (freinsSelectionnes.length >= 3) {
+      alertes.push({
+        severity: 'error',
+        texte: `${freinsSelectionnes.length} freins sont actifs : vérifiez la capacité à suivre l’action avant prescription.`,
+      })
+    } else if (freinsSelectionnes.length > 0) {
+      alertes.push({
+        severity: 'warning',
+        texte: `Point de vigilance : ${freinsSelectionnes.join(', ')}.`,
+      })
+    }
+    if (prescriptionsDetaillees.length > 0 && besoinRenseigne) {
+      alertes.push({
+        severity: 'success',
+        texte: `${prescriptionsDetaillees.length} proposition(s) cohérente(s) avec les éléments actuellement renseignés.`,
+      })
+    }
+
+    return alertes
+  }, [
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    projet,
+    freinsSelectionnes,
+    prescriptionsDetaillees,
+  ])
 
   useEffect(() => {
     setDiagnosticMetier(diagnosticMetierCalcule)
@@ -829,31 +919,95 @@ function AssistantMissionPage() {
           title="Prescriptions adaptées au besoin"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
           summarySx={{ minHeight: 42 }}
-          detailsSx={{ py: 1.5 }}
+          detailsSx={{ py: 2 }}
         >
-          {prescriptionsSuggerees.length > 0 ? (
-            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-              {prescriptionsSuggerees.map((item) => (
-                <Button
-                  key={`${item.type}-${item.nom}`}
-                  variant="outlined"
-                  onClick={() => ouvrirPrescriptionAdaptee(item.type, item.nom)}
-                >
-                  {item.type} · {item.nom}
-                </Button>
+          <Stack spacing={1}>
+            {alertesPrescriptions.map((alerte) => (
+              <Alert key={`${alerte.severity}-${alerte.texte}`} severity={alerte.severity} variant="outlined">
+                {alerte.texte}
+              </Alert>
+            ))}
+          </Stack>
+
+          {prescriptionsDetaillees.length > 0 ? (
+            <Grid container spacing={1.5}>
+              {prescriptionsDetaillees.map((item) => (
+                <Grid key={item.id} size={{ xs: 12, md: 6, xl: 4 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      height: '100%',
+                      borderLeft: '6px solid',
+                      borderLeftColor: item.public === 'À vérifier' ? 'warning.main' : 'success.main',
+                      bgcolor: item.public === 'À vérifier' ? '#fffaf0' : '#f4fbf6',
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={1.1}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 800 }}>
+                              {item.code ? `${item.code} - ` : ''}{item.nom}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {item.intervenants}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            size="small"
+                            color={item.type === 'Atelier' ? 'primary' : 'secondary'}
+                            label={item.type}
+                          />
+                        </Stack>
+
+                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                          <Chip size="small" variant="outlined" label={`Public : ${item.public}`} />
+                          <Chip size="small" variant="outlined" label={`Durée : ${item.duree}`} />
+                          {item.modalite ? <Chip size="small" variant="outlined" label={item.modalite} /> : null}
+                        </Stack>
+
+                        <Box>
+                          <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.dark' }}>
+                            POURQUOI CETTE PROPOSITION ?
+                          </Typography>
+                          <Typography variant="body2">{item.objectif}</Typography>
+                        </Box>
+
+                        <Alert severity="warning" sx={{ py: 0 }}>
+                          <strong>À vérifier :</strong> {item.conditions}
+                        </Alert>
+
+                        <Box sx={{ bgcolor: '#eef4ff', borderRadius: 1.5, p: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.dark' }}>
+                            CHEMIN DE PRESCRIPTION
+                          </Typography>
+                          <Typography variant="body2">{item.prescription}</Typography>
+                        </Box>
+
+                        <Button
+                          variant="contained"
+                          onClick={() => ouvrirPrescriptionAdaptee(item.type, item.nom)}
+                        >
+                          Ouvrir et sélectionner
+                        </Button>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))}
-            </Stack>
+            </Grid>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="info">
               Complétez le besoin, le projet et les freins pour obtenir des propositions ciblées.
-            </Typography>
+            </Alert>
           )}
+
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            <Button variant="contained" onClick={() => ouvrirPrescriptionAdaptee('Atelier')}>
-              Voir tous les ateliers
+            <Button variant="outlined" onClick={() => ouvrirPrescriptionAdaptee('Atelier')}>
+              Catalogue complet des ateliers
             </Button>
-            <Button variant="contained" onClick={() => ouvrirPrescriptionAdaptee('Prestation')}>
-              Voir toutes les prestations
+            <Button variant="outlined" onClick={() => ouvrirPrescriptionAdaptee('Prestation')}>
+              Catalogue complet des prestations
             </Button>
           </Stack>
         </CockpitBlockCard>
