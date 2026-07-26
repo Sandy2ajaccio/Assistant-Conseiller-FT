@@ -698,6 +698,8 @@ function AssistantMissionPage() {
     const difficulteNumerique = /numerique|ordinateur|internet|informatique|pas d.?aisance/.test(contexte)
     const entrepreneuriat = /entrepren|creation d.?entreprise|creer.*entreprise|reprendre.*entreprise/.test(contexte)
     const senior = /\b(5[0-9]|6[0-9])\s*ans\b|senior/.test(contexte)
+    const rechercheEmploi = /recherche d.?emploi|candidature|retour a l.?emploi|emploi durable|emploi stable|retrouver.*emploi/.test(contexte)
+    const mobiliteInternationale = /etranger|international|mobilite internationale|anglais|allemand|espagnol/.test(contexte)
 
     if (typeEntretien === 'premier-physique' || /contrat|engagement|droit|obligation/.test(contexte)) {
       ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
@@ -714,11 +716,26 @@ function AssistantMissionPage() {
     if (/marche du travail|secteur|metier|projet/.test(contexte)) {
       ateliersInternes.push({ nom: 'Mon Marché du Travail', type: 'Atelier' })
     }
-    if (absenceCv) ateliersInternes.push({ nom: 'CV', type: 'Atelier' })
-    if (difficulteNumerique) ateliersInternes.push({ nom: 'PIX Emploi', type: 'Atelier' })
+    if (absenceCv) {
+      ateliersInternes.push({ nom: 'CV', type: 'Atelier' })
+      ateliersInternes.push({ nom: 'Faire le point sur mes compétences professionnelles et concevoir un CV percutant', type: 'Atelier' })
+    }
+    if (difficulteNumerique) {
+      ateliersInternes.push({ nom: 'PIX Emploi', type: 'Atelier' })
+      ateliersInternes.push({ nom: 'Mes démarches en ligne avec France Travail', type: 'Atelier' })
+    }
     if (projetFlou) {
       ateliersInternes.push({ nom: 'Focus Compétences', type: 'Atelier' })
+      ateliersInternes.push({ nom: 'Construire et affiner mon projet professionnel au regard du marché du travail', type: 'Atelier' })
       ateliersInternes.push({ nom: "Activ'Projet", type: 'Prestation' })
+    }
+    if (rechercheEmploi) {
+      ateliersInternes.push({ nom: 'Organiser et optimiser ma recherche d’emploi', type: 'Atelier' })
+      ateliersInternes.push({ nom: 'Un emploi stable', type: 'Prestation' })
+    }
+    if (mobiliteInternationale) {
+      ateliersInternes.push({ nom: 'Réaliser mon CV en langue étrangère', type: 'Atelier' })
+      ateliersInternes.push({ nom: 'Activ International', type: 'Prestation' })
     }
 
     const suggestions = [
@@ -731,7 +748,7 @@ function AssistantMissionPage() {
       .filter((item) => senior || !/senior\s*360/i.test(item.nom))
       .filter((item) => entrepreneuriat || !/entrepren|lundis/i.test(item.nom))
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
-      .slice(0, 8)
+      .slice(0, 12)
   }, [
     recommandationsMoteur,
     typeEntretien,
@@ -2379,9 +2396,11 @@ function AssistantMissionPage() {
                           ? 'Offre interne France Travail'
                           : item.categorieDecision === 'Partenaire'
                             ? 'Partenaires'
-                            : 'Autres ateliers et prestations'
+                            : item.categorieDecision === 'Atelier'
+                              ? 'Ateliers externes'
+                              : 'Prestations externes'
                     )}
-                    getOptionLabel={(item) => item.nom}
+                    getOptionLabel={(item) => `${item.code ? `${item.code} - ` : ''}${item.nom}`}
                     isOptionEqualToValue={(option, value) => (
                       option.nom === value.nom && option.categorieDecision === (value.categorieDecision || value.type)
                     )}
@@ -2389,7 +2408,7 @@ function AssistantMissionPage() {
                       <li {...props} key={`${item.categorieDecision}-${item.id || item.nom}`}>
                         <Box>
                           <Typography variant="body2" sx={{ fontWeight: item.suggeree ? 900 : 600 }}>
-                            {item.suggeree ? '★ ' : ''}{item.nom}
+                            {item.suggeree ? '★ ' : ''}{item.code ? `${item.code} - ` : ''}{item.nom}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {item.interne ? 'Interne France Travail' : item.categorieDecision} · {item.objectif || item.domaine || 'Prescription disponible'}
@@ -2402,7 +2421,7 @@ function AssistantMissionPage() {
                         {...getTagProps({ index })}
                         key={`${item.categorieDecision || item.type}-${item.nom}`}
                         color={item.interne ? 'success' : item.categorieDecision === 'Partenaire' ? 'warning' : 'secondary'}
-                        label={`${item.interne ? 'Interne' : item.categorieDecision || item.type} · ${item.nom}`}
+                        label={`${item.interne ? 'Interne' : item.categorieDecision || item.type} · ${item.code ? `${item.code} - ` : ''}${item.nom}`}
                       />
                     ))}
                     renderInput={(params) => (
