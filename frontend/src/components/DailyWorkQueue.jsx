@@ -84,11 +84,11 @@ const buildWorkItem = (entry) => {
 }
 
 const filters = [
-  { id: 'actions', label: 'À traiter' },
-  { id: 'urgent', label: 'Urgents' },
-  { id: 'contracts', label: 'Contrats' },
-  { id: 'withoutContact', label: 'Sans contact' },
-  { id: 'all', label: 'Tous les DE' },
+  { id: 'actions', label: 'À traiter', description: 'Dossiers ayant au moins une action ou vérification à réaliser.' },
+  { id: 'urgent', label: 'Urgents', description: 'Alertes, incidents ou priorités hautes à traiter en premier.' },
+  { id: 'contracts', label: 'Contrats', description: 'Contrats d’engagement restant à expliquer, formaliser ou signer.' },
+  { id: 'withoutContact', label: 'Sans contact', description: 'Dossiers sans entretien, appel, courriel ou courrier tracé.' },
+  { id: 'all', label: 'Tous les DE', description: 'Ensemble des demandeurs d’emploi importés.' },
 ]
 
 const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
@@ -119,8 +119,22 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
         return true
       })
       .filter((item) => !query || normalize(`${item.identity} ${item.identifiant} ${item.reason}`).includes(query))
+      .map((item) => {
+        if (activeFilter === 'contracts') {
+          return { ...item, displayStatus: 'Contrat', displayColor: 'warning', displayReason: 'Expliquer, formaliser ou faire signer le contrat d’engagement.' }
+        }
+        if (activeFilter === 'withoutContact') {
+          return { ...item, displayStatus: 'Sans contact', displayColor: 'info', displayReason: 'Planifier et tracer un premier contact.' }
+        }
+        if (activeFilter === 'urgent') {
+          return { ...item, displayStatus: 'Urgent', displayColor: 'error', displayReason: item.hasIncident ? item.reason : 'Contacter rapidement ce DE prioritaire.' }
+        }
+        return { ...item, displayStatus: item.status, displayColor: item.color, displayReason: item.reason }
+      })
       .slice(0, 8)
   }, [activeFilter, allItems, search])
+
+  const activeFilterConfig = filters.find((filter) => filter.id === activeFilter) || filters[0]
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: '#9bb8d3' }}>
@@ -150,13 +164,34 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
               size="small"
               variant={activeFilter === filter.id ? 'contained' : 'outlined'}
               color={filter.id === 'urgent' ? 'error' : filter.id === 'contracts' ? 'warning' : 'primary'}
-              onClick={() => setActiveFilter(filter.id)}
-              sx={{ fontWeight: 800 }}
+              onClick={() => {
+                setActiveFilter(filter.id)
+                setSearch('')
+              }}
+              aria-pressed={activeFilter === filter.id}
+              sx={{
+                fontWeight: 800,
+                transform: activeFilter === filter.id ? 'translateY(-2px)' : 'none',
+                boxShadow: activeFilter === filter.id ? 3 : 0,
+              }}
             >
-              {filter.label} · {counts[filter.id]}
+              {activeFilter === filter.id ? '✓ ' : ''}{filter.label} · {counts[filter.id]}
             </Button>
           ))}
         </Stack>
+      </Box>
+
+      <Box
+        role="status"
+        aria-live="polite"
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, bgcolor: '#fff8e8', borderBottom: '2px solid #f0a22e' }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 900, color: '#8a4b00' }}>
+          Vue active : {activeFilterConfig.label} ({counts[activeFilter]})
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {activeFilterConfig.description}
+        </Typography>
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) 110px minmax(260px, 1.8fr) 145px 220px', bgcolor: '#173f67', color: '#fff', px: 1.25, py: 0.65, gap: 1 }}>
@@ -187,13 +222,13 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
             <Typography variant="body2" noWrap sx={{ fontWeight: 900 }}>{item.identity}</Typography>
             <Typography variant="caption" color="text.secondary">{item.identifiant}</Typography>
           </Box>
-          <Chip label={item.status} color={item.color} size="small" sx={{ fontWeight: 800 }} />
+          <Chip label={item.displayStatus} color={item.displayColor} size="small" sx={{ fontWeight: 800 }} />
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.reason}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.displayReason}</Typography>
             <LinearProgress
               variant="determinate"
               value={Math.min(100, item.score)}
-              color={item.color === 'error' ? 'error' : item.color === 'warning' ? 'warning' : 'info'}
+              color={item.displayColor === 'error' ? 'error' : item.displayColor === 'warning' ? 'warning' : 'info'}
               sx={{ mt: 0.5, height: 5, borderRadius: 3 }}
             />
           </Box>
