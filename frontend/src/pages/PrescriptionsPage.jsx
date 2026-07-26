@@ -1,14 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
+  Button,
   Chip,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useSearchParams } from 'react-router-dom'
@@ -19,11 +18,39 @@ import {
   listStoredDossiers,
 } from '../services/dossierLoaderService'
 import getRecommandations from '../services/recommandationService'
+import {
+  importPortfolioWorkbook,
+  listPortfolioRecords,
+  portfolioRecordToDossier,
+} from '../services/portfolioImportService'
 
 const PrescriptionsPage = () => {
   const [searchParams] = useSearchParams()
-  const dossiers = useMemo(() => listStoredDossiers(), [])
-  const initialDossier = searchParams.get('dossier') || getLastOpenedDossierId() || dossiers[0]?.identifiant || ''
+  const fileInputRef = useRef(null)
+  const [portfolioVersion, setPortfolioVersion] = useState(0)
+  const [importStatus, setImportStatus] = useState('')
+  const portfolioRecords = useMemo(() => listPortfolioRecords(), [portfolioVersion])
+  const dossiers = useMemo(() => {
+    const fullDossiers = new Map(listStoredDossiers().map((item) => [item.identifiant, item]))
+    portfolioRecords.forEach((record) => {
+      if (!fullDossiers.has(record.identifiant)) {
+        fullDossiers.set(record.identifiant, {
+          identifiant: record.identifiant,
+          dossier: portfolioRecordToDossier(record),
+          portfolioRecord: record,
+        })
+      } else {
+        fullDossiers.get(record.identifiant).portfolioRecord = record
+      }
+    })
+    return [...fullDossiers.values()].sort((a, b) =>
+      `${a.portfolioRecord?.nom || ''} ${a.portfolioRecord?.prenom || ''}`.localeCompare(
+        `${b.portfolioRecord?.nom || ''} ${b.portfolioRecord?.prenom || ''}`,
+        'fr',
+      ),
+    )
+  }, [portfolioRecords])
+  const initialDossier = searchParams.get('dossier') || getLastOpenedDossierId() || ''
   const [selectedDossierId, setSelectedDossierId] = useState(initialDossier)
 
   const selectedEntry = dossiers.find((item) => item.identifiant === selectedDossierId)
@@ -32,7 +59,10 @@ const PrescriptionsPage = () => {
   const recommendedNames = [
     ...(recommandations?.ateliers || []),
     ...(recommandations?.prestations || []),
+    selectedEntry?.portfolioRecord?.atelier,
+    selectedEntry?.portfolioRecord?.prestation,
   ]
+    .filter((value) => value && !['Autres', 'Cat. 1', 'Cat. 2', 'Cat. 3'].includes(value))
 
   const situationAlerts = useMemo(() => {
     if (!dossier) {
@@ -48,7 +78,20 @@ const PrescriptionsPage = () => {
     const freins = Array.isArray(dossier.freinsSelectionnes) ? dossier.freinsSelectionnes : []
     const ressources = Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : []
     const urgence = recommandations?.diagnostic?.urgence
+    const portfolioRecord = selectedEntry?.portfolioRecord
 
+    if (String(portfolioRecord?.priorite || '').toLowerCase() === 'haute') {
+      result.push({ severity: 'error', texte: 'Dossier classé en priorité haute : une action rapide est attendue.' })
+    }
+    if (String(portfolioRecord?.contratEngagement || '').toLowerCase().includes('signer')) {
+      result.push({ severity: 'warning', texte: 'Contrat d’engagement à signer.' })
+    }
+    if (portfolioRecord?.alerte) {
+      result.push({ severity: 'error', texte: `Alerte portefeuille : ${portfolioRecord.alerte}.` })
+    }
+    if (portfolioRecord?.dateManquement) {
+      result.push({ severity: 'error', texte: `Manquement enregistré le ${portfolioRecord.dateManquement}.` })
+    }
     if (!demande) result.push({ severity: 'error', texte: 'Demande non renseignée : aucune orientation ne doit être validée.' })
     if (!projet) result.push({ severity: 'warning', texte: 'Projet professionnel à préciser : les solutions proposées restent provisoires.' })
     if (freins.length >= 3) {
@@ -66,7 +109,22 @@ const PrescriptionsPage = () => {
       result.push({ severity: 'success', texte: 'Situation sécurisée : aucun point de blocage majeur détecté pour cette orientation.' })
     }
     return result
-  }, [dossier, recommandations])
+  }, [dossier, recommandations, selectedEntry])
+
+  const handleImport = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setImportStatus('Import en cours…')
+    try {
+      const result = await importPortfolioWorkbook(file)
+      setPortfolioVersion((value) => value + 1)
+      setImportStatus(`${result.total} DE importés : ${result.created} nouveau(x), ${result.updated} mis à jour.`)
+    } catch (error) {
+      setImportStatus(error.message || 'Import impossible.')
+    } finally {
+      event.target.value = ''
+    }
+  }
 
   const alertCounts = situationAlerts.reduce((acc, alert) => {
     acc[alert.severity] = (acc[alert.severity] || 0) + 1
@@ -91,23 +149,36 @@ const PrescriptionsPage = () => {
                 Sélectionnez le demandeur pour actualiser automatiquement les propositions et les alertes.
               </Typography>
             </Box>
-            <FormControl size="small" sx={{ minWidth: 300, bgcolor: '#fff', borderRadius: 1 }}>
-              <InputLabel id="dossier-dashboard-label">Demandeur d’emploi</InputLabel>
-              <Select
-                labelId="dossier-dashboard-label"
-                value={selectedDossierId}
-                label="Demandeur d’emploi"
-                onChange={(event) => setSelectedDossierId(event.target.value)}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Autocomplete
+                size="small"
+                options={dossiers}
+                value={dossiers.find((item) => item.identifiant === selectedDossierId) || null}
+                onChange={(_, value) => setSelectedDossierId(value?.identifiant || '')}
+                getOptionLabel={(item) => {
+                  const identity = [item.portfolioRecord?.nom, item.portfolioRecord?.prenom].filter(Boolean).join(' ')
+                  return `${identity ? `${identity} — ` : ''}${item.identifiant}`
+                }}
+                isOptionEqualToValue={(option, value) => option.identifiant === value.identifiant}
+                renderInput={(params) => <TextField {...params} label={`Demandeur d’emploi (${dossiers.length})`} />}
+                sx={{ width: { xs: '100%', sm: 360 }, bgcolor: '#fff', borderRadius: 1 }}
+              />
+              <input ref={fileInputRef} hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleImport} />
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={() => fileInputRef.current?.click()}
+                sx={{ whiteSpace: 'nowrap', fontWeight: 800 }}
               >
-                <MenuItem value=""><em>Sélectionner un dossier</em></MenuItem>
-                {dossiers.map((item) => (
-                  <MenuItem key={item.identifiant} value={item.identifiant}>
-                    {item.identifiant} — {item.dossier?.dossierStatut || 'brouillon'}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                Importer un fichier Excel
+              </Button>
+            </Stack>
           </Stack>
+          {importStatus ? (
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#fff', fontWeight: 700 }}>
+              {importStatus}
+            </Typography>
+          ) : null}
         </Paper>
 
         <Paper
