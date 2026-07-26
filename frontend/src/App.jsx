@@ -10,12 +10,14 @@ import AssistantMissionPage from './pages/AssistantMissionPage'
 import DemandeurPage from './pages/DemandeurPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
+import AuthGate from './components/AuthGate'
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Layout>
-        <Routes>
+    <AuthGate>
+      <BrowserRouter>
+        <Layout>
+          <Routes>
           <Route path="/" element={<Navigate to="/prescriptions" replace />} />
           <Route path="/assistant" element={<AssistantMissionPage />} />
           <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
@@ -28,8 +30,9 @@ export default function App() {
           <Route path="/demandeurs" element={<DemandeurPage />} />
           <Route path="/demandeurs/:id" element={<DemandeurPage />} />
           <Route path="*" element={<Navigate to="/prescriptions" replace />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </AuthGate>
   )
 }

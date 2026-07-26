@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import portefeuilleInitial from '../data/portefeuilleInitial.json'
+import { syncPortfolioToCloud } from './cloudPersistenceService'
 
 const IMPORT_STORAGE_KEY = 'cap-decision:portefeuille-imports'
 
@@ -84,6 +85,7 @@ export const importPortfolioWorkbook = async (file) => {
     byId.set(record.identifiant, { ...record, importedAt: new Date().toISOString() })
   })
   localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify([...byId.values()]))
+  syncPortfolioToCloud([...byId.values()]).catch(() => {})
 
   return {
     total: mapped.length,
