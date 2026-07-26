@@ -40,6 +40,7 @@ import {
 import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
+import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 
 const ENTRETIEN_TYPES = [
@@ -922,9 +923,11 @@ function AssistantMissionPage() {
           }}
         >
           <Tab value="entretien" label="Conduite de l’entretien" />
+          <Tab value="prescriptions" label="Tableau prescriptions" />
           <Tab value="synthese" label="Synthèse d’entretien" />
         </Tabs>
 
+        {workspaceTab === 'entretien' ? (
         <CockpitBlockCard
           title="Prescriptions adaptées au besoin"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
@@ -1010,6 +1013,21 @@ function AssistantMissionPage() {
             </Button>
           </Stack>
         </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab === 'prescriptions' ? (
+          <CockpitBlockCard
+            title="Tableau de bord des prescriptions"
+            subtitle="Toute l'offre de service, les alertes et les conditions de prescription visibles sur un seul écran."
+            detailsSx={{ p: { xs: 1, md: 1.5 } }}
+          >
+            <PrescriptionDashboard
+              items={offreServiceCorse}
+              recommendedNames={prescriptionsDetaillees.map((item) => item.nom)}
+              alerts={alertesPrescriptions}
+            />
+          </CockpitBlockCard>
+        ) : null}
 
         {workspaceTab === 'synthese' ? (
           <CockpitBlockCard
