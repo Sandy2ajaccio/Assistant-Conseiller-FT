@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import AccueilMissionsPage from './pages/AccueilMissionsPage'
 import MissionWorkflowPage from './pages/MissionWorkflowPage'
@@ -16,7 +16,7 @@ export default function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<AccueilMissionsPage />} />
+          <Route path="/" element={<Navigate to="/prescriptions" replace />} />
           <Route path="/assistant" element={<AssistantMissionPage />} />
           <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
           <Route path="/analyse" element={<AnalyseSituationPage />} />
@@ -27,7 +27,7 @@ export default function App() {
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/demandeurs" element={<DemandeurPage />} />
           <Route path="/demandeurs/:id" element={<DemandeurPage />} />
-          <Route path="*" element={<AccueilMissionsPage />} />
+          <Route path="*" element={<Navigate to="/prescriptions" replace />} />
         </Routes>
       </Layout>
     </BrowserRouter>
