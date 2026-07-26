@@ -120,7 +120,11 @@ const PrescriptionsPage = () => {
     try {
       const result = await importPortfolioWorkbook(file)
       setPortfolioVersion((value) => value + 1)
-      setImportStatus(`${result.total} DE importés : ${result.created} nouveau(x), ${result.updated} mis à jour.`)
+      setImportStatus(
+        `${result.total} DE uniques traités : ${result.created} ajouté(s), ${result.updated} mis à jour, `
+        + `${result.unchanged} inchangé(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
+        + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
+      )
     } catch (error) {
       setImportStatus(error.message || 'Import impossible.')
     } finally {

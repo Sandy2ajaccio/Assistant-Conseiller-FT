@@ -34,12 +34,17 @@ export const deleteDossierFromCloud = async (identifiant) => {
 export const syncPortfolioToCloud = async (records) => {
   const user = currentUser()
   if (!user) return
+  const existingChunks = await getDocs(collection(db, 'private', user.uid, 'portfolioChunks'))
   const chunks = []
   for (let index = 0; index < records.length; index += CHUNK_SIZE) {
     chunks.push(records.slice(index, index + CHUNK_SIZE))
   }
 
   const batch = writeBatch(db)
+  const retainedChunkIds = new Set(chunks.map((_, index) => String(index).padStart(4, '0')))
+  existingChunks.forEach((existingChunk) => {
+    if (!retainedChunkIds.has(existingChunk.id)) batch.delete(existingChunk.ref)
+  })
   chunks.forEach((items, index) => {
     batch.set(doc(db, 'private', user.uid, 'portfolioChunks', String(index).padStart(4, '0')), {
       items,
