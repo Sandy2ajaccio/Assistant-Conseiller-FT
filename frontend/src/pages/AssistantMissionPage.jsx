@@ -302,6 +302,7 @@ function AssistantMissionPage() {
   const [analysesEnregistrees, setAnalysesEnregistrees] = useState([])
   const [historiqueEntretiens, setHistoriqueEntretiens] = useState([])
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
+  const [assistantPhase, setAssistantPhase] = useState('exploration')
   const [copyStatus, setCopyStatus] = useState('')
   const [modeApprofondi, setModeApprofondi] = useState(false)
   const [actionsRetenues, setActionsRetenues] = useState([])
@@ -1386,6 +1387,7 @@ function AssistantMissionPage() {
     classementTab,
     portefeuilleChoisi,
     workspaceTab,
+    assistantPhase,
     modeApprofondi,
     recommandationTab,
     advpTab,
@@ -1431,6 +1433,7 @@ function AssistantMissionPage() {
         setClassementTab(dossier.classementTab || 'maintenant')
         setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
         setWorkspaceTab(dossier.workspaceTab || 'entretien')
+        setAssistantPhase(dossier.assistantPhase || 'exploration')
         setModeApprofondi(Boolean(dossier.modeApprofondi))
         setRecommandationTab(dossier.recommandationTab || 'orientation')
         setAdvpTab(dossier.advpTab || ADVP_STEPS[0])
@@ -1482,6 +1485,7 @@ function AssistantMissionPage() {
     classementTab,
     portefeuilleChoisi,
     workspaceTab,
+    assistantPhase,
     modeApprofondi,
     recommandationTab,
     advpTab,
@@ -1594,6 +1598,7 @@ function AssistantMissionPage() {
     setModeApprofondi(false)
     setChronoSecondes(0)
     setWorkspaceTab('entretien')
+    setAssistantPhase('exploration')
     setCopyStatus('')
     setBrouillonAutomatiqueStatut('')
     setStorageStatus('Entretien effacé. Vous pouvez commencer un nouveau dossier.')
@@ -1810,12 +1815,12 @@ function AssistantMissionPage() {
             }}
           >
             <Stack direction={{ xs: 'column', lg: 'row' }} alignItems={{ lg: 'center' }} spacing={1}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#244d78' }}>Vue entretien 360°</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#244d78' }}>Parcours</Typography>
               <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                <Chip size="small" label="1 · Situation" sx={{ bgcolor: '#e3f2fd', color: '#1565c0', fontWeight: 800 }} />
-                <Chip size="small" label="2 · Diagnostic" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 800 }} />
-                <Chip size="small" label="3 · Accompagnement" sx={{ bgcolor: '#f3e5f5', color: '#7b1fa2', fontWeight: 800 }} />
-                <Chip size="small" label="4 · Actions" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 800 }} />
+                <Chip clickable size="small" label="1 · Explorer" color={assistantPhase === 'exploration' ? 'primary' : 'default'} onClick={() => setAssistantPhase('exploration')} sx={{ fontWeight: 800 }} />
+                <Chip clickable size="small" label="2 · Diagnostiquer" color={assistantPhase === 'diagnostic' ? 'warning' : 'default'} onClick={() => setAssistantPhase('diagnostic')} sx={{ fontWeight: 800 }} />
+                <Chip clickable size="small" label="3 · Décider" color={assistantPhase === 'decision' ? 'success' : 'default'} onClick={() => setAssistantPhase('decision')} sx={{ fontWeight: 800 }} />
+                <Chip clickable size="small" label="4 · Synthèse" color={workspaceTab === 'synthese' ? 'secondary' : 'default'} onClick={() => setWorkspaceTab('synthese')} sx={{ fontWeight: 800 }} />
               </Stack>
               <Typography variant="caption" sx={{ fontWeight: 800, minWidth: 110 }}>Dossier complété</Typography>
               <Box sx={{ flex: 1, height: 8, borderRadius: 5, bgcolor: '#e3e8ef', overflow: 'hidden' }}>
@@ -1848,7 +1853,7 @@ function AssistantMissionPage() {
           </Paper>
         ) : null}
 
-        {workspaceTab === 'entretien' && questionCourante ? (
+        {workspaceTab === 'entretien' && assistantPhase === 'exploration' && questionCourante ? (
           <Paper
             variant="outlined"
             sx={{ p: 1.25, borderLeft: '6px solid #6a1b9a', bgcolor: '#fbf7ff' }}
@@ -1903,7 +1908,7 @@ function AssistantMissionPage() {
           </Paper>
         ) : null}
 
-        {workspaceTab === 'entretien' ? (
+        {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
         <CockpitBlockCard
           title="Aide à la décision et prescriptions adaptées"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
@@ -2047,12 +2052,15 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        {workspaceTab === 'entretien' && (ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) ? (
+        {workspaceTab === 'entretien'
+          && ['diagnostic', 'decision'].includes(assistantPhase)
+          && (ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) ? (
           <CockpitBlockCard
             title="Diagnostic automatique et plan proposé"
             subtitle="Résultat produit à partir du récit saisi. Vous pouvez corriger les informations avec le mode Approfondir."
             sx={{ borderTop: '6px solid #0b6fb8', boxShadow: '0 4px 16px rgba(15,35,65,0.12)' }}
           >
+            <Box sx={{ display: assistantPhase === 'diagnostic' ? 'block' : 'none' }}>
             {alertesDiagnosticAutonome.length > 0 ? (
               <Alert
                 severity={alertesDiagnosticAutonome.some((item) => item.severity === 'error') ? 'error' : 'warning'}
@@ -2192,8 +2200,10 @@ function AssistantMissionPage() {
                 </Grid>
               </AccordionDetails>
             </Accordion>
+            </Box>
             <Box
               sx={{
+                display: assistantPhase === 'decision' ? 'block' : 'none',
                 p: 1.25,
                 border: '2px solid',
                 borderColor: controleDecision.statut === 'Décision à différer'
@@ -2247,7 +2257,7 @@ function AssistantMissionPage() {
                 </Accordion>
               </Stack>
             </Box>
-            <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
+            <Box sx={{ display: assistantPhase === 'decision' ? 'block' : 'none', p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
                 Décision à enregistrer
               </Typography>
@@ -2551,7 +2561,7 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }} sx={{ display: modeApprofondi ? 'block' : 'none' }}>
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
               <CockpitBlockCard title="1. Analyse de la situation" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
@@ -2804,7 +2814,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' && modeApprofondi ? 'flex' : 'none' }}>
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' && modeApprofondi ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Grid container spacing={1}>
