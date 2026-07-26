@@ -19,6 +19,7 @@ import {
   ListItemButton,
   ListItemText,
   MenuItem,
+  Paper,
   Stack,
   Tab,
   Tabs,
@@ -96,7 +97,7 @@ const QUESTIONS_FALLBACK = [
   'Quelle action concrete declencher aujourd hui ?',
 ]
 
-const CARD_MIN_HEIGHT = 230
+const CARD_MIN_HEIGHT = 180
 
 const normalizePrescriptionLabel = (value) => String(value || '')
   .toLowerCase()
@@ -189,6 +190,7 @@ function AssistantMissionPage() {
   const [analysesEnregistrees, setAnalysesEnregistrees] = useState([])
   const [historiqueEntretiens, setHistoriqueEntretiens] = useState([])
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
+  const [missionStep, setMissionStep] = useState('comprendre')
   const [copyStatus, setCopyStatus] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
@@ -849,13 +851,22 @@ function AssistantMissionPage() {
     }
   }
 
+  const completionSignals = [
+    situationAdministrative || situationPersonnelle || parcoursProfessionnel,
+    ceQueDitLaPersonne || besoinIdentifieConseiller,
+    freinsSelectionnes.length > 0 || ressourcesSelectionnees.length > 0,
+    projet,
+    decisionConseillerCommentaire,
+  ]
+  const missionCompletion = Math.round((completionSignals.filter(Boolean).length / completionSignals.length) * 100)
+
   return (
     <Box
       sx={{
         width: '100%',
-        maxWidth: 1680,
-        mx: 'auto',
-        p: { xs: 1, md: 2 },
+        maxWidth: 'none',
+        mx: 0,
+        p: { xs: 0.75, md: 1 },
         bgcolor: '#f5f7fa',
         minHeight: '100vh',
         boxSizing: 'border-box',
@@ -928,15 +939,69 @@ function AssistantMissionPage() {
         </Tabs>
 
         {workspaceTab === 'entretien' ? (
+          <Paper
+            variant="outlined"
+            sx={{
+              position: 'sticky',
+              top: 8,
+              zIndex: 5,
+              p: 1,
+              bgcolor: 'rgba(255,255,255,0.96)',
+              boxShadow: '0 4px 16px rgba(15,35,65,0.12)',
+              borderColor: '#b9cbe0',
+            }}
+          >
+            <Grid container spacing={0.75} alignItems="stretch">
+              {[
+                ['comprendre', '1', 'Comprendre', 'Situation et demande', '#1976d2'],
+                ['diagnostiquer', '2', 'Diagnostiquer', 'Freins et ressources', '#ed6c02'],
+                ['construire', '3', 'Construire', 'ADVP et recommandations', '#7b1fa2'],
+                ['agir', '4', 'Agir', 'MAP et décisions', '#2e7d32'],
+              ].map(([value, number, label, detail, color]) => (
+                <Grid key={value} size={{ xs: 6, lg: 3 }}>
+                  <Button
+                    fullWidth
+                    onClick={() => setMissionStep(value)}
+                    variant={missionStep === value ? 'contained' : 'outlined'}
+                    sx={{
+                      height: '100%',
+                      justifyContent: 'flex-start',
+                      textAlign: 'left',
+                      borderColor: color,
+                      bgcolor: missionStep === value ? color : '#fff',
+                      color: missionStep === value ? '#fff' : color,
+                      '&:hover': { bgcolor: missionStep === value ? color : `${color}12` },
+                    }}
+                  >
+                    <Box component="span" sx={{ fontSize: '1.35rem', fontWeight: 900, mr: 1 }}>{number}</Box>
+                    <Box component="span">
+                      <Box component="span" sx={{ display: 'block', fontWeight: 900 }}>{label}</Box>
+                      <Box component="span" sx={{ display: 'block', fontSize: '0.7rem', opacity: 0.85 }}>{detail}</Box>
+                    </Box>
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.75 }}>
+              <Typography variant="caption" sx={{ fontWeight: 800, minWidth: 110 }}>Dossier complété</Typography>
+              <Box sx={{ flex: 1, height: 8, borderRadius: 5, bgcolor: '#e3e8ef', overflow: 'hidden' }}>
+                <Box sx={{ width: `${missionCompletion}%`, height: '100%', bgcolor: missionCompletion >= 80 ? '#2e7d32' : missionCompletion >= 40 ? '#ed6c02' : '#d32f2f' }} />
+              </Box>
+              <Chip size="small" color={missionCompletion >= 80 ? 'success' : missionCompletion >= 40 ? 'warning' : 'error'} label={`${missionCompletion} %`} />
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {workspaceTab === 'entretien' && missionStep === 'construire' ? (
         <CockpitBlockCard
           title="Prescriptions adaptées au besoin"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
           summarySx={{ minHeight: 42 }}
           detailsSx={{ py: 2 }}
         >
-          <Stack spacing={1}>
+          <Stack direction={{ xs: 'column', xl: 'row' }} spacing={1}>
             {alertesPrescriptions.map((alerte) => (
-              <Alert key={`${alerte.severity}-${alerte.texte}`} severity={alerte.severity} variant="outlined">
+              <Alert key={`${alerte.severity}-${alerte.texte}`} severity={alerte.severity} variant="outlined" sx={{ flex: 1, py: 0 }}>
                 {alerte.texte}
               </Alert>
             ))}
@@ -1073,7 +1138,7 @@ function AssistantMissionPage() {
         <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5}>
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'comprendre' ? 'flex' : 'none' }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
@@ -1124,7 +1189,7 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'diagnostiquer' ? 'flex' : 'none' }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
                     options={FREINS_OPTIONS}
@@ -1133,7 +1198,7 @@ function AssistantMissionPage() {
                   />
               </CockpitBlockCard>
 
-              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'construire' ? 'flex' : 'none' }}>
                   <Tabs
                     value={advpTab}
                     onChange={(_, value) => setAdvpTab(value)}
@@ -1176,7 +1241,7 @@ function AssistantMissionPage() {
 
               <CockpitBlockCard
                 title="7. Lecture du conseiller"
-                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#f8fafc', borderColor: '#d5dde8' }}
+                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#f8fafc', borderColor: '#d5dde8', display: missionStep === 'construire' ? 'flex' : 'none' }}
                 titleSx={{ fontSize: '1rem', fontWeight: 800 }}
               >
                   <Stack spacing={0.25}>
@@ -1199,7 +1264,7 @@ function AssistantMissionPage() {
 
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5}>
-              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'comprendre' ? 'flex' : 'none' }}>
                   <TextField
                     label="Ce que dit la personne"
                     value={ceQueDitLaPersonne}
@@ -1220,7 +1285,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'diagnostiquer' ? 'flex' : 'none' }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
                     options={RESSOURCES_OPTIONS}
@@ -1229,7 +1294,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx }}>
+              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx, display: missionStep === 'diagnostiquer' ? 'flex' : 'none' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{capaciteAAgir.statut}</Typography>
                   <Stack spacing={0.25}>
                     {capaciteAAgir.observations.map((line) => (
@@ -1239,7 +1304,7 @@ function AssistantMissionPage() {
                   <Typography variant="body2">Consequence pour l accompagnement: {capaciteAAgir.consequence}</Typography>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT }}>
+              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT, display: missionStep === 'construire' ? 'flex' : 'none' }}>
                   <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                     <Chip
                       size="small"
@@ -1292,7 +1357,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' && missionStep === 'agir' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Grid container spacing={1}>
