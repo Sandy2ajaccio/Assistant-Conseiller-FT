@@ -278,6 +278,7 @@ function AssistantMissionPage() {
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
+  const [questionPrecisions, setQuestionPrecisions] = useState({})
   const [advpTab, setAdvpTab] = useState(ADVP_STEPS[0])
   const [recommandationTab, setRecommandationTab] = useState('orientation')
   const [advpNotes, setAdvpNotes] = useState(
@@ -359,9 +360,17 @@ function AssistantMissionPage() {
     [analyseInput, diagnosticMetierCalcule, recommandationsMetierCalculees],
   )
 
+  const reponsesGuideesTexte = useMemo(
+    () => Object.entries(assistantAnswers)
+      .filter(([, reponse]) => ['Oui', 'À vérifier'].includes(reponse))
+      .map(([question, reponse]) => `${question} ${reponse}. ${questionPrecisions[question] || ''}`)
+      .join(' '),
+    [assistantAnswers, questionPrecisions],
+  )
+
   const analyseReferentielReseauEmploi = useMemo(
     () => analyserAvecReferentielReseauEmploi(
-      `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel}`,
+      `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel} ${reponsesGuideesTexte}`,
     ),
     [
       ceQueDitLaPersonne,
@@ -369,6 +378,7 @@ function AssistantMissionPage() {
       situationAdministrative,
       situationPersonnelle,
       parcoursProfessionnel,
+      reponsesGuideesTexte,
     ],
   )
 
@@ -380,7 +390,7 @@ function AssistantMissionPage() {
   const questionCourante = questionsEntretien[questionIndex] || ''
 
   const analyseDemandeAutomatique = useMemo(() => {
-    const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.trim()
+    const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${reponsesGuideesTexte}`.trim()
     const texte = texteOriginal
       .toLowerCase()
       .normalize('NFD')
@@ -435,7 +445,7 @@ function AssistantMissionPage() {
       freins: Array.from(new Set(freinsDetectes)),
       objectifs: Array.from(new Set(objectifsDetectes)),
     }
-  }, [ceQueDitLaPersonne, besoinIdentifieConseiller])
+  }, [ceQueDitLaPersonne, besoinIdentifieConseiller, reponsesGuideesTexte])
 
   const diagnosticAutonome = useMemo(() => {
     const freins = analyseDemandeAutomatique.freins
@@ -1198,6 +1208,8 @@ function AssistantMissionPage() {
     setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+    setAssistantAnswers(dossier.assistantAnswers || {})
+    setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
       Array.isArray(dossier.actionsRetenues)
         ? dossier.actionsRetenues
@@ -1273,6 +1285,15 @@ function AssistantMissionPage() {
     setAssistantAnswers((prev) => ({ ...prev, [question]: value }))
   }
 
+  const repondreEtContinuer = (reponse) => {
+    if (!questionCourante) return
+    onAssistantAnswer(questionCourante, reponse)
+    const prochainIndex = questionsEntretien.findIndex(
+      (question, index) => index > questionIndex && !assistantAnswers[question],
+    )
+    if (prochainIndex >= 0) setQuestionIndex(prochainIndex)
+  }
+
   const onEditAdvp = (step, field, value) => {
     setAdvpNotes((prev) => ({
       ...prev,
@@ -1303,6 +1324,7 @@ function AssistantMissionPage() {
     freinsEngine,
     decisions,
     assistantAnswers,
+    questionPrecisions,
     advpNotes,
     actionsImmediatesValidees,
     historiqueEntretiens,
@@ -1351,6 +1373,7 @@ function AssistantMissionPage() {
         setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
         setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
         setAssistantAnswers(dossier.assistantAnswers || {})
+        setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
         setActionsImmediatesValidees(Array.isArray(dossier.actionsImmediatesValidees) ? dossier.actionsImmediatesValidees : [])
         setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
@@ -1399,6 +1422,7 @@ function AssistantMissionPage() {
     freinsEngine,
     decisions,
     assistantAnswers,
+    questionPrecisions,
     advpNotes,
     actionsImmediatesValidees,
     historiqueEntretiens,
@@ -1501,6 +1525,7 @@ function AssistantMissionPage() {
       demandeAffectation: false,
     })
     setAssistantAnswers({})
+    setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
     setActionsImmediatesValidees([])
     setActionsRetenues([])
@@ -1765,6 +1790,61 @@ function AssistantMissionPage() {
                 Vue essentielle : renseignez la demande, puis sélectionnez la situation, les freins et les ressources. Le reste est calculé automatiquement.
               </Typography>
             ) : null}
+          </Paper>
+        ) : null}
+
+        {workspaceTab === 'entretien' && questionCourante ? (
+          <Paper
+            variant="outlined"
+            sx={{ p: 1.25, borderLeft: '6px solid #6a1b9a', bgcolor: '#fbf7ff' }}
+          >
+            <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="overline" sx={{ fontWeight: 900, color: '#6a1b9a' }}>
+                  Exploration guidée · question {questionIndex + 1} sur {questionsEntretien.length}
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.25 }}>
+                  {questionCourante}
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap">
+                {['Oui', 'Non', 'À vérifier', 'Non concerné'].map((reponse) => (
+                  <Button
+                    key={reponse}
+                    size="small"
+                    variant={assistantAnswers[questionCourante] === reponse ? 'contained' : 'outlined'}
+                    color={reponse === 'Non' ? 'error' : reponse === 'À vérifier' ? 'warning' : 'primary'}
+                    onClick={() => repondreEtContinuer(reponse)}
+                  >
+                    {reponse}
+                  </Button>
+                ))}
+              </Stack>
+            </Stack>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Précision facultative"
+                value={questionPrecisions[questionCourante] || ''}
+                onChange={(event) => setQuestionPrecisions((prev) => ({ ...prev, [questionCourante]: event.target.value }))}
+              />
+              <Button
+                size="small"
+                variant="text"
+                disabled={questionIndex <= 0}
+                onClick={() => setQuestionIndex((prev) => Math.max(0, prev - 1))}
+              >
+                Précédente
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => setQuestionIndex((prev) => Math.min(questionsEntretien.length - 1, prev + 1))}
+              >
+                Suivante
+              </Button>
+            </Stack>
           </Paper>
         ) : null}
 
