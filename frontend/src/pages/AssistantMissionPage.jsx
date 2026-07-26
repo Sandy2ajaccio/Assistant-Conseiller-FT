@@ -25,6 +25,7 @@ import { analyserSituation } from '../services/moteurExpert'
 import analyseDiagnostic from '../services/diagnosticService'
 import getRecommandations from '../services/recommandationService'
 import genererSynthese from '../services/syntheseService'
+import generateSyntheseFranceTravail from '../services/syntheseFranceTravailService'
 import genererMAP from '../services/mapService'
 import {
   deleteStoredDossier,
@@ -151,6 +152,8 @@ function AssistantMissionPage() {
   const [ouvertureDialogOpen, setOuvertureDialogOpen] = useState(false)
   const [analysesEnregistrees, setAnalysesEnregistrees] = useState([])
   const [historiqueEntretiens, setHistoriqueEntretiens] = useState([])
+  const [workspaceTab, setWorkspaceTab] = useState('entretien')
+  const [copyStatus, setCopyStatus] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
@@ -389,6 +392,57 @@ function AssistantMissionPage() {
     [recommandationsMoteur],
   )
 
+  const syntheseEntretien = useMemo(() => {
+    const contenu = generateSyntheseFranceTravail({
+      identite: { identifiantFt: identifiantDemandeur },
+      parcoursProfessionnel,
+      projetProfessionnel: projet,
+      contraintes: freinsSelectionnes,
+      competences: ressourcesSelectionnees,
+      formations: formation ? [formation] : [],
+      mobilite: situationPersonnelle,
+      notesRapides: [
+        situationAdministrative,
+        ceQueDitLaPersonne,
+        besoinIdentifieConseiller,
+        notes,
+        ...Object.values(assistantAnswers).filter(Boolean),
+      ],
+      diagnostic: diagnosticMetierCalcule,
+      recommandationsRetenues: actionsImmediatesValidees,
+      recommandations: {
+        ...recommandationsMetierCalculees,
+        actions: actionsImmediatesActives,
+      },
+      map: mapMetierCalcule,
+    }).texte
+
+    const introduction = contenu.trim().startsWith('Vous')
+      ? ''
+      : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.\n\n"
+    const conclusion = "Je vous ai expliqué en quoi consistait le contrat d'engagement, vos obligations et vos devoirs. Nous signons ce jour votre contrat d'engagement."
+
+    return `${introduction}${contenu.trim()}${contenu.trim() ? '\n\n' : ''}${conclusion}`
+  }, [
+    identifiantDemandeur,
+    parcoursProfessionnel,
+    projet,
+    freinsSelectionnes,
+    ressourcesSelectionnees,
+    formation,
+    situationPersonnelle,
+    situationAdministrative,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    notes,
+    assistantAnswers,
+    diagnosticMetierCalcule,
+    actionsImmediatesValidees,
+    actionsImmediatesActives,
+    recommandationsMetierCalculees,
+    mapMetierCalcule,
+  ])
+
   const dureeRendezVous = useMemo(() => {
     if (typeEntretien === 'premier-physique') return '60 min'
     if (typeEntretien === 'suivi-physique') return '30 min'
@@ -527,7 +581,7 @@ function AssistantMissionPage() {
     recommandationsMetier,
     syntheseMetier,
     mapMetier,
-    synthese: { contenu: lectureConseiller.join(' ') },
+    synthese: { contenu: syntheseEntretien },
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
 
@@ -617,6 +671,8 @@ function AssistantMissionPage() {
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
     setActionsImmediatesValidees([])
     setHistoriqueEntretiens([])
+    setWorkspaceTab('entretien')
+    setCopyStatus('')
     setStorageStatus('Nouveau dossier initialise.')
   }
 
@@ -663,6 +719,15 @@ function AssistantMissionPage() {
 
     setIsListening(false)
     setSpeechStatus('Dictee arretee.')
+  }
+
+  const copierSynthese = async () => {
+    try {
+      await navigator.clipboard.writeText(syntheseEntretien)
+      setCopyStatus('Synthèse copiée. Vous pouvez maintenant la coller dans le logiciel France Travail.')
+    } catch {
+      setCopyStatus('La copie automatique a échoué. Sélectionnez le texte puis utilisez Ctrl + C.')
+    }
   }
 
   return (
@@ -727,7 +792,62 @@ function AssistantMissionPage() {
           </Typography>
         </CockpitBlockCard>
 
-        <Grid container spacing={1.5}>
+        <Tabs
+          value={workspaceTab}
+          onChange={(_, value) => setWorkspaceTab(value)}
+          sx={{
+            bgcolor: '#fff',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            px: 1,
+          }}
+        >
+          <Tab value="entretien" label="Conduite de l’entretien" />
+          <Tab value="synthese" label="Synthèse d’entretien" />
+        </Tabs>
+
+        {workspaceTab === 'synthese' ? (
+          <CockpitBlockCard
+            title="Synthèse automatique à destination du demandeur d’emploi"
+            subtitle="Le texte se met à jour automatiquement à partir des informations saisies pendant l’entretien."
+            sx={{ minHeight: 520 }}
+            detailsSx={{ px: { xs: 1.5, md: 3 }, pb: 3 }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Relisez la synthèse avant son envoi. Elle est rédigée à la deuxième personne et ne remplace pas la validation du conseiller.
+            </Typography>
+            <TextField
+              label="Synthèse prête à copier"
+              value={syntheseEntretien}
+              fullWidth
+              multiline
+              minRows={18}
+              InputProps={{ readOnly: true }}
+              sx={{
+                '& .MuiInputBase-input': {
+                  fontSize: '1rem',
+                  lineHeight: 1.65,
+                },
+              }}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
+              <Button variant="contained" size="large" onClick={copierSynthese}>
+                Copier la synthèse
+              </Button>
+              <Button variant="outlined" onClick={() => setWorkspaceTab('entretien')}>
+                Retour à l’entretien
+              </Button>
+              {copyStatus ? (
+                <Typography variant="body2" color={copyStatus.startsWith('Synthèse copiée') ? 'success.main' : 'warning.main'}>
+                  {copyStatus}
+                </Typography>
+              ) : null}
+            </Stack>
+          </CockpitBlockCard>
+        ) : null}
+
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5}>
               <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT }}>
@@ -940,7 +1060,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1.5}>
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Grid container spacing={1}>

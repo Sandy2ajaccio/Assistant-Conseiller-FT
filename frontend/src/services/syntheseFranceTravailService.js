@@ -100,16 +100,16 @@ const extractIdentiteFacts = (identite = {}) => {
   const facts = []
 
   const nomComplet = [identite.prenom, identite.nom].map((item) => toText(item)).filter(Boolean).join(' ')
-  if (nomComplet) facts.push(`identite: ${nomComplet}`)
+  if (nomComplet) facts.push(`identité : ${nomComplet}`)
 
   const identifiant = toText(identite.identifiant || identite.identifiantFt || identite.id)
-  if (identifiant) facts.push(`identifiant France Travail: ${identifiant}`)
+  if (identifiant) facts.push(`identifiant France Travail : ${identifiant}`)
 
   const age = toText(identite.age)
-  if (age) facts.push(`age: ${age}`)
+  if (age) facts.push(`âge : ${age}`)
 
   const categorie = toText(identite.categorie)
-  if (categorie) facts.push(`categorie: ${categorie}`)
+  if (categorie) facts.push(`catégorie : ${categorie}`)
 
   return facts
 }
@@ -131,7 +131,7 @@ export const generateSituation = (input = {}, seen = new Set()) => {
   if (identiteFacts.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous m'indiquez les elements suivants: ${formatNaturalList(identiteFacts)}.`,
+      `Vous m'indiquez les éléments suivants : ${formatNaturalList(identiteFacts)}.`,
       seen,
     )
   }
@@ -139,7 +139,7 @@ export const generateSituation = (input = {}, seen = new Set()) => {
   if (parcours.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous precisez votre parcours professionnel: ${formatNaturalList(parcours)}.`,
+      `Vous précisez votre parcours professionnel : ${formatNaturalList(parcours)}.`,
       seen,
     )
   }
@@ -147,7 +147,7 @@ export const generateSituation = (input = {}, seen = new Set()) => {
   if (mobilite.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous m'indiquez concernant la mobilite: ${formatNaturalList(mobilite)}.`,
+      `Vous m'indiquez concernant votre situation personnelle et votre mobilité : ${formatNaturalList(mobilite)}.`,
       seen,
     )
   }
@@ -155,7 +155,7 @@ export const generateSituation = (input = {}, seen = new Set()) => {
   if (notesRapides.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous precisez egalement: ${formatNaturalList(notesRapides)}.`,
+      `Vous précisez également : ${formatNaturalList(notesRapides)}.`,
       seen,
     )
   }
@@ -181,7 +181,7 @@ export const generateProjet = (input = {}, seen = new Set()) => {
   if (recommandationsRetenues.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Nous convenons de retenir en priorite: ${formatNaturalList(recommandationsRetenues)}.`,
+      `Nous convenons de retenir en priorité : ${formatNaturalList(recommandationsRetenues)}.`,
       seen,
     )
   }
@@ -206,7 +206,7 @@ export const generateFreins = (input = {}, seen = new Set()) => {
   if (allFreins.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous precisez les contraintes suivantes: ${formatNaturalList(allFreins)}.`,
+      `Vous précisez les contraintes suivantes : ${formatNaturalList(allFreins)}.`,
       seen,
     )
   }
@@ -214,7 +214,7 @@ export const generateFreins = (input = {}, seen = new Set()) => {
   if (vigilance.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Je vous informe des points de vigilance a suivre: ${formatNaturalList(vigilance)}.`,
+      `Je vous informe des points de vigilance à suivre : ${formatNaturalList(vigilance)}.`,
       seen,
     )
   }
@@ -237,7 +237,7 @@ export const generateCompetences = (input = {}, seen = new Set()) => {
   if (competences.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous m'indiquez vos competences mobilisables: ${formatNaturalList(competences)}.`,
+      `Vous m'indiquez vos compétences et ressources mobilisables : ${formatNaturalList(competences)}.`,
       seen,
     )
   }
@@ -245,7 +245,7 @@ export const generateCompetences = (input = {}, seen = new Set()) => {
   if (formations.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Vous precisez vos elements de formation: ${formatNaturalList(formations)}.`,
+      `Vous précisez vos éléments de formation : ${formatNaturalList(formations)}.`,
       seen,
     )
   }
@@ -281,7 +281,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (prestations.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Je vous prescris les prestations suivantes: ${formatNaturalList(prestations)}.`,
+      `Je vous prescris les prestations suivantes : ${formatNaturalList(prestations)}.`,
       seen,
     )
   }
@@ -289,7 +289,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (ateliers.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Nous convenons de votre participation aux ateliers suivants: ${formatNaturalList(ateliers)}.`,
+      `Nous convenons de votre participation aux ateliers suivants : ${formatNaturalList(ateliers)}.`,
       seen,
     )
   }
@@ -297,7 +297,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (formations.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Je vous informe des pistes de formation a etudier: ${formatNaturalList(formations)}.`,
+      `Je vous informe des pistes de formation à étudier : ${formatNaturalList(formations)}.`,
       seen,
     )
   }
@@ -305,7 +305,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (actions.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Nous convenons des actions immediates suivantes: ${formatNaturalList(actions)}.`,
+      `Nous convenons des actions immédiates suivantes : ${formatNaturalList(actions)}.`,
       seen,
     )
   }
@@ -314,7 +314,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (objectifPrincipal) {
     pushUniqueSentence(
       sentences,
-      `Dans la MAP, nous retenons comme objectif principal: ${objectifPrincipal}.`,
+      `Dans votre plan d'action, nous retenons comme objectif principal : ${objectifPrincipal}.`,
       seen,
     )
   }
@@ -323,7 +323,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (etapes.length > 0) {
     pushUniqueSentence(
       sentences,
-      `Nous convenons des etapes de suivi suivantes: ${formatNaturalList(etapes)}.`,
+      `Nous convenons des étapes de suivi suivantes : ${formatNaturalList(etapes)}.`,
       seen,
     )
   }
@@ -332,7 +332,7 @@ export const generateActions = (input = {}, seen = new Set()) => {
   if (echeance) {
     pushUniqueSentence(
       sentences,
-      `L'echeance de suivi retenue est: ${echeance}.`,
+      `L'échéance de suivi retenue est : ${echeance}.`,
       seen,
     )
   }
@@ -354,7 +354,7 @@ export const generateConclusion = (input = {}, seen = new Set()) => {
   if (urgence) {
     pushUniqueSentence(
       sentences,
-      `Je vous informe que le suivi est organise avec un niveau de priorite ${urgence}.`,
+      `Je vous informe que le suivi est organisé avec un niveau de priorité ${urgence}.`,
       seen,
     )
   }
@@ -363,14 +363,14 @@ export const generateConclusion = (input = {}, seen = new Set()) => {
   if (employabilite) {
     pushUniqueSentence(
       sentences,
-      `Nous convenons de poursuivre l'accompagnement en tenant compte d'une employabilite ${employabilite}.`,
+      `Nous convenons de poursuivre l'accompagnement en tenant compte d'une employabilité ${employabilite}.`,
       seen,
     )
   }
 
   pushUniqueSentence(
     sentences,
-    'Nous convenons de faire un point d avancement au prochain entretien sur la realisation des actions et des engagements.',
+    "Nous convenons de faire un point d'avancement au prochain entretien sur la réalisation des actions et des engagements.",
     seen,
   )
 
