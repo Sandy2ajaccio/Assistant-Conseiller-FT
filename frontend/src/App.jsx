@@ -11,6 +11,7 @@ import AssistantMissionPage from './pages/AssistantMissionPage'
 import DemandeurPage from './pages/DemandeurPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
+import VeilleOfficiellePage from './pages/VeilleOfficiellePage'
 import AuthGate from './components/AuthGate'
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/tableau-de-bord" element={<PrescriptionsPage />} />
           <Route path="/prescriptions" element={<Navigate to="/tableau-de-bord" replace />} />
           <Route path="/connaissances" element={<CentreConnaissancesPage />} />
+          <Route path="/veille-officielle" element={<VeilleOfficiellePage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/demandeurs" element={<DemandeurPage />} />
           <Route path="/demandeurs/:id" element={<DemandeurPage />} />

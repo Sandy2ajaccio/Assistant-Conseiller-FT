@@ -4,6 +4,7 @@ const navItems = [
   { label: '📊 Tableau de bord', to: '/tableau-de-bord' },
   { label: '🚀 Assistant de mission', to: '/assistant' },
   { label: '📚 Centre de connaissances', to: '/connaissances' },
+  { label: '📰 Veille officielle', to: '/veille-officielle' },
   { label: '⚙ Paramètres', to: '/parametres' },
 ]
 
