@@ -393,7 +393,15 @@ function AssistantMissionPage() {
       constats.push('La mobilité doit être sécurisée avant une entrée en formation ou en emploi.')
     }
     if (/financ|dette|budget|rsa/.test(texte)) freinsDetectes.push('Finances')
-    if (/numerique|ordinateur|internet/.test(texte)) freinsDetectes.push('Compétences numériques')
+    if (/numerique|ordinateur|internet|informatique|pas d.?aisance.*(informatique|numerique)/.test(texte)) {
+      freinsDetectes.push('Compétences numériques')
+      constats.push('Les compétences numériques doivent être évaluées avant de demander des démarches autonomes en ligne.')
+    }
+    if (/pas de cv|sans cv|cv absent|cv non visible/.test(texte)) {
+      freinsDetectes.push('Absence de CV')
+      objectifsDetectes.push('Créer ou actualiser le CV')
+      constats.push('L’absence de CV limite les candidatures et la valorisation de l’expérience.')
+    }
     if (/formation|former|reconversion/.test(texte)) {
       objectifsDetectes.push('Formation')
       constats.push('Une demande de formation est exprimée.')
@@ -437,6 +445,42 @@ function AssistantMissionPage() {
       priorites: priorites.slice(0, 3),
     }
   }, [analyseDemandeAutomatique])
+
+  const alertesDiagnosticAutonome = useMemo(() => {
+    const freins = analyseDemandeAutomatique.freins
+    const alertes = []
+    if (freins.includes('Santé / RQTH')) {
+      alertes.push({
+        severity: 'error',
+        texte: 'RQTH : vérifier les restrictions, les besoins d’aménagement et l’appui de Cap emploi avant de valider un métier, une formation ou une prescription.',
+      })
+    }
+    if (freins.includes('Garde d’enfants')) {
+      alertes.push({
+        severity: 'error',
+        texte: 'Garde d’enfants non sécurisée : vérifier les horaires, la solution de garde et la disponibilité réelle avant toute action contraignante.',
+      })
+    }
+    if (freins.includes('Projet professionnel')) {
+      alertes.push({
+        severity: 'warning',
+        texte: 'Projet non défini : privilégier l’exploration, Focus Compétences ou Activ’Projet avant une formation ou une recherche ciblée.',
+      })
+    }
+    if (freins.includes('Absence de CV')) {
+      alertes.push({
+        severity: 'warning',
+        texte: 'CV absent : proposer la création du CV et valoriser les 15 années d’expérience avant les candidatures.',
+      })
+    }
+    if (freins.includes('Compétences numériques')) {
+      alertes.push({
+        severity: 'warning',
+        texte: 'Difficultés numériques : faire réaliser PIX Emploi et prévoir un appui aux démarches depuis l’espace personnel.',
+      })
+    }
+    return alertes
+  }, [analyseDemandeAutomatique.freins])
 
   const capaciteAAgir = useMemo(() => {
     const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
@@ -597,6 +641,11 @@ function AssistantMissionPage() {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
     const ateliersInternes = []
+    const projetFlou = /projet non defini|projet a definir|ne sait pas|hesite|sans projet|pas d.?objectif/.test(contexte)
+    const absenceCv = /pas de cv|sans cv|cv absent|cv non visible/.test(contexte)
+    const difficulteNumerique = /numerique|ordinateur|internet|informatique|pas d.?aisance/.test(contexte)
+    const entrepreneuriat = /entrepren|creation d.?entreprise|creer.*entreprise|reprendre.*entreprise/.test(contexte)
+    const senior = /\b(5[0-9]|6[0-9])\s*ans\b|senior/.test(contexte)
 
     if (typeEntretien === 'premier-physique' || /contrat|engagement|droit|obligation/.test(contexte)) {
       ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
@@ -613,6 +662,12 @@ function AssistantMissionPage() {
     if (/marche du travail|secteur|metier|projet/.test(contexte)) {
       ateliersInternes.push({ nom: 'Mon Marché du Travail', type: 'Atelier' })
     }
+    if (absenceCv) ateliersInternes.push({ nom: 'CV', type: 'Atelier' })
+    if (difficulteNumerique) ateliersInternes.push({ nom: 'PIX Emploi', type: 'Atelier' })
+    if (projetFlou) {
+      ateliersInternes.push({ nom: 'Focus Compétences', type: 'Atelier' })
+      ateliersInternes.push({ nom: "Activ'Projet", type: 'Prestation' })
+    }
 
     const suggestions = [
       ...ateliersInternes,
@@ -621,6 +676,8 @@ function AssistantMissionPage() {
     ]
 
     return suggestions
+      .filter((item) => senior || !/senior\s*360/i.test(item.nom))
+      .filter((item) => entrepreneuriat || !/entrepren|lundis/i.test(item.nom))
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
       .slice(0, 8)
   }, [
@@ -664,7 +721,9 @@ function AssistantMissionPage() {
       ...item,
       categorieDecision: item.type,
     }))
-    const partenaires = (recommandationsMoteur.partenaires || []).map((nom, index) => ({
+    const partenairesRecommandes = [...(recommandationsMoteur.partenaires || [])]
+    if (analyseDemandeAutomatique.freins.includes('Santé / RQTH')) partenairesRecommandes.unshift('Cap Emploi')
+    const partenaires = partenairesRecommandes.map((nom, index) => ({
       id: `partenaire-${index}-${nom}`,
       nom,
       type: 'Partenaire',
@@ -675,7 +734,7 @@ function AssistantMissionPage() {
     return [...prescriptions, ...partenaires]
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.categorieDecision === item.categorieDecision) === index)
       .slice(0, 12)
-  }, [prescriptionsDetaillees, recommandationsMoteur.partenaires])
+  }, [prescriptionsDetaillees, recommandationsMoteur.partenaires, analyseDemandeAutomatique.freins])
 
   const toutesActionsDisponibles = useMemo(() => {
     const suggerees = new Set(
@@ -714,6 +773,8 @@ function AssistantMissionPage() {
   const portefeuillePropose = useMemo(() => {
     const proposition = `${recommandationsMoteur.portefeuille || ''}`.toLowerCase()
     if (!proposition) return ''
+    const direct = portefeuillesCorse.find((item) => item.toLowerCase() === proposition.trim())
+    if (direct) return direct
     const correspondances = [
       ['Mutualisé', ['mutual']],
       ['Intensif', ['intensif']],
@@ -726,6 +787,12 @@ function AssistantMissionPage() {
     ]
     return correspondances.find(([, termes]) => termes.some((terme) => proposition.includes(terme)))?.[0] || ''
   }, [recommandationsMoteur.portefeuille])
+
+  const orientationPrioritaire = useMemo(() => {
+    if (analyseDemandeAutomatique.freins.includes('Projet professionnel')) return 'Projet à clarifier'
+    if (analyseDemandeAutomatique.freins.includes('Santé / RQTH')) return 'Handicap / compensation à sécuriser'
+    return recommandationsMoteur.orientation?.principale || 'À préciser'
+  }, [analyseDemandeAutomatique.freins, recommandationsMoteur.orientation])
 
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
@@ -1590,6 +1657,13 @@ function AssistantMissionPage() {
             subtitle="Résultat produit à partir du récit saisi. Vous pouvez corriger les informations avec le mode Approfondir."
             sx={{ borderTop: '6px solid #0b6fb8', boxShadow: '0 4px 16px rgba(15,35,65,0.12)' }}
           >
+            <Stack spacing={0.65}>
+              {alertesDiagnosticAutonome.map((alerte) => (
+                <Alert key={alerte.texte} severity={alerte.severity} variant="filled" sx={{ py: 0.25, fontWeight: 800 }}>
+                  {alerte.texte}
+                </Alert>
+              ))}
+            </Stack>
             <Grid container spacing={1.25}>
               <Grid size={{ xs: 12, lg: 4 }}>
                 <Box sx={{ height: '100%', p: 1.25, bgcolor: '#eef6ff', borderRadius: 1.5 }}>
@@ -2057,7 +2131,7 @@ function AssistantMissionPage() {
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={`Orientation : ${recommandationsMoteur.orientation?.principale || 'À préciser'}`}
+                      label={`Orientation : ${orientationPrioritaire}`}
                     />
                     <Chip
                       size="small"
@@ -2090,8 +2164,12 @@ function AssistantMissionPage() {
                   {recommandationActive ? (
                     <CockpitRecommendationCard
                       title={recommandationActive.title}
-                      justification={recommandationActive.justification}
-                      preconisation={recommandationActive.preconisation}
+                      justification={recommandationActive.key === 'orientation'
+                        ? `Priorité issue du récit : ${orientationPrioritaire}.`
+                        : recommandationActive.justification}
+                      preconisation={recommandationActive.key === 'orientation'
+                        ? `Sécuriser d’abord : ${diagnosticAutonome.priorites.join(' • ') || orientationPrioritaire}.`
+                        : recommandationActive.preconisation}
                       onAction={() => onActionRecommandation(recommandationActive.key)}
                     />
                   ) : null}
