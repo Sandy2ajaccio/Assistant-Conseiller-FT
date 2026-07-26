@@ -923,7 +923,7 @@ function AssistantMissionPage() {
           }}
         >
           <Tab value="entretien" label="Conduite de l’entretien" />
-          <Tab value="prescriptions" label="Tableau prescriptions" />
+          <Tab value="prescriptions" label="Offre de services" />
           <Tab value="synthese" label="Synthèse d’entretien" />
         </Tabs>
 
@@ -1017,7 +1017,7 @@ function AssistantMissionPage() {
 
         {workspaceTab === 'prescriptions' ? (
           <CockpitBlockCard
-            title="Tableau de bord des prescriptions"
+            title="Tableau de bord de l’offre de services"
             subtitle="Toute l'offre de service, les alertes et les conditions de prescription visibles sur un seul écran."
             detailsSx={{ p: { xs: 1, md: 1.5 } }}
           >

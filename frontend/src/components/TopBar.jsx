@@ -5,7 +5,7 @@ const TITLES = {
   '/': 'Quelle mission souhaitez-vous réaliser ?',
   '/analyse': 'Analyse de situation',
   '/dashboard': 'Tableau de bord',
-  '/prescriptions': 'Prescriptions',
+  '/prescriptions': 'Tableau de bord',
   '/connaissances': 'Centre de connaissances',
   '/parametres': 'Paramètres',
 }

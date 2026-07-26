@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 const navItems = [
   { label: '🏠 Accueil', to: '/' },
   { label: '🚀 Assistant de mission', to: '/assistant' },
-  { label: '🧾 Prescriptions', to: '/prescriptions' },
+  { label: '📊 Tableau de bord', to: '/prescriptions' },
   { label: '📚 Centre de connaissances', to: '/connaissances' },
   { label: '⚙ Paramètres', to: '/parametres' },
 ]
