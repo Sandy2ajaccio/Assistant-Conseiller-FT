@@ -12,6 +12,7 @@ import {
 } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
+import DailyWorkQueue from '../components/DailyWorkQueue'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import {
   getLastOpenedDossierId,
@@ -246,6 +247,13 @@ const PrescriptionsPage = () => {
             </Typography>
           ) : null}
         </Paper>
+
+        <DailyWorkQueue
+          dossiers={dossiers}
+          selectedDossierId={selectedDossierId}
+          onSelect={setSelectedDossierId}
+          onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
+        />
 
         <Paper
           sx={{
