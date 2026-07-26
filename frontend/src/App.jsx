@@ -1,42 +1,35 @@
-import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Layout from './components/Layout'
+import AccueilMissionsPage from './pages/AccueilMissionsPage'
+import MissionWorkflowPage from './pages/MissionWorkflowPage'
+import AnalyseSituationPage from './pages/AnalyseSituationPage'
+import DashboardPage from './pages/DashboardPage'
+import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
+import ParametresPage from './pages/ParametresPage'
+import AssistantMissionPage from './pages/AssistantMissionPage'
+import DemandeurPage from './pages/DemandeurPage'
+import PreparationEntretienPage from './pages/PreparationEntretienPage'
+import PrescriptionsPage from './pages/PrescriptionsPage'
 
-function App() {
-  const [advisors, setAdvisors] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/v1/advisors/')
-      .then((response) => response.json())
-      .then((data) => setAdvisors(data))
-      .catch(() => setAdvisors([]))
-      .finally(() => setLoading(false))
-  }, [])
-
+export default function App() {
   return (
-    <div className="app-shell">
-      <header>
-        <h1>Assistant Conseiller FT</h1>
-        <p>Liste des conseillers disponibles</p>
-      </header>
-
-      {loading ? (
-        <p>Chargement...</p>
-      ) : advisors.length ? (
-        <ul className="advisor-list">
-          {advisors.map((advisor) => (
-            <li key={advisor.id} className="advisor-card">
-              <h2>{advisor.name}</h2>
-              <p>{advisor.specialty || 'Spécialité non définie'}</p>
-              <p>{advisor.email}</p>
-              <p>{advisor.bio}</p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Aucun conseiller trouvé.</p>
-      )}
-    </div>
+    <BrowserRouter>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<AccueilMissionsPage />} />
+          <Route path="/assistant" element={<AssistantMissionPage />} />
+          <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
+          <Route path="/analyse" element={<AnalyseSituationPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/preparation-entretien" element={<PreparationEntretienPage />} />
+          <Route path="/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/connaissances" element={<CentreConnaissancesPage />} />
+          <Route path="/parametres" element={<ParametresPage />} />
+          <Route path="/demandeurs" element={<DemandeurPage />} />
+          <Route path="/demandeurs/:id" element={<DemandeurPage />} />
+          <Route path="*" element={<AccueilMissionsPage />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
   )
 }
-
-export default App

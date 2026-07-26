@@ -1,0 +1,58 @@
+export const portefeuilles = [
+	{
+		code: "EM",
+		nom: "Emploi",
+		objectif: "Accroitre le retour rapide a l'emploi durable sur les bassins corses.",
+		public: "Demandeurs proches du marche du travail en Corse-du-Sud et Haute-Corse.",
+		vigilance: "Maintenir un rythme soutenu de candidatures ciblees et suivies.",
+	},
+	{
+		code: "INT",
+		nom: "Intensif",
+		objectif: "Structurer un accompagnement rapproche pour lever les freins prioritaires.",
+		public: "Demandeurs necessitant un suivi frequemment mobilisable.",
+		vigilance: "Planifier des points reguliers et objectiver les progres entre rendez-vous.",
+	},
+	{
+		code: "MUT",
+		nom: "Mutualise",
+		objectif: "Portefeuille principal d'attente regroupant notamment les nouveaux inscrits, les demandeurs sans referent attribue et les contrats d'engagement restant a formaliser.",
+		public: "Demandeurs en attente d'orientation stabilisee ou de referent definitif.",
+		vigilance: "Organiser rapidement la bascule vers le portefeuille le plus adapte.",
+	},
+	{
+		code: "SP",
+		nom: "Socio-Professionnel",
+		objectif: "Adapter finement l'accompagnement aux besoins individuels du territoire.",
+		public: "Demandeurs avec besoins specifiques identifies par le conseiller.",
+		vigilance: "Reevaluer periodiquement la pertinence des actions decidees.",
+	},
+	{
+		code: "TH",
+		nom: "Travailleurs Handicapes",
+		objectif: "Faciliter l'acces a l'emploi avec adaptation des parcours en Corse.",
+		public: "Demandeurs reconnus travailleurs handicapes ou en cours de reconnaissance.",
+		vigilance: "Coordonner France Travail, Cap Emploi et partenaires medico-sociaux.",
+	},
+	{
+		code: "GLO",
+		nom: "Global",
+		objectif: "Traiter conjointement les freins sociaux et l'insertion professionnelle.",
+		public: "Demandeurs confrontes a des freins logement, sante, mobilite ou budget.",
+		vigilance: "Synchroniser les interventions avec les travailleurs sociaux du territoire.",
+	},
+	{
+		code: "PP",
+		nom: "Parcours Professionnalise",
+		objectif: "Securiser les parcours necessitant une pre-orientation ou une transition progressive.",
+		public: "Demandeurs en transition professionnelle avec besoin de cadrage renforce.",
+		vigilance: "Verifier la coherence entre capacites, projet cible et etapes de parcours.",
+	},
+	{
+		code: "CEJ",
+		nom: "Contrat d'Engagement Jeune",
+		objectif: "Accompagner intensivement les jeunes corses vers l'autonomie durable.",
+		public: "Jeunes de 16 a 25 ans eligibles au CEJ en lien avec Mission Locale.",
+		vigilance: "Assurer la continuite des activites hebdomadaires et des preuves d'engagement.",
+	},
+];
