@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import PrescriptionResultCard from '../components/PrescriptionResultCard'
+import { offreServiceCorse } from '../data/offreServiceCorse'
 
 const TYPES_PRESCRIPTION = [
   'Atelier',
@@ -31,71 +32,17 @@ const TYPES_PRESCRIPTION = [
   'Autre',
 ]
 
-const DOMAINES = ['Tous', 'Emploi', 'Formation', 'Social', 'Mobilite', 'Sante']
+const DOMAINES = ['Tous', 'Emploi', 'Formation', 'Social', 'Mobilité', 'Santé']
 const PUBLICS = ['Tous', 'Jeunes', 'Adultes', 'Beneficiaires RSA', 'TH', 'Senior']
-const LOCALISATIONS = ['Tous', 'Ajaccio', 'Bastia', 'Corte', 'Porto-Vecchio']
+const LOCALISATIONS = ['Tous', 'Corse', 'Ajaccio', 'Bastia', 'Corte', 'Porto-Vecchio']
 const DISTANCES = ['Tous', '0-5 km', '5-15 km', '15-30 km', '30+ km']
-const PARTENAIRES = ['Tous', 'Mission Locale', 'AFPA', 'Cap Emploi', 'Association locale']
+const PARTENAIRES = ['Tous', 'France Travail', 'Orange', 'CARSAT', 'Mission Locale', 'AFPA', 'Cap Emploi']
 const TYPES = ['Tous', ...TYPES_PRESCRIPTION]
 
-const PRESCRIPTIONS_DATA = [
-  {
-    id: 'p1',
-    nom: 'Atelier CV cible',
-    organisme: 'Mission Locale Ajaccio',
-    public: 'Jeunes',
-    objectif: 'Structurer un CV adapte au poste vise.',
-    duree: '1 jour',
-    conditions: 'Inscription active et projet en cours.',
-    localisation: 'Ajaccio',
-    domaine: 'Emploi',
-    partenaire: 'Mission Locale',
-    type: 'Atelier',
-    distance: '0-5 km',
-  },
-  {
-    id: 'p2',
-    nom: 'Prestation coaching emploi',
-    organisme: 'Cap Emploi Corse',
-    public: 'TH',
-    objectif: 'Lever les freins a la recherche active.',
-    duree: '4 semaines',
-    conditions: 'Orientation conseiller et disponibilite hebdo.',
-    localisation: 'Bastia',
-    domaine: 'Emploi',
-    partenaire: 'Cap Emploi',
-    type: 'Prestation',
-    distance: '5-15 km',
-  },
-  {
-    id: 'p3',
-    nom: 'Formation numerique de base',
-    organisme: 'AFPA Corse',
-    public: 'Adultes',
-    objectif: 'Acquerir les fondamentaux numeriques.',
-    duree: '3 semaines',
-    conditions: 'Positionnement initial realise.',
-    localisation: 'Corte',
-    domaine: 'Formation',
-    partenaire: 'AFPA',
-    type: 'Formation',
-    distance: '15-30 km',
-  },
-  {
-    id: 'p4',
-    nom: 'Aide deplacement entretien',
-    organisme: 'Association locale',
-    public: 'Beneficiaires RSA',
-    objectif: 'Faciliter l acces aux entretiens et formations.',
-    duree: 'Ponctuelle',
-    conditions: 'Justificatifs de rendez-vous.',
-    localisation: 'Porto-Vecchio',
-    domaine: 'Mobilite',
-    partenaire: 'Association locale',
-    type: 'Aide a la mobilite',
-    distance: '30+ km',
-  },
-]
+const PRESCRIPTIONS_DATA = offreServiceCorse.map((item) => ({
+  ...item,
+  organisme: item.intervenants || item.partenaire,
+}))
 
 const JUSTIFICATION_BASE =
   "Cette prescription est adaptee au regard des besoins identifies lors de l'entretien, du projet professionnel et des freins observes."

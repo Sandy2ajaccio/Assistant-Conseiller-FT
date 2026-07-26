@@ -1,3 +1,5 @@
+import { ateliersOffreServiceCorse, prestationsOffreServiceCorse } from './offreServiceCorse'
+
 export const portefeuillesCorse = [
   'Mutualisé',
   'EM',
@@ -22,6 +24,7 @@ export const ateliersCorse = [
   "Les Lundis de l'entrepreneuriat",
   'Atelier 360',
   'Atelier 360 Seniors',
+  ...ateliersOffreServiceCorse.map((item) => item.nom),
 ]
 
 export const prestationsCorse = [
@@ -36,6 +39,7 @@ export const prestationsCorse = [
   'Pix Emploi',
   'CEJ',
   'Accompagnement Global',
+  ...prestationsOffreServiceCorse.map((item) => item.nom),
 ]
 
 export const partenairesCorse = [

@@ -6,11 +6,13 @@ import {
 import { connaissancesAteliers } from '../knowledge/ateliers'
 import { connaissancesPrestations } from '../knowledge/prestations'
 import { connaissancesPartenaires } from '../knowledge/partenaires'
+import { getReferentielSection } from '../services/referentielService'
 
 const blocks = [
   ['Portefeuilles', portefeuilles],
   ['Ateliers', connaissancesAteliers],
   ['Prestations', connaissancesPrestations],
+  ['Rémunération en formation', getReferentielSection('remunerationFormation')],
   ['Partenaires', connaissancesPartenaires],
 ]
 
@@ -34,8 +36,12 @@ function CentreConnaissancesPage() {
               {items.length > 0 ? (
                 items.map((item) => (
                   <li key={item.id || item.nom || item}>
-                    <strong>{item.nom || item.id || item}</strong>
+                    <strong>{item.nom || item.libelle || item.id || item}</strong>
                     {item.description ? <p>{item.description}</p> : <p>Fiche de connaissance vide.</p>}
+                    {item.duree ? <p><b>Durée :</b> {item.duree}</p> : null}
+                    {item.intervenants ? <p><b>Intervenants :</b> {item.intervenants}</p> : null}
+                    {item.prescription ? <p><b>Prescription :</b> {item.prescription}</p> : null}
+                    {item.conditions?.length ? <p><b>Conditions :</b> {item.conditions.join(' - ')}</p> : null}
                   </li>
                 ))
               ) : (

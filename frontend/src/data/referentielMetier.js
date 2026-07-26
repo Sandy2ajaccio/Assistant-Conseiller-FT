@@ -1,3 +1,17 @@
+import { ateliersOffreServiceCorse, prestationsOffreServiceCorse } from './offreServiceCorse'
+
+const asReferentielEntries = (items) => items.map((item) => ({
+  id: item.id,
+  libelle: item.code ? `${item.code} - ${item.nom}` : item.nom,
+  description: item.objectif,
+  public: item.public,
+  duree: item.duree,
+  intervenants: item.intervenants,
+  prescription: item.prescription,
+  conditions: [item.conditions],
+  localisation: item.localisation,
+}))
+
 export const REFERENTIEL_METIER = {
   projetsProfessionnels: [
     {
@@ -470,6 +484,7 @@ export const REFERENTIEL_METIER = {
       libelle: 'Immersion professionnelle PMSMP',
       description: 'Découverte métier via une immersion en entreprise.',
     },
+    ...asReferentielEntries(prestationsOffreServiceCorse),
   ],
 
   ateliers: [
@@ -533,6 +548,7 @@ export const REFERENTIEL_METIER = {
       libelle: 'Atelier 360 Seniors',
       description: 'Atelier adapté au repositionnement des publics seniors.',
     },
+    ...asReferentielEntries(ateliersOffreServiceCorse),
   ],
 
   formations: [
@@ -797,7 +813,63 @@ export const REFERENTIEL_METIER = {
     },
   ],
 
-  remunerationFormation: [],
+  remunerationFormation: [
+    {
+      id: 'remuneration-aref',
+      libelle: 'AREF',
+      description: "Maintien de l'allocation d'aide au retour à l'emploi pendant une formation validée.",
+      conditions: ['Demandeur indemnisé par France Travail', 'Formation validée dans le parcours'],
+      montant: 'Minimum indiqué dans le document : 22,88 €',
+    },
+    {
+      id: 'remuneration-aref-public',
+      libelle: 'AREF secteur public',
+      description: "Maintien de l'indemnisation du secteur public pendant la formation.",
+      conditions: ['Demandeur indemnisé par un employeur public'],
+    },
+    {
+      id: 'remuneration-rfft',
+      libelle: 'RFFT - Rémunération de Formation France Travail',
+      description: 'Rémunération versée par France Travail lorsque la formation est financée par France Travail.',
+      conditions: ['Demandeur non indemnisé en ARE', 'Formation financée par France Travail : AIF, POEI ou POEC'],
+    },
+    {
+      id: 'remuneration-rps',
+      libelle: 'RPS - Rémunération Publique des Stagiaires',
+      description: "Rémunération versée par la Région via l'ASP pour une formation régionale éligible.",
+      conditions: ['Demandeur non indemnisé en ARE', 'Formation financée par la Région'],
+      vigilance: 'Exceptions indiquées pour certaines formations sanitaires et sociales financées hors PRF.',
+    },
+    {
+      id: 'remuneration-rff',
+      libelle: 'RFF - Rémunération de fin de formation',
+      description: "Relais possible après la fin des droits ARE lorsque la formation et le métier visé remplissent les critères d'éligibilité.",
+      conditions: ['Fin des droits ARE en cours de formation', 'Qualification reconnue', 'Métier éligible'],
+      alternative: "ASS-F si les conditions sont réunies ; sinon absence de rémunération au-delà de l'AREF.",
+    },
+    {
+      id: 'remuneration-th-france-travail',
+      libelle: 'RFFT - Travailleurs handicapés',
+      description: 'Rémunération spécifique lorsque la formation est financée par France Travail.',
+      conditions: [
+        "Travailleur handicapé privé d'emploi",
+        "De 723,36 € à 2 040,74 € avec activité salariée antérieure de 6 mois sur 12 ou 12 mois sur 24",
+        "723,36 € sans condition d'activité antérieure ou pour un jeune handicapé en recherche d'un premier emploi",
+      ],
+      vigilance: "Une personne indemnisée en ARE peut renoncer à ses droits pour bénéficier de cette rémunération selon les critères applicables.",
+    },
+    {
+      id: 'remuneration-th-region',
+      libelle: 'RPS - Travailleurs handicapés',
+      description: 'Rémunération spécifique lorsque la formation est financée par la Région.',
+      conditions: [
+        "Travailleur handicapé privé d'emploi",
+        "De 723,36 € à 2 040,74 € avec activité salariée antérieure de 6 mois sur 12 ou 12 mois sur 24",
+        "723,36 € sans condition d'activité antérieure ou pour un jeune handicapé en recherche d'un premier emploi",
+      ],
+      vigilance: "Une personne indemnisée peut renoncer à l'ARE pour bénéficier de la RPS selon les critères applicables.",
+    },
+  ],
 
   map: [
     {

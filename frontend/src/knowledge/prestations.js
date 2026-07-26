@@ -1,3 +1,5 @@
+import { prestationsOffreServiceCorse } from '../data/offreServiceCorse'
+
 export const prestations = {
   orientation: [
     {
@@ -147,10 +149,26 @@ const flatPrestations = Object.entries(prestations).flatMap(([domaine, items]) =
   })),
 )
 
-export const connaissancesPrestations = flatPrestations.map((item) => ({
+const prestationsLocales = prestationsOffreServiceCorse.map((item) => ({
   id: item.id,
   nom: item.nom,
-  description: item.description,
+  description: item.objectif,
+  objectif: item.objectif,
+  public: item.public,
+  duree: item.duree,
+  intervenants: item.intervenants,
+  prescription: item.prescription,
+  conditions: [item.conditions],
+  vigilance: item.conditions,
 }))
 
-export const prestationsCorse = flatPrestations
+export const connaissancesPrestations = [
+  ...prestationsLocales,
+  ...flatPrestations.map((item) => ({
+    id: item.id,
+    nom: item.nom,
+    description: item.description,
+  })),
+]
+
+export const prestationsCorse = [...prestationsLocales, ...flatPrestations]
