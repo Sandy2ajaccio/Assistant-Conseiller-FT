@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx'
-import portefeuilleInitial from '../data/portefeuilleInitial.json'
 import { syncPortfolioToCloud } from './cloudPersistenceService'
 
 const IMPORT_STORAGE_KEY = 'cap-decision:portefeuille-imports'
+const portefeuilleInitial = []
 
 const normalizeHeader = (value) => String(value || '')
   .normalize('NFD')
