@@ -18,18 +18,19 @@ export default function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
-          <Route path="/" element={<Navigate to="/prescriptions" replace />} />
+          <Route path="/" element={<Navigate to="/tableau-de-bord" replace />} />
           <Route path="/assistant" element={<AssistantMissionPage />} />
           <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
           <Route path="/analyse" element={<AnalyseSituationPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/preparation-entretien" element={<PreparationEntretienPage />} />
-          <Route path="/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/tableau-de-bord" element={<PrescriptionsPage />} />
+          <Route path="/prescriptions" element={<Navigate to="/tableau-de-bord" replace />} />
           <Route path="/connaissances" element={<CentreConnaissancesPage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/demandeurs" element={<DemandeurPage />} />
           <Route path="/demandeurs/:id" element={<DemandeurPage />} />
-          <Route path="*" element={<Navigate to="/prescriptions" replace />} />
+          <Route path="*" element={<Navigate to="/tableau-de-bord" replace />} />
           </Routes>
         </Layout>
       </BrowserRouter>

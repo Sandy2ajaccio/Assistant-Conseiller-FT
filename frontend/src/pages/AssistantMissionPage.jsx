@@ -793,7 +793,7 @@ function AssistantMissionPage() {
   const ouvrirPrescriptionAdaptee = (type, nom = '') => {
     const params = new URLSearchParams({ type })
     if (nom) params.set('q', nom)
-    navigate(`/prescriptions?${params.toString()}`)
+    navigate(`/tableau-de-bord?${params.toString()}`)
   }
 
   const demarrerDictee = () => {

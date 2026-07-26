@@ -29,7 +29,7 @@ const pages = [
   ['/analyse', '/src/pages/AnalyseSituationPage.jsx'],
   ['/dashboard', '/src/pages/DashboardPage.jsx'],
   ['/preparation-entretien', '/src/pages/PreparationEntretienPage.jsx'],
-  ['/prescriptions', '/src/pages/PrescriptionsPage.jsx'],
+  ['/tableau-de-bord', '/src/pages/PrescriptionsPage.jsx'],
   ['/connaissances', '/src/pages/CentreConnaissancesPage.jsx'],
   ['/parametres', '/src/pages/ParametresPage.jsx'],
   ['/demandeurs', '/src/pages/DemandeurPage.jsx'],
