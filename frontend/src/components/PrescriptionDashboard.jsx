@@ -17,6 +17,8 @@ const normalize = (value) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
 
+const DOMAIN_COLORS = ['#1976d2', '#8e24aa', '#00897b', '#f57c00', '#d32f2f']
+
 const PrescriptionDashboard = ({
   items = [],
   recommendedNames = [],
@@ -78,11 +80,18 @@ const PrescriptionDashboard = ({
           ['Ateliers', atelierCount, '#00897b'],
           ['Prestations', prestationCount, '#7b1fa2'],
           ['Adaptés au besoin', recommendedCount, recommendedCount ? '#2e7d32' : '#ed6c02'],
-        ].map(([label, value, color]) => (
+        ].map(([label, value, color], index) => (
           <Grid key={label} size={{ xs: 6, md: 3 }}>
-            <Paper variant="outlined" sx={{ p: 1.25, borderTop: `4px solid ${color}` }}>
-              <Typography variant="caption" color="text.secondary">{label}</Typography>
-              <Typography variant="h4" sx={{ color, fontWeight: 800, lineHeight: 1.1 }}>{value}</Typography>
+            <Paper
+              sx={{
+                p: 1.25,
+                borderLeft: `7px solid ${color}`,
+                bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
+                boxShadow: '0 2px 8px rgba(15, 35, 65, 0.12)',
+              }}
+            >
+              <Typography variant="caption" sx={{ color, fontWeight: 800 }}>{label}</Typography>
+              <Typography variant="h4" sx={{ color, fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography>
             </Paper>
           </Grid>
         ))}
@@ -98,7 +107,7 @@ const PrescriptionDashboard = ({
         </Stack>
       ) : null}
 
-      <Paper variant="outlined" sx={{ p: 1 }}>
+      <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f4f8fd', borderColor: '#bbdefb' }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
           <TextField
             value={search}
@@ -132,13 +141,14 @@ const PrescriptionDashboard = ({
                 gap: 1,
                 px: 1.25,
                 py: 0.8,
-                bgcolor: '#eef3f8',
+                bgcolor: '#244d78',
+                color: '#fff',
                 borderBottom: '1px solid',
                 borderColor: 'divider',
               }}
             >
               {['État', 'Dispositif', 'Public', 'Durée', 'Domaine'].map((label) => (
-                <Typography key={label} variant="caption" sx={{ fontWeight: 800 }}>{label}</Typography>
+                <Typography key={label} variant="caption" sx={{ fontWeight: 800, color: 'inherit' }}>{label}</Typography>
               ))}
             </Box>
             <Box sx={{ height: 430, overflowY: 'auto' }}>
@@ -159,15 +169,15 @@ const PrescriptionDashboard = ({
                       cursor: 'pointer',
                       borderBottom: '1px solid',
                       borderColor: 'divider',
-                      bgcolor: active ? '#e8f2ff' : suggested ? '#f1faf3' : '#fff',
+                      bgcolor: active ? '#d9ecff' : suggested ? '#e5f6e9' : item.type === 'Atelier' ? '#f3fbfa' : '#fbf5fc',
                       borderLeft: '5px solid',
-                      borderLeftColor: suggested ? 'success.main' : 'transparent',
-                      '&:hover': { bgcolor: '#f4f7fb' },
+                      borderLeftColor: suggested ? 'success.main' : item.type === 'Atelier' ? '#26a69a' : '#ab47bc',
+                      '&:hover': { bgcolor: '#e6f1fc' },
                     }}
                   >
                     <Chip
                       size="small"
-                      color={suggested ? 'success' : 'default'}
+                      color={suggested ? 'success' : item.type === 'Atelier' ? 'primary' : 'secondary'}
                       label={suggested ? 'Conseillé' : item.type}
                       sx={{ fontSize: '0.67rem' }}
                     />
@@ -196,7 +206,17 @@ const PrescriptionDashboard = ({
 
         <Grid size={{ xs: 12, lg: 4 }}>
           <Stack spacing={1.25}>
-            <Paper variant="outlined" sx={{ p: 1.5, minHeight: 315, borderTop: '5px solid', borderTopColor: isRecommended(selected || {}) ? 'success.main' : 'primary.main' }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                minHeight: 315,
+                borderTop: '7px solid',
+                borderTopColor: isRecommended(selected || {}) ? 'success.main' : selected?.type === 'Atelier' ? '#00897b' : '#8e24aa',
+                bgcolor: isRecommended(selected || {}) ? '#f1faf3' : selected?.type === 'Atelier' ? '#f1fbfa' : '#fbf4fc',
+                boxShadow: '0 3px 12px rgba(15, 35, 65, 0.12)',
+              }}
+            >
               {selected ? (
                 <Stack spacing={1}>
                   <Stack direction="row" justifyContent="space-between" spacing={1}>
@@ -210,7 +230,7 @@ const PrescriptionDashboard = ({
                   </Stack>
                   <Typography variant="body2"><strong>Objectif :</strong> {selected.objectif}</Typography>
                   <Typography variant="body2"><strong>Accès :</strong> {selected.conditions}</Typography>
-                  <Box sx={{ p: 1, bgcolor: '#eef5ff', borderRadius: 1 }}>
+                  <Box sx={{ p: 1, bgcolor: '#dcecff', borderRadius: 1, borderLeft: '4px solid #1976d2' }}>
                     <Typography variant="caption" color="primary.main" sx={{ fontWeight: 800 }}>CHEMIN DE PRESCRIPTION</Typography>
                     <Typography variant="body2">{selected.prescription}</Typography>
                   </Box>
@@ -224,15 +244,24 @@ const PrescriptionDashboard = ({
               ) : null}
             </Paper>
 
-            <Paper variant="outlined" sx={{ p: 1.25 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>Répartition par besoin</Typography>
-              {domainCounts.map(([domain, count]) => (
+            <Paper variant="outlined" sx={{ p: 1.25, bgcolor: '#f8f9fc' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75, color: '#244d78' }}>Répartition par besoin</Typography>
+              {domainCounts.map(([domain, count], index) => (
                 <Box key={domain} sx={{ mb: 0.65 }}>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="caption">{domain}</Typography>
                     <Typography variant="caption" sx={{ fontWeight: 700 }}>{count}</Typography>
                   </Stack>
-                  <LinearProgress variant="determinate" value={(count / maxDomain) * 100} sx={{ height: 5, borderRadius: 4 }} />
+                  <LinearProgress
+                    variant="determinate"
+                    value={(count / maxDomain) * 100}
+                    sx={{
+                      height: 7,
+                      borderRadius: 4,
+                      bgcolor: '#e3e8ef',
+                      '& .MuiLinearProgress-bar': { bgcolor: DOMAIN_COLORS[index] },
+                    }}
+                  />
                 </Box>
               ))}
             </Paper>
