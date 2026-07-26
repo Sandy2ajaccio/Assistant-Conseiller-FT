@@ -44,6 +44,7 @@ import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
+import { portefeuillesCorse } from '../data/configurationCorse'
 
 const ENTRETIEN_TYPES = [
   { value: 'premier-physique', label: 'Premier entretien (60 min)' },
@@ -288,6 +289,8 @@ function AssistantMissionPage() {
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
   const [copyStatus, setCopyStatus] = useState('')
   const [modeApprofondi, setModeApprofondi] = useState(false)
+  const [actionRetenue, setActionRetenue] = useState('')
+  const [portefeuilleChoisi, setPortefeuilleChoisi] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
@@ -594,7 +597,7 @@ function AssistantMissionPage() {
 
     return prescriptionsSuggerees.map((suggestion) => {
       const catalogueEntry = findPrescriptionInCatalogue(suggestion)
-      return catalogueEntry || {
+      const item = catalogueEntry || {
         id: `suggestion-${suggestion.type}-${suggestion.nom}`,
         nom: suggestion.nom,
         type: suggestion.type,
@@ -606,8 +609,18 @@ function AssistantMissionPage() {
         prescription: 'À confirmer dans le référentiel France Travail',
         localisation: 'Corse',
       }
-    })
+      const descriptionIntervenant = `${item.partenaire || ''} ${item.intervenants || ''}`.toLowerCase()
+      return {
+        ...item,
+        interne: /france travail|conseiller/.test(descriptionIntervenant),
+      }
+    }).sort((left, right) => Number(right.interne) - Number(left.interne))
   }, [prescriptionsSuggerees, ceQueDitLaPersonne, besoinIdentifieConseiller])
+
+  const actionsPrescriptionPriorisees = useMemo(
+    () => prescriptionsDetaillees.slice(0, 3),
+    [prescriptionsDetaillees],
+  )
 
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
@@ -726,7 +739,7 @@ function AssistantMissionPage() {
           : 'Faire formuler à la personne son objectif prioritaire avec ses propres mots.',
       },
       {
-        quand: 'Sous 7 jours',
+        quand: 'Action à prescrire',
         action: rqthDetectee
           ? 'Vérifier les restrictions, besoins d’aménagement et appuis mobilisables liés à la RQTH avant de retenir un métier ou une formation.'
           : premierFrein
@@ -736,12 +749,12 @@ function AssistantMissionPage() {
             : 'Choisir une première action réalisable et fixer son échéance.',
       },
       {
-        quand: 'Prochain entretien',
+        quand: 'Suivi du dossier',
         action: formationDemandee
-          ? 'Comparer les pistes de formation avec le métier visé, les prérequis, le financement, la mobilité et la garde, puis valider une seule prochaine étape.'
+          ? 'Comparer les pistes de formation avec le métier visé, les prérequis, le financement, la mobilité et la garde, puis tracer la décision dans le dossier.'
           : premiereSolution
-          ? `Vérifier la réalisation, mesurer le résultat puis décider de maintenir ou d’adapter « ${premiereSolution} ».`
-          : 'Faire le point sur l’action engagée et décider de la prochaine étape.',
+          ? `Tracer la prescription de « ${premiereSolution} » et les éléments permettant d’en vérifier la réalisation.`
+          : 'Tracer l’action retenue et la décision d’orientation dans le dossier.',
       },
     ]
   }, [
@@ -773,15 +786,17 @@ function AssistantMissionPage() {
     paragraphes.push(parcoursEtProjet)
 
     const constats = []
-    if (freinsSelectionnes.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSelectionnes)}`)
+    const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    if (freinsSynthese.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSynthese)}`)
     if (ressourcesSelectionnees.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSelectionnees)}`)
     if (constats.length > 0) paragraphes.push(`Nous avons identifié ${constats.join(', ainsi que ')}.`)
 
     const actions = [
       ...actionsImmediatesValidees,
-      ...planActionConcret.slice(0, 2).map((etape) => etape.action),
-      ...(recommandationsMoteur.ateliers || []).slice(0, 1),
-      ...(recommandationsMoteur.prestations || []).slice(0, 1),
+      actionRetenue ? `la prescription de ${actionRetenue}` : '',
+      portefeuilleChoisi ? `votre orientation vers le portefeuille ${portefeuilleChoisi}` : '',
+      decisions.demandeAffectation ? "la demande de votre affectation au portefeuille retenu" : '',
+      ...planActionConcret.slice(0, 1).map((etape) => etape.action),
     ].filter(Boolean).slice(0, 4)
     paragraphes.push(
       actions.length > 0
@@ -803,7 +818,10 @@ function AssistantMissionPage() {
     ressourcesSelectionnees,
     actionsImmediatesValidees,
     planActionConcret,
-    recommandationsMoteur,
+    analyseDemandeAutomatique.freins,
+    actionRetenue,
+    portefeuilleChoisi,
+    decisions.demandeAffectation,
   ])
 
   const dureeRendezVous = useMemo(() => {
@@ -839,6 +857,8 @@ function AssistantMissionPage() {
     setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+    setActionRetenue(dossier.actionRetenue || '')
+    setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
   }, [location.search])
 
@@ -945,6 +965,8 @@ function AssistantMissionPage() {
     syntheseMetier,
     mapMetier,
     synthese: { contenu: syntheseEntretien },
+    actionRetenue,
+    portefeuilleChoisi,
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
 
@@ -1214,6 +1236,14 @@ function AssistantMissionPage() {
               <Chip size="small" color={missionCompletion >= 80 ? 'success' : missionCompletion >= 40 ? 'warning' : 'error'} label={`${missionCompletion} %`} />
               <Button
                 size="small"
+                variant="contained"
+                onClick={() => setWorkspaceTab('synthese')}
+                sx={{ whiteSpace: 'nowrap', fontWeight: 800 }}
+              >
+                Voir la synthèse
+              </Button>
+              <Button
+                size="small"
                 variant={modeApprofondi ? 'contained' : 'outlined'}
                 color="secondary"
                 onClick={() => setModeApprofondi((value) => !value)}
@@ -1420,6 +1450,67 @@ function AssistantMissionPage() {
                 </Box>
               </Grid>
             </Grid>
+            <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
+                Décision à enregistrer
+              </Typography>
+              <Grid container spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                    Action à prescrire — offre interne prioritaire
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
+                    {actionsPrescriptionPriorisees.map((item) => (
+                      <Button
+                        key={item.id}
+                        size="small"
+                        variant={actionRetenue === item.nom ? 'contained' : 'outlined'}
+                        color={item.interne ? 'success' : 'secondary'}
+                        onClick={() => {
+                          setActionRetenue(item.nom)
+                          setDecisions((prev) => ({
+                            ...prev,
+                            prescriptionAtelier: item.type === 'Atelier',
+                            prescriptionPrestation: item.type === 'Prestation',
+                          }))
+                        }}
+                      >
+                        {item.interne ? 'Interne' : 'Externe'} · {item.nom}
+                      </Button>
+                    ))}
+                    {actionsPrescriptionPriorisees.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">
+                        Aucune prescription suffisamment ciblée pour le moment.
+                      </Typography>
+                    ) : null}
+                  </Stack>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Portefeuille retenu"
+                    value={portefeuilleChoisi}
+                    onChange={(event) => setPortefeuilleChoisi(event.target.value)}
+                  >
+                    {portefeuillesCorse.map((item) => (
+                      <MenuItem key={item} value={item}>{item}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+                  <Button
+                    fullWidth
+                    variant={decisions.demandeAffectation ? 'contained' : 'outlined'}
+                    color="warning"
+                    onClick={() => setDecisions((prev) => ({ ...prev, demandeAffectation: !prev.demandeAffectation }))}
+                  >
+                    {decisions.demandeAffectation ? 'Affectation demandée' : 'Demander l’affectation'}
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
           </CockpitBlockCard>
         ) : null}
 
