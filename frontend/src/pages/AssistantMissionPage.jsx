@@ -581,15 +581,46 @@ function AssistantMissionPage() {
   }, [recommandationsMoteur])
 
   const prescriptionsSuggerees = useMemo(() => {
+    const contexte = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel}`
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    const ateliersInternes = []
+
+    if (typeEntretien === 'premier-physique' || /contrat|engagement|droit|obligation/.test(contexte)) {
+      ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
+    }
+    if (typeEntretien === 'premier-physique' || /offre de service|nouvellement inscrit/.test(contexte)) {
+      ateliersInternes.push({ nom: 'Offre de service France Travail', type: 'Atelier' })
+    }
+    if (/formation|reconversion|financement/.test(contexte)) {
+      ateliersInternes.push({ nom: 'Formation et financements', type: 'Atelier' })
+    }
+    if (/numerique|demarche|organisation|autonomie|espace personnel/.test(contexte)) {
+      ateliersInternes.push({ nom: 'Organisation des démarches', type: 'Atelier' })
+    }
+    if (/marche du travail|secteur|metier|projet/.test(contexte)) {
+      ateliersInternes.push({ nom: 'Mon Marché du Travail', type: 'Atelier' })
+    }
+
     const suggestions = [
+      ...ateliersInternes,
       ...(recommandationsMoteur.ateliers || []).map((nom) => ({ nom, type: 'Atelier' })),
       ...(recommandationsMoteur.prestations || []).map((nom) => ({ nom, type: 'Prestation' })),
     ]
 
     return suggestions
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
-      .slice(0, 3)
-  }, [recommandationsMoteur])
+      .slice(0, 8)
+  }, [
+    recommandationsMoteur,
+    typeEntretien,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+  ])
 
   const prescriptionsDetaillees = useMemo(() => {
     const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
@@ -618,7 +649,7 @@ function AssistantMissionPage() {
   }, [prescriptionsSuggerees, ceQueDitLaPersonne, besoinIdentifieConseiller])
 
   const actionsPrescriptionPriorisees = useMemo(
-    () => prescriptionsDetaillees.slice(0, 3),
+    () => prescriptionsDetaillees.slice(0, 5),
     [prescriptionsDetaillees],
   )
 
