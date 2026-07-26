@@ -794,6 +794,71 @@ function AssistantMissionPage() {
     return recommandationsMoteur.orientation?.principale || 'À préciser'
   }, [analyseDemandeAutomatique.freins, recommandationsMoteur.orientation])
 
+  const explicationsDecision = useMemo(() => {
+    const freins = analyseDemandeAutomatique.freins
+    const explications = []
+    const ajouter = (decision, indices, regle, verification, changement) => {
+      explications.push({ decision, indices, regle, verification, changement })
+    }
+
+    if (freins.includes('Santé / RQTH')) {
+      ajouter(
+        'Sécuriser la situation RQTH avant de valider un projet ou une formation',
+        ['La RQTH est mentionnée dans le récit.'],
+        'Une situation de handicap peut modifier les conditions de travail, les aménagements utiles et la faisabilité d’une formation.',
+        'Restrictions, besoins d’aménagement, accord de la personne et pertinence d’un appui Cap emploi.',
+        'La proposition pourra être allégée si aucun besoin de compensation ou aucune restriction n’est confirmé.',
+      )
+    }
+    if (freins.includes('Garde d’enfants')) {
+      ajouter(
+        'Traiter la garde d’enfants comme une priorité pratique',
+        ['Des enfants en bas âge et l’absence de solution de garde sont signalés.'],
+        'Une prescription avec horaires imposés ne doit pas être retenue sans disponibilité réelle.',
+        'Horaires possibles, solution de garde, déplacements et date de disponibilité.',
+        'Une action plus contraignante pourra être retenue dès qu’une solution fiable sera confirmée.',
+      )
+    }
+    if (freins.includes('Projet professionnel')) {
+      ajouter(
+        'Clarifier le projet avant une recherche ciblée ou une formation',
+        ['Le récit indique qu’aucun objectif professionnel n’est encore défini.'],
+        'Sans métier cible, une formation ou une recherche ciblée risquerait d’être prématurée.',
+        'Compétences transférables, contraintes, centres d’intérêt et pistes métiers réalistes.',
+        'Une fois deux ou trois pistes validées, le logiciel pourra proposer une action sectorielle ou une formation précise.',
+      )
+    }
+    if (freins.includes('Absence de CV')) {
+      ajouter(
+        'Créer ou actualiser le CV',
+        ['Le récit signale l’absence de CV.', 'Une expérience professionnelle longue est mentionnée.'],
+        'Les compétences acquises doivent être rendues visibles avant les candidatures.',
+        'Postes occupés, durées, activités, compétences et réalisations.',
+        'Cette action sera considérée comme terminée lorsque le CV sera créé et enregistré dans l’espace personnel.',
+      )
+    }
+    if (freins.includes('Compétences numériques')) {
+      ajouter(
+        'Proposer PIX Emploi et un appui numérique',
+        ['Le récit mentionne un manque d’aisance avec l’informatique.'],
+        'Les démarches, candidatures et prescriptions nécessitent un niveau minimal d’autonomie numérique.',
+        'Accès au compte, messagerie, dépôt de CV et capacité à suivre une action à distance.',
+        'L’appui pourra être retiré si l’autonomie numérique est constatée pendant l’entretien.',
+      )
+    }
+
+    ajouter(
+      `Orientation proposée : ${orientationPrioritaire}`,
+      analyseDemandeAutomatique.constats.length
+        ? analyseDemandeAutomatique.constats.slice(0, 3)
+        : ['La proposition repose uniquement sur les informations actuellement saisies.'],
+      'Le logiciel classe d’abord les freins bloquants, puis le besoin exprimé et les ressources mobilisables.',
+      'Le conseiller doit confirmer les informations avec la personne avant d’enregistrer la décision.',
+      'Toute correction du récit, des freins ou des ressources recalcule automatiquement cette proposition.',
+    )
+    return explications
+  }, [analyseDemandeAutomatique, orientationPrioritaire])
+
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
     const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
@@ -1704,6 +1769,57 @@ function AssistantMissionPage() {
                 </Box>
               </Grid>
             </Grid>
+            <Accordion
+              defaultExpanded
+              disableGutters
+              sx={{
+                border: '2px solid #174f86',
+                borderRadius: '8px !important',
+                '&::before': { display: 'none' },
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<Typography sx={{ fontWeight: 900 }}>⌄</Typography>}
+                sx={{ bgcolor: '#eef6ff', minHeight: 46 }}
+              >
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#174f86' }}>
+                    Pourquoi le logiciel propose cette décision ?
+                  </Typography>
+                  <Typography variant="caption">
+                    Explications fondées sur les informations saisies — décision finale à valider par le conseiller.
+                  </Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.25 }}>
+                <Grid container spacing={1}>
+                  {explicationsDecision.map((explication, index) => (
+                    <Grid key={`${explication.decision}-${index}`} size={{ xs: 12, lg: 6 }}>
+                      <Box sx={{ height: '100%', p: 1.1, border: '1px solid #b8cee4', borderRadius: 1.5, bgcolor: '#fff' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#123f6d' }}>
+                          {index + 1}. {explication.decision}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.6, fontWeight: 900 }}>
+                          Éléments détectés
+                        </Typography>
+                        {explication.indices.map((indice) => (
+                          <Typography key={indice} variant="body2">• {indice}</Typography>
+                        ))}
+                        <Typography variant="body2" sx={{ mt: 0.6 }}>
+                          <strong>Règle appliquée :</strong> {explication.regle}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.4 }}>
+                          <strong>À vérifier :</strong> {explication.verification}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.4, color: '#6b4a00' }}>
+                          <strong>Ce qui peut changer la décision :</strong> {explication.changement}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
             <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
                 Décision à enregistrer
