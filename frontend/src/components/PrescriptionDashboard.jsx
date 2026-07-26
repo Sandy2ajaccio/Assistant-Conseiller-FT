@@ -85,6 +85,7 @@ const PrescriptionDashboard = ({
             <Paper
               sx={{
                 p: 1.25,
+                minHeight: 104,
                 borderLeft: `7px solid ${color}`,
                 bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
                 boxShadow: '0 2px 8px rgba(15, 35, 65, 0.12)',
@@ -103,16 +104,16 @@ const PrescriptionDashboard = ({
                   aria-label={`${label} : ${Math.round(percentage)} %`}
                   sx={{
                     position: 'relative',
-                    width: 62,
-                    height: 62,
-                    flex: '0 0 62px',
+                    width: 84,
+                    height: 84,
+                    flex: '0 0 84px',
                     borderRadius: '50%',
                     background: `conic-gradient(${color} ${Math.max(2, percentage)}%, rgba(255,255,255,0.72) 0)`,
                     boxShadow: 'inset 0 0 0 1px rgba(20,45,75,0.08)',
                     '&::after': {
                       content: '""',
                       position: 'absolute',
-                      inset: 8,
+                      inset: 11,
                       borderRadius: '50%',
                       bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
                     },
@@ -128,7 +129,7 @@ const PrescriptionDashboard = ({
                       placeItems: 'center',
                       color,
                       fontWeight: 900,
-                      fontSize: '0.72rem',
+                      fontSize: '0.9rem',
                     }}
                   >
                     {Math.round(percentage)} %
