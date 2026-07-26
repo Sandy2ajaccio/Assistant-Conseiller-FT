@@ -528,7 +528,7 @@ function AssistantMissionPage() {
     if (freins.includes('Compétences numériques')) {
       alertes.push({
         severity: 'warning',
-        texte: 'Difficultés numériques : faire réaliser PIX Emploi et prévoir un appui aux démarches depuis l’espace personnel.',
+        texte: 'Difficultés numériques : proposer l’atelier PIX Emploi à réaliser à domicile afin d’identifier les connaissances informatiques de base du DE.',
       })
     }
     return alertes
@@ -934,11 +934,11 @@ function AssistantMissionPage() {
     }
     if (freins.includes('Compétences numériques')) {
       ajouter(
-        'Proposer PIX Emploi et un appui numérique',
+        'Proposer l’atelier PIX Emploi à réaliser à domicile',
         ['Le récit mentionne un manque d’aisance avec l’informatique.'],
-        'Les démarches, candidatures et prescriptions nécessitent un niveau minimal d’autonomie numérique.',
-        'Accès au compte, messagerie, dépôt de CV et capacité à suivre une action à distance.',
-        'L’appui pourra être retiré si l’autonomie numérique est constatée pendant l’entretien.',
+        'PIX Emploi permet d’identifier les connaissances informatiques de base du demandeur d’emploi.',
+        'Vérifier que la personne peut accéder à son espace personnel et démarrer l’atelier depuis son domicile.',
+        'Un accompagnement au démarrage pourra être ajouté si la personne ne peut pas réaliser seule l’atelier à la maison.',
       )
     }
 
@@ -1129,7 +1129,7 @@ function AssistantMissionPage() {
         item.type === 'Partenaire'
           ? `votre orientation vers ${item.nom}`
           : /pix emploi/i.test(item.nom)
-            ? 'la réalisation de PIX Emploi depuis votre espace personnel France Travail'
+            ? 'la réalisation à votre domicile de l’atelier PIX Emploi depuis votre espace personnel France Travail, afin d’identifier vos connaissances informatiques de base'
           : `votre participation à ${item.nom}`
       )),
     ].filter(Boolean).filter((item, index, items) => items.indexOf(item) === index).slice(0, 4)
@@ -1141,7 +1141,7 @@ function AssistantMissionPage() {
 
     if (!actionsRetenues.some((item) => /pix emploi/i.test(item.nom))) {
       paragraphes.push(
-        "Je vous invite à réaliser PIX Emploi depuis votre espace personnel France Travail afin d’évaluer vos compétences numériques et d’identifier, si nécessaire, les points à renforcer.",
+        "Je vous invite à réaliser à votre domicile l’atelier PIX Emploi depuis votre espace personnel France Travail. Cet atelier permettra d’identifier vos connaissances informatiques de base et, si nécessaire, les points à renforcer.",
       )
     }
 
