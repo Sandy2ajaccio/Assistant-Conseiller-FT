@@ -1088,6 +1088,65 @@ function AssistantMissionPage() {
 
   const dossierPretACloturer = controleCloture.every((item) => item.ok)
 
+  const controleDecision = useMemo(() => {
+    const freins = analyseDemandeAutomatique.freins
+    const manquants = []
+    const contradictions = []
+    const vigilances = []
+
+    if (!identifiantDemandeur.trim()) manquants.push('Identifiant France Travail')
+    if (!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim()) manquants.push('Demande ou objectif de l’entretien')
+    if (ressourcesSelectionnees.length === 0) manquants.push('Au moins un point d’appui à confirmer')
+    if (freins.includes('Santé / RQTH') && !actionsRetenues.some((item) => /cap emploi|handicap/i.test(item.nom))) {
+      vigilances.push('RQTH détectée mais aucun appui handicap ou Cap emploi n’est encore retenu.')
+    }
+    if (freins.includes('Garde d’enfants')) {
+      vigilances.push('La disponibilité réelle doit être confirmée avant une action à horaires fixes.')
+    }
+    if (freins.includes('Projet professionnel') && analyseDemandeAutomatique.objectifs.includes('Formation')) {
+      contradictions.push('Une formation est envisagée alors que le métier cible n’est pas encore défini.')
+    }
+    if (freins.length >= 3 && actionsRetenues.some((item) => /emploi stable|recherche emploi|mise en emploi/i.test(item.nom))) {
+      contradictions.push('Une mise en emploi directe est retenue alors que plusieurs freins actifs restent à sécuriser.')
+    }
+    if (freins.includes('Compétences numériques') && !actionsRetenues.some((item) => /pix|numérique/i.test(item.nom))) {
+      vigilances.push('Difficulté numérique détectée mais aucune action PIX Emploi ou numérique n’est retenue.')
+    }
+    if (freins.includes('Absence de CV') && !actionsRetenues.some((item) => /\bcv\b/i.test(item.nom))) {
+      vigilances.push('Absence de CV détectée mais aucune action CV n’est retenue.')
+    }
+
+    const bloquants = contradictions.length + manquants.filter((item) => !item.includes('point d’appui')).length
+    const niveauRisque = contradictions.length > 0 || freins.length >= 4
+      ? 'Élevé'
+      : vigilances.length > 0 || freins.length >= 2
+        ? 'Modéré'
+        : 'Faible'
+    const statut = bloquants > 0
+      ? 'Décision à différer'
+      : vigilances.length > 0
+        ? 'Décision possible sous réserve'
+        : 'Décision suffisamment sécurisée'
+    const prochaineAction = manquants.length > 0
+      ? `Compléter : ${manquants[0]}.`
+      : contradictions.length > 0
+        ? `Lever la contradiction : ${contradictions[0]}`
+        : vigilances.length > 0
+          ? vigilances[0]
+          : actionsRetenues.length > 0
+            ? 'Valider la proposition avec la personne puis enregistrer la décision.'
+            : 'Retenir au moins une action interne adaptée avant la clôture.'
+
+    return { manquants, contradictions, vigilances, niveauRisque, statut, prochaineAction }
+  }, [
+    analyseDemandeAutomatique,
+    identifiantDemandeur,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    ressourcesSelectionnees,
+    actionsRetenues,
+  ])
+
   const dureeRendezVous = useMemo(() => {
     if (typeEntretien === 'premier-physique') return '60 min'
     if (typeEntretien === 'suivi-physique') return '30 min'
@@ -1820,6 +1879,58 @@ function AssistantMissionPage() {
                 </Grid>
               </AccordionDetails>
             </Accordion>
+            <Box
+              sx={{
+                p: 1.25,
+                border: '2px solid',
+                borderColor: controleDecision.statut === 'Décision à différer'
+                  ? '#d32f2f'
+                  : controleDecision.statut === 'Décision possible sous réserve'
+                    ? '#ed6c02'
+                    : '#2e7d32',
+                borderRadius: 1.5,
+                bgcolor: controleDecision.statut === 'Décision à différer'
+                  ? '#fff1f1'
+                  : controleDecision.statut === 'Décision possible sous réserve'
+                    ? '#fff8e8'
+                    : '#edf7ed',
+              }}
+            >
+              <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }}>
+                <Box sx={{ minWidth: { lg: 245 } }}>
+                  <Typography variant="overline" sx={{ fontWeight: 900 }}>Contrôle de décision</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.15 }}>
+                    {controleDecision.statut}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    color={controleDecision.niveauRisque === 'Élevé' ? 'error' : controleDecision.niveauRisque === 'Modéré' ? 'warning' : 'success'}
+                    label={`Risque : ${controleDecision.niveauRisque}`}
+                    sx={{ mt: 0.75, fontWeight: 900 }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Ce qu’il faut faire maintenant</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{controleDecision.prochaineAction}</Typography>
+                  <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                    {controleDecision.manquants.map((item) => (
+                      <Chip key={item} size="small" color="error" label={`Manque : ${item}`} />
+                    ))}
+                    {controleDecision.contradictions.map((item) => (
+                      <Chip key={item} size="small" color="error" variant="outlined" label={`Contradiction : ${item}`} />
+                    ))}
+                    {controleDecision.vigilances.map((item) => (
+                      <Chip key={item} size="small" color="warning" variant="outlined" label={`À vérifier : ${item}`} />
+                    ))}
+                    {controleDecision.manquants.length === 0
+                      && controleDecision.contradictions.length === 0
+                      && controleDecision.vigilances.length === 0 ? (
+                        <Chip size="small" color="success" label="Aucune incohérence détectée" />
+                      ) : null}
+                  </Stack>
+                </Box>
+              </Stack>
+            </Box>
             <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
                 Décision à enregistrer
