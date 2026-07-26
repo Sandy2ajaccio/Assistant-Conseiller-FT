@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Accordion,
   AccordionDetails,
@@ -102,6 +102,7 @@ const formatDateFr = (isoLike) => {
 
 function AssistantMissionPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const recognitionRef = useRef(null)
 
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
@@ -341,6 +342,17 @@ function AssistantMissionPage() {
           : 'Aucune action disponible',
       },
     ]
+  }, [recommandationsMoteur])
+
+  const prescriptionsSuggerees = useMemo(() => {
+    const suggestions = [
+      ...(recommandationsMoteur.ateliers || []).map((nom) => ({ nom, type: 'Atelier' })),
+      ...(recommandationsMoteur.prestations || []).map((nom) => ({ nom, type: 'Prestation' })),
+    ]
+
+    return suggestions
+      .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
+      .slice(0, 6)
   }, [recommandationsMoteur])
 
   useEffect(() => {
@@ -676,6 +688,12 @@ function AssistantMissionPage() {
     setStorageStatus('Nouveau dossier initialise.')
   }
 
+  const ouvrirPrescriptionAdaptee = (type, nom = '') => {
+    const params = new URLSearchParams({ type })
+    if (nom) params.set('q', nom)
+    navigate(`/prescriptions?${params.toString()}`)
+  }
+
   const demarrerDictee = () => {
     if (!speechSupported || isListening) return
 
@@ -806,6 +824,39 @@ function AssistantMissionPage() {
           <Tab value="entretien" label="Conduite de l’entretien" />
           <Tab value="synthese" label="Synthèse d’entretien" />
         </Tabs>
+
+        <CockpitBlockCard
+          title="Prescriptions adaptées au besoin"
+          subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
+          summarySx={{ minHeight: 42 }}
+          detailsSx={{ py: 1.5 }}
+        >
+          {prescriptionsSuggerees.length > 0 ? (
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {prescriptionsSuggerees.map((item) => (
+                <Button
+                  key={`${item.type}-${item.nom}`}
+                  variant="outlined"
+                  onClick={() => ouvrirPrescriptionAdaptee(item.type, item.nom)}
+                >
+                  {item.type} · {item.nom}
+                </Button>
+              ))}
+            </Stack>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Complétez le besoin, le projet et les freins pour obtenir des propositions ciblées.
+            </Typography>
+          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button variant="contained" onClick={() => ouvrirPrescriptionAdaptee('Atelier')}>
+              Voir tous les ateliers
+            </Button>
+            <Button variant="contained" onClick={() => ouvrirPrescriptionAdaptee('Prestation')}>
+              Voir toutes les prestations
+            </Button>
+          </Stack>
+        </CockpitBlockCard>
 
         {workspaceTab === 'synthese' ? (
           <CockpitBlockCard

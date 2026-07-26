@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -44,6 +44,24 @@ const PRESCRIPTIONS_DATA = offreServiceCorse.map((item) => ({
   organisme: item.intervenants || item.partenaire,
 }))
 
+const normalizeSearch = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+
+const matchesSearch = (item, query) => {
+  if (!query) return true
+  const corpus = normalizeSearch(`${item.code || ''} ${item.nom} ${item.organisme} ${item.objectif} ${item.conditions}`)
+  const normalizedQuery = normalizeSearch(query)
+  if (corpus.includes(normalizedQuery)) return true
+
+  const usefulTokens = normalizedQuery
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !['atelier', 'prestation', 'pour', 'avec', 'dans'].includes(token))
+
+  return usefulTokens.some((token) => corpus.includes(token))
+}
+
 const JUSTIFICATION_BASE =
   "Cette prescription est adaptee au regard des besoins identifies lors de l'entretien, du projet professionnel et des freins observes."
 
@@ -79,8 +97,12 @@ const SELECT_MENU_PROPS = {
 
 function PrescriptionsPage() {
   const navigate = useNavigate()
-  const [typeSelectionne, setTypeSelectionne] = useState('Atelier')
-  const [recherche, setRecherche] = useState('')
+  const [searchParams] = useSearchParams()
+  const [typeSelectionne, setTypeSelectionne] = useState(() => {
+    const requestedType = searchParams.get('type')
+    return TYPES_PRESCRIPTION.includes(requestedType) ? requestedType : 'Atelier'
+  })
+  const [recherche, setRecherche] = useState(() => searchParams.get('q') || '')
   const [filtres, setFiltres] = useState({
     domaine: 'Tous',
     public: 'Tous',
@@ -95,7 +117,7 @@ function PrescriptionsPage() {
   const [status, setStatus] = useState('')
 
   const resultats = useMemo(() => {
-    const query = recherche.trim().toLowerCase()
+    const query = recherche.trim()
     return PRESCRIPTIONS_DATA.filter((item) => {
       if (typeSelectionne && item.type !== typeSelectionne && filtres.type === 'Tous') return false
       if (filtres.type !== 'Tous' && item.type !== filtres.type) return false
@@ -104,9 +126,7 @@ function PrescriptionsPage() {
       if (filtres.localisation !== 'Tous' && item.localisation !== filtres.localisation) return false
       if (filtres.distance !== 'Tous' && item.distance !== filtres.distance) return false
       if (filtres.partenaire !== 'Tous' && item.partenaire !== filtres.partenaire) return false
-      if (!query) return true
-      const corpus = `${item.nom} ${item.organisme} ${item.objectif}`.toLowerCase()
-      return corpus.includes(query)
+      return matchesSearch(item, query)
     })
   }, [typeSelectionne, recherche, filtres])
 
