@@ -289,7 +289,7 @@ function AssistantMissionPage() {
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
   const [copyStatus, setCopyStatus] = useState('')
   const [modeApprofondi, setModeApprofondi] = useState(false)
-  const [actionRetenue, setActionRetenue] = useState('')
+  const [actionsRetenues, setActionsRetenues] = useState([])
   const [portefeuilleChoisi, setPortefeuilleChoisi] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
@@ -648,10 +648,23 @@ function AssistantMissionPage() {
     }).sort((left, right) => Number(right.interne) - Number(left.interne))
   }, [prescriptionsSuggerees, ceQueDitLaPersonne, besoinIdentifieConseiller])
 
-  const actionsPrescriptionPriorisees = useMemo(
-    () => prescriptionsDetaillees.slice(0, 5),
-    [prescriptionsDetaillees],
-  )
+  const actionsDecisionPriorisees = useMemo(() => {
+    const prescriptions = prescriptionsDetaillees.slice(0, 8).map((item) => ({
+      ...item,
+      categorieDecision: item.type,
+    }))
+    const partenaires = (recommandationsMoteur.partenaires || []).map((nom, index) => ({
+      id: `partenaire-${index}-${nom}`,
+      nom,
+      type: 'Partenaire',
+      categorieDecision: 'Partenaire',
+      interne: false,
+    }))
+
+    return [...prescriptions, ...partenaires]
+      .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.categorieDecision === item.categorieDecision) === index)
+      .slice(0, 12)
+  }, [prescriptionsDetaillees, recommandationsMoteur.partenaires])
 
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
@@ -824,9 +837,11 @@ function AssistantMissionPage() {
 
     const actions = [
       ...actionsImmediatesValidees,
-      actionRetenue ? `la prescription de ${actionRetenue}` : '',
-      portefeuilleChoisi ? `votre orientation vers le portefeuille ${portefeuilleChoisi}` : '',
-      decisions.demandeAffectation ? "la demande de votre affectation au portefeuille retenu" : '',
+      ...actionsRetenues.map((item) => (
+        item.type === 'Partenaire'
+          ? `votre orientation vers ${item.nom}`
+          : `votre participation à ${item.nom}`
+      )),
       ...planActionConcret.slice(0, 1).map((etape) => etape.action),
     ].filter(Boolean).slice(0, 4)
     paragraphes.push(
@@ -850,9 +865,7 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     planActionConcret,
     analyseDemandeAutomatique.freins,
-    actionRetenue,
-    portefeuilleChoisi,
-    decisions.demandeAffectation,
+    actionsRetenues,
   ])
 
   const dureeRendezVous = useMemo(() => {
@@ -888,7 +901,13 @@ function AssistantMissionPage() {
     setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
-    setActionRetenue(dossier.actionRetenue || '')
+    setActionsRetenues(
+      Array.isArray(dossier.actionsRetenues)
+        ? dossier.actionsRetenues
+        : dossier.actionRetenue
+          ? [{ nom: dossier.actionRetenue, type: 'Atelier' }]
+          : [],
+    )
     setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
   }, [location.search])
@@ -996,7 +1015,7 @@ function AssistantMissionPage() {
     syntheseMetier,
     mapMetier,
     synthese: { contenu: syntheseEntretien },
-    actionRetenue,
+    actionsRetenues,
     portefeuilleChoisi,
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
   })
@@ -1488,28 +1507,38 @@ function AssistantMissionPage() {
               <Grid container spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
                 <Grid size={{ xs: 12, lg: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                    Action à prescrire — offre interne prioritaire
+                    Actions à prescrire — plusieurs choix possibles, offre interne prioritaire
                   </Typography>
                   <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
-                    {actionsPrescriptionPriorisees.map((item) => (
+                    {actionsDecisionPriorisees.map((item) => {
+                      const selectionnee = actionsRetenues.some(
+                        (action) => action.nom === item.nom && action.type === item.categorieDecision,
+                      )
+                      return (
                       <Button
                         key={item.id}
                         size="small"
-                        variant={actionRetenue === item.nom ? 'contained' : 'outlined'}
-                        color={item.interne ? 'success' : 'secondary'}
+                        variant={selectionnee ? 'contained' : 'outlined'}
+                        color={item.interne ? 'success' : item.categorieDecision === 'Partenaire' ? 'warning' : 'secondary'}
                         onClick={() => {
-                          setActionRetenue(item.nom)
+                          setActionsRetenues((prev) => (
+                            selectionnee
+                              ? prev.filter((action) => !(action.nom === item.nom && action.type === item.categorieDecision))
+                              : [...prev, { nom: item.nom, type: item.categorieDecision, interne: item.interne }]
+                          ))
                           setDecisions((prev) => ({
                             ...prev,
-                            prescriptionAtelier: item.type === 'Atelier',
-                            prescriptionPrestation: item.type === 'Prestation',
+                            prescriptionAtelier: item.type === 'Atelier' || prev.prescriptionAtelier,
+                            prescriptionPrestation: item.type === 'Prestation' || prev.prescriptionPrestation,
+                            orientationPartenaire: item.categorieDecision === 'Partenaire' || prev.orientationPartenaire,
                           }))
                         }}
                       >
-                        {item.interne ? 'Interne' : 'Externe'} · {item.nom}
+                        {item.categorieDecision === 'Partenaire' ? 'Partenaire' : item.interne ? 'Interne' : 'Externe'} · {item.nom}
                       </Button>
-                    ))}
-                    {actionsPrescriptionPriorisees.length === 0 ? (
+                      )
+                    })}
+                    {actionsDecisionPriorisees.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">
                         Aucune prescription suffisamment ciblée pour le moment.
                       </Typography>
