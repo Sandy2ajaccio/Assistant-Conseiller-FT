@@ -1,4 +1,5 @@
 import { buildVersionnementModel, mapStoredDossierPayload } from '../types/dossierContract'
+import { listPortfolioRecords, portfolioRecordToDossier } from './portfolioImportService'
 
 export const DOSSIER_STORAGE_PREFIX = 'assistant-mission-analyse:'
 export const LAST_OPENED_DOSSIER_KEY = 'assistant:last-opened-id'
@@ -43,6 +44,16 @@ export const loadStoredDossier = (identifiant) => {
 
   const raw = localStorage.getItem(buildDossierStorageKey(id))
   if (!raw) {
+    const portfolioRecord = listPortfolioRecords().find((record) => record.identifiant === id)
+    if (portfolioRecord) {
+      const dossier = portfolioRecordToDossier(portfolioRecord)
+      return {
+        ok: true,
+        identifiant: id,
+        payload: { data: dossier, source: 'portefeuille-importé' },
+        dossier,
+      }
+    }
     return { ok: false, code: 'not-found', message: `Aucune analyse trouvée pour l'identifiant ${id}.` }
   }
 

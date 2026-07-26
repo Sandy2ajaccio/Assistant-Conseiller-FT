@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import {
@@ -25,6 +25,7 @@ import {
 } from '../services/portfolioImportService'
 
 const PrescriptionsPage = () => {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const fileInputRef = useRef(null)
   const [portfolioVersion, setPortfolioVersion] = useState(0)
@@ -131,6 +132,71 @@ const PrescriptionsPage = () => {
     return acc
   }, {})
 
+  const analyseIndividuelle = useMemo(() => {
+    if (!dossier) return null
+    const record = selectedEntry?.portfolioRecord || {}
+    const usefulFields = [
+      record.priorite,
+      record.contratEngagement,
+      record.prestation,
+      record.atelier,
+      record.formation,
+      record.echeance,
+      record.alerte,
+      record.actionRealisee,
+      record.historiqueAppels,
+      record.historiqueMails,
+      record.historiqueEntretiens,
+      record.commentaires,
+      dossier.projet,
+      dossier.besoinIdentifieConseiller,
+    ]
+    const completeness = Math.round((usefulFields.filter((value) => String(value || '').trim()).length / usefulFields.length) * 100)
+    const priorityHigh = String(record.priorite || '').toLowerCase() === 'haute'
+    const contractPending = String(record.contratEngagement || '').toLowerCase().includes('signer')
+    const hasAlert = Boolean(record.alerte || record.dateManquement)
+    const hasAction = Boolean(record.actionRealisee || record.action || record.decision)
+    const hasContact = Boolean(record.historiqueEntretiens || record.historiqueAppels || record.historiqueMails)
+    const hasProject = Boolean(String(dossier.projet || '').trim())
+
+    const actions = []
+    if (contractPending) actions.push('Expliquer puis faire signer le contrat d’engagement.')
+    if (hasAlert) actions.push(`Traiter l’alerte ${record.alerte || 'de manquement'} et tracer la décision.`)
+    if (priorityHigh) actions.push('Contacter le DE rapidement : dossier classé en priorité haute.')
+    if (!hasContact) actions.push('Planifier et tracer un premier contact ou entretien.')
+    if (!hasProject) actions.push('Qualifier le projet professionnel, la disponibilité et la capacité à agir.')
+    if (!hasAction) actions.push('Définir une prochaine action datée avec le demandeur.')
+    if (actions.length === 0) actions.push('Poursuivre le suivi et contrôler l’avancement de l’action engagée.')
+
+    const currentStatus = hasAlert || priorityHigh
+      ? 'Intervention prioritaire'
+      : contractPending
+        ? 'Contractualisation à finaliser'
+        : (record.prestation || record.atelier || record.formation)
+          ? 'Accompagnement engagé'
+          : 'Diagnostic à compléter'
+
+    const lastContact = record.historiqueEntretiens || record.historiqueAppels || record.historiqueMails || 'Aucun contact tracé'
+    const engagement = [record.prestation, record.atelier, record.formation]
+      .filter((value) => value && value !== 'Autres')
+      .join(' · ') || 'Aucune action précise enregistrée'
+
+    return {
+      completeness,
+      currentStatus,
+      lastContact,
+      engagement,
+      actions: actions.slice(0, 4),
+      color: hasAlert || priorityHigh ? '#d32f2f' : contractPending ? '#ed6c02' : '#2e7d32',
+      missing: [
+        !hasProject && 'projet professionnel',
+        !record.telephone && 'téléphone',
+        !record.echeance && 'échéance',
+        !hasAction && 'action réalisée',
+      ].filter(Boolean),
+    }
+  }, [dossier, selectedEntry])
+
   return (
     <Box sx={{ px: { xs: 1, md: 2 }, py: 1.5 }}>
       <Stack spacing={1.25}>
@@ -205,6 +271,73 @@ const PrescriptionsPage = () => {
             </Stack>
           </Stack>
         </Paper>
+
+        {analyseIndividuelle ? (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              borderLeft: '9px solid',
+              borderLeftColor: analyseIndividuelle.color,
+              boxShadow: '0 3px 14px rgba(15,35,65,0.12)',
+            }}
+          >
+            <Stack direction={{ xs: 'column', xl: 'row' }} spacing={1.5}>
+              <Box sx={{ minWidth: { xl: 250 } }}>
+                <Typography variant="overline" sx={{ color: analyseIndividuelle.color, fontWeight: 900 }}>
+                  ANALYSE INDIVIDUELLE DU DE
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 900 }}>{analyseIndividuelle.currentStatus}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedEntry?.portfolioRecord?.nom} {selectedEntry?.portfolioRecord?.prenom} · {selectedDossierId}
+                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="caption" sx={{ fontWeight: 800 }}>Dossier renseigné</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 900 }}>{analyseIndividuelle.completeness} %</Typography>
+                  </Stack>
+                  <Box sx={{ height: 10, borderRadius: 5, bgcolor: '#e4e9ef', overflow: 'hidden' }}>
+                    <Box sx={{ height: '100%', width: `${analyseIndividuelle.completeness}%`, bgcolor: analyseIndividuelle.color }} />
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box sx={{ flex: 1, p: 1.25, bgcolor: '#eef5ff', borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#174f86' }}>Où en est le DE ?</Typography>
+                <Typography variant="body2"><strong>Dernier contact :</strong> {analyseIndividuelle.lastContact}</Typography>
+                <Typography variant="body2"><strong>Contrat :</strong> {selectedEntry?.portfolioRecord?.contratEngagement || 'Non renseigné'}</Typography>
+                <Typography variant="body2"><strong>Action/parcours :</strong> {analyseIndividuelle.engagement}</Typography>
+                {selectedEntry?.portfolioRecord?.commentaires ? (
+                  <Typography variant="body2"><strong>Commentaire :</strong> {selectedEntry.portfolioRecord.commentaires}</Typography>
+                ) : null}
+              </Box>
+
+              <Box sx={{ flex: 1.35, p: 1.25, bgcolor: '#fff7e8', borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#9a5200' }}>Ce qu’il faut faire maintenant</Typography>
+                {analyseIndividuelle.actions.map((action, index) => (
+                  <Typography key={action} variant="body2" sx={{ fontWeight: index === 0 ? 800 : 500 }}>
+                    {index + 1}. {action}
+                  </Typography>
+                ))}
+              </Box>
+
+              <Box sx={{ minWidth: { xl: 230 }, p: 1.25, bgcolor: '#f7f8fa', borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Informations à compléter</Typography>
+                <Typography variant="body2" color={analyseIndividuelle.missing.length ? 'error.main' : 'success.main'}>
+                  {analyseIndividuelle.missing.length ? analyseIndividuelle.missing.join(' · ') : 'Données essentielles présentes'}
+                </Typography>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 1 }}
+                  onClick={() => navigate(`/assistant?dossier=${encodeURIComponent(selectedDossierId)}`)}
+                >
+                  Ouvrir et compléter le dossier
+                </Button>
+              </Box>
+            </Stack>
+          </Paper>
+        ) : null}
 
         <PrescriptionDashboard
           items={offreServiceCorse}
