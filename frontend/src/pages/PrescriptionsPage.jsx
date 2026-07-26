@@ -13,6 +13,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import DailyWorkQueue from '../components/DailyWorkQueue'
+import PrescriptionFollowUp from '../components/PrescriptionFollowUp'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import {
   getLastOpenedDossierId,
@@ -256,6 +257,11 @@ const PrescriptionsPage = () => {
           dossiers={dossiers}
           selectedDossierId={selectedDossierId}
           onSelect={setSelectedDossierId}
+          onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
+        />
+
+        <PrescriptionFollowUp
+          dossiers={dossiers}
           onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
         />
 
