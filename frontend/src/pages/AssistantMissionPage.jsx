@@ -29,7 +29,6 @@ import { analyserSituation } from '../services/moteurExpert'
 import analyseDiagnostic from '../services/diagnosticService'
 import getRecommandations from '../services/recommandationService'
 import genererSynthese from '../services/syntheseService'
-import generateSyntheseFranceTravail from '../services/syntheseFranceTravailService'
 import genererMAP from '../services/mapService'
 import {
   deleteStoredDossier,
@@ -118,6 +117,14 @@ const findPrescriptionInCatalogue = (suggestion) => {
       || expected.includes(candidate)
       || expectedTokens.some((token) => candidate.includes(token))
   }) || null
+}
+
+const formatListeCourte = (items) => {
+  const values = [...new Set(items.filter(Boolean))]
+  if (values.length === 0) return ''
+  if (values.length === 1) return values[0]
+  if (values.length === 2) return `${values[0]} et ${values[1]}`
+  return `${values.slice(0, -1).join(', ')} et ${values[values.length - 1]}`
 }
 
 const formatDateFr = (isoLike) => {
@@ -379,11 +386,14 @@ function AssistantMissionPage() {
 
     return suggestions
       .filter((item, index, items) => items.findIndex((candidate) => candidate.nom === item.nom && candidate.type === item.type) === index)
-      .slice(0, 6)
+      .slice(0, 3)
   }, [recommandationsMoteur])
 
-  const prescriptionsDetaillees = useMemo(
-    () => prescriptionsSuggerees.map((suggestion) => {
+  const prescriptionsDetaillees = useMemo(() => {
+    const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
+    if (!besoinRenseigne) return []
+
+    return prescriptionsSuggerees.map((suggestion) => {
       const catalogueEntry = findPrescriptionInCatalogue(suggestion)
       return catalogueEntry || {
         id: `suggestion-${suggestion.type}-${suggestion.nom}`,
@@ -397,9 +407,8 @@ function AssistantMissionPage() {
         prescription: 'À confirmer dans le référentiel France Travail',
         localisation: 'Corse',
       }
-    }),
-    [prescriptionsSuggerees],
-  )
+    })
+  }, [prescriptionsSuggerees, ceQueDitLaPersonne, besoinIdentifieConseiller])
 
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
@@ -495,54 +504,55 @@ function AssistantMissionPage() {
   )
 
   const syntheseEntretien = useMemo(() => {
-    const contenu = generateSyntheseFranceTravail({
-      identite: { identifiantFt: identifiantDemandeur },
-      parcoursProfessionnel,
-      projetProfessionnel: projet,
-      contraintes: freinsSelectionnes,
-      competences: ressourcesSelectionnees,
-      formations: formation ? [formation] : [],
-      mobilite: situationPersonnelle,
-      notesRapides: [
-        situationAdministrative,
-        ceQueDitLaPersonne,
-        besoinIdentifieConseiller,
-        notes,
-        ...Object.values(assistantAnswers).filter(Boolean),
-      ],
-      diagnostic: diagnosticMetierCalcule,
-      recommandationsRetenues: actionsImmediatesValidees,
-      recommandations: {
-        ...recommandationsMetierCalculees,
-        actions: actionsImmediatesActives,
-      },
-      map: mapMetierCalcule,
-    }).texte
+    const paragraphes = []
+    const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
+    const contexte = [situationAdministrative, situationPersonnelle].filter((item) => item.trim()).join(' ')
 
-    const introduction = contenu.trim().startsWith('Vous')
-      ? ''
-      : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.\n\n"
+    paragraphes.push(
+      demande
+        ? `Vous m'indiquez que ${demande.replace(/[.]+$/, '')}.`
+        : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.",
+    )
+
+    const parcoursEtProjet = [
+      parcoursProfessionnel.trim() ? `Votre parcours : ${parcoursProfessionnel.trim().replace(/[.]+$/, '')}.` : '',
+      projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : 'Votre projet professionnel reste à préciser.',
+      contexte ? `Votre situation actuelle : ${contexte.replace(/[.]+$/, '')}.` : '',
+    ].filter(Boolean).join(' ')
+    paragraphes.push(parcoursEtProjet)
+
+    const constats = []
+    if (freinsSelectionnes.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSelectionnes)}`)
+    if (ressourcesSelectionnees.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSelectionnees)}`)
+    if (constats.length > 0) paragraphes.push(`Nous avons identifié ${constats.join(', ainsi que ')}.`)
+
+    const actions = [
+      ...actionsImmediatesValidees,
+      ...(recommandationsMoteur.ateliers || []).slice(0, 1),
+      ...(recommandationsMoteur.prestations || []).slice(0, 1),
+      ...(actionsImmediatesActives || []).slice(0, 2),
+    ].filter(Boolean).slice(0, 4)
+    paragraphes.push(
+      actions.length > 0
+        ? `Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`
+        : "Nous convenons de préciser ensemble les prochaines actions de votre accompagnement.",
+    )
+
     const conclusion = "Je vous ai expliqué en quoi consistait le contrat d'engagement, vos obligations et vos devoirs. Nous signons ce jour votre contrat d'engagement."
-
-    return `${introduction}${contenu.trim()}${contenu.trim() ? '\n\n' : ''}${conclusion}`
+    paragraphes.push(conclusion)
+    return paragraphes.filter(Boolean).join('\n\n')
   }, [
-    identifiantDemandeur,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
     parcoursProfessionnel,
     projet,
     freinsSelectionnes,
     ressourcesSelectionnees,
-    formation,
-    situationPersonnelle,
-    situationAdministrative,
-    ceQueDitLaPersonne,
-    besoinIdentifieConseiller,
-    notes,
-    assistantAnswers,
-    diagnosticMetierCalcule,
     actionsImmediatesValidees,
     actionsImmediatesActives,
-    recommandationsMetierCalculees,
-    mapMetierCalcule,
+    recommandationsMoteur,
   ])
 
   const dureeRendezVous = useMemo(() => {
@@ -942,11 +952,11 @@ function AssistantMissionPage() {
                       bgcolor: item.public === 'À vérifier' ? '#fffaf0' : '#f4fbf6',
                     }}
                   >
-                    <CardContent>
-                      <Stack spacing={1.1}>
+                    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                      <Stack spacing={0.75}>
                         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                           <Box>
-                            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 800 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
                               {item.code ? `${item.code} - ` : ''}{item.nom}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -960,35 +970,24 @@ function AssistantMissionPage() {
                           />
                         </Stack>
 
-                        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                          <Chip size="small" variant="outlined" label={`Public : ${item.public}`} />
-                          <Chip size="small" variant="outlined" label={`Durée : ${item.duree}`} />
-                          {item.modalite ? <Chip size="small" variant="outlined" label={item.modalite} /> : null}
+                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                          <Chip size="small" variant="outlined" label={item.public} />
+                          <Chip size="small" variant="outlined" label={item.duree} />
                         </Stack>
 
-                        <Box>
-                          <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.dark' }}>
-                            POURQUOI CETTE PROPOSITION ?
-                          </Typography>
-                          <Typography variant="body2">{item.objectif}</Typography>
-                        </Box>
-
-                        <Alert severity="warning" sx={{ py: 0 }}>
-                          <strong>À vérifier :</strong> {item.conditions}
-                        </Alert>
-
-                        <Box sx={{ bgcolor: '#eef4ff', borderRadius: 1.5, p: 1 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.dark' }}>
-                            CHEMIN DE PRESCRIPTION
-                          </Typography>
-                          <Typography variant="body2">{item.prescription}</Typography>
-                        </Box>
+                        <Typography variant="body2" sx={{ lineHeight: 1.35 }}>
+                          {item.objectif}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'warning.dark', fontWeight: 700 }}>
+                          À vérifier : {item.conditions}
+                        </Typography>
 
                         <Button
-                          variant="contained"
+                          size="small"
+                          variant="outlined"
                           onClick={() => ouvrirPrescriptionAdaptee(item.type, item.nom)}
                         >
-                          Ouvrir et sélectionner
+                          Détails et sélection
                         </Button>
                       </Stack>
                     </CardContent>
@@ -1027,7 +1026,8 @@ function AssistantMissionPage() {
               value={syntheseEntretien}
               fullWidth
               multiline
-              minRows={18}
+              minRows={10}
+              maxRows={14}
               InputProps={{ readOnly: true }}
               sx={{
                 '& .MuiInputBase-input': {
@@ -1222,25 +1222,32 @@ function AssistantMissionPage() {
                 </CockpitBlockCard>
 
               <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT }}>
-                  <Stack spacing={0.25} sx={{ mb: 0.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      Niveau de confiance: {recommandationsMoteur.niveauConfiance || 'Faible'}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      Score de pertinence: {recommandationsMoteur.score ?? 0}
-                    </Typography>
-                    <Typography variant="body2">
-                      Justification: {recommandationsMoteur.justification || 'Aucune justification disponible.'}
-                    </Typography>
-                    <Typography variant="body2">
-                      Motifs de correspondance: {(recommandationsMoteur.motifsCorrespondance || []).join(' | ') || 'Aucun motif de correspondance.'}
-                    </Typography>
-                    <Typography variant="body2">
-                      Avertissements: {(recommandationsMoteur.avertissements || []).length > 0
-                        ? recommandationsMoteur.avertissements.join(' | ')
-                        : 'Aucun avertissement.'}
-                    </Typography>
+                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                    <Chip
+                      size="small"
+                      color={recommandationsMoteur.niveauConfiance === 'Élevé' ? 'success' : 'warning'}
+                      label={`Confiance : ${recommandationsMoteur.niveauConfiance || 'Faible'}`}
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`Orientation : ${recommandationsMoteur.orientation?.principale || 'À préciser'}`}
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`Portefeuille : ${recommandationsMoteur.portefeuille || 'À préciser'}`}
+                    />
                   </Stack>
+                  {!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
+                    <Alert severity="warning" sx={{ py: 0 }}>
+                      Complétez d’abord la demande exprimée pour fiabiliser les recommandations.
+                    </Alert>
+                  ) : (
+                    <Alert severity="success" sx={{ py: 0 }}>
+                      Les recommandations ci-dessous tiennent compte du besoin actuellement renseigné.
+                    </Alert>
+                  )}
                   <Tabs
                     value={recommandationTab}
                     onChange={(_, value) => setRecommandationTab(value)}
@@ -1248,7 +1255,9 @@ function AssistantMissionPage() {
                     scrollButtons="auto"
                     sx={{ minHeight: 30, '& .MuiTab-root': { minHeight: 30, py: 0 } }}
                   >
-                    {recommandationsService.map((item) => (
+                    {recommandationsService
+                      .filter((item) => ['orientation', 'ateliers', 'prestations', 'partenaires', 'formation', 'actions'].includes(item.key))
+                      .map((item) => (
                       <Tab key={item.key} value={item.key} label={item.title} />
                     ))}
                   </Tabs>
