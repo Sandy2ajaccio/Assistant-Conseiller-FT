@@ -911,6 +911,10 @@ function AssistantMissionPage() {
         : "Nous convenons de préciser ensemble les prochaines actions de votre accompagnement.",
     )
 
+    paragraphes.push(
+      "Je vous invite à réaliser PIX Emploi depuis votre espace personnel France Travail afin d’évaluer vos compétences numériques et d’identifier, si nécessaire, les points à renforcer.",
+    )
+
     const conclusion = "Je vous ai expliqué en quoi consistait le contrat d'engagement, vos obligations et vos devoirs. Nous signons ce jour votre contrat d'engagement."
     paragraphes.push(conclusion)
     return paragraphes.filter(Boolean).join('\n\n')
