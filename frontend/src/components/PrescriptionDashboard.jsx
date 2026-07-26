@@ -4,9 +4,13 @@ import {
   Box,
   Button,
   Chip,
+  FormControl,
   Grid,
+  InputLabel,
   LinearProgress,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -31,6 +35,8 @@ const PrescriptionDashboard = ({
   const [type, setType] = useState(initialType)
   const [selectedId, setSelectedId] = useState(null)
   const [retainedId, setRetainedId] = useState(null)
+  const [chartDimension, setChartDimension] = useState('domaine')
+  const [chartFilter, setChartFilter] = useState('')
 
   const recommended = useMemo(
     () => recommendedNames.map(normalize).filter(Boolean),
@@ -46,9 +52,10 @@ const PrescriptionDashboard = ({
     const query = normalize(search)
     return items
       .filter((item) => type === 'Tous' || item.type === type)
+      .filter((item) => !chartFilter || item[chartDimension] === chartFilter)
       .filter((item) => !query || normalize(Object.values(item).join(' ')).includes(query))
       .sort((a, b) => Number(isRecommended(b)) - Number(isRecommended(a)) || a.nom.localeCompare(b.nom))
-  }, [items, search, type, recommended])
+  }, [items, search, type, recommended, chartFilter, chartDimension])
 
   useEffect(() => {
     if (!filteredItems.some((item) => item.id === selectedId)) {
@@ -65,6 +72,18 @@ const PrescriptionDashboard = ({
     return acc
   }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const maxDomain = Math.max(...domainCounts.map(([, count]) => count), 1)
+  const pivotData = useMemo(() => {
+    const groups = items.reduce((acc, item) => {
+      const key = item[chartDimension] || 'Non renseigné'
+      if (!acc[key]) acc[key] = { label: key, Atelier: 0, Prestation: 0, total: 0, recommended: 0 }
+      acc[key][item.type] = (acc[key][item.type] || 0) + 1
+      acc[key].total += 1
+      if (isRecommended(item)) acc[key].recommended += 1
+      return acc
+    }, {})
+    return Object.values(groups).sort((a, b) => b.total - a.total).slice(0, 8)
+  }, [items, chartDimension, recommended])
+  const maxPivot = Math.max(...pivotData.map((entry) => entry.total), 1)
 
   const choose = () => {
     if (!selected) return
@@ -139,6 +158,106 @@ const PrescriptionDashboard = ({
             </Paper>
           </Grid>
         ))}
+      </Grid>
+
+      <Grid container spacing={1}>
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: '#fff', borderTop: '5px solid #244d78' }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#244d78' }}>
+                  Graphique croisé dynamique
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Cliquez sur une barre pour filtrer la liste.
+                </Typography>
+              </Box>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="pivot-axis-label">Analyser par</InputLabel>
+                <Select
+                  labelId="pivot-axis-label"
+                  value={chartDimension}
+                  label="Analyser par"
+                  onChange={(event) => {
+                    setChartDimension(event.target.value)
+                    setChartFilter('')
+                  }}
+                >
+                  <MenuItem value="domaine">Domaine</MenuItem>
+                  <MenuItem value="public">Public</MenuItem>
+                  <MenuItem value="localisation">Localisation</MenuItem>
+                  <MenuItem value="partenaire">Partenaire</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 0.8 }}>
+              {pivotData.map((entry) => (
+                <Box
+                  key={entry.label}
+                  onClick={() => setChartFilter((current) => current === entry.label ? '' : entry.label)}
+                  sx={{
+                    p: 0.7,
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    bgcolor: chartFilter === entry.label ? '#dcecff' : '#f7f9fc',
+                    border: '1px solid',
+                    borderColor: chartFilter === entry.label ? '#1976d2' : '#e1e6ed',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 800 }} noWrap>
+                    {entry.label} · <Box component="span" sx={{ fontWeight: 900 }}>{entry.total}</Box>
+                  </Typography>
+                  <Box sx={{ display: 'flex', height: 10, mt: 0.35, bgcolor: '#e8edf3', borderRadius: 5, overflow: 'hidden' }}>
+                    <Box title={`${entry.Atelier} atelier(s)`} sx={{ width: `${(entry.Atelier / maxPivot) * 100}%`, bgcolor: '#00897b' }} />
+                    <Box title={`${entry.Prestation} prestation(s)`} sx={{ width: `${(entry.Prestation / maxPivot) * 100}%`, bgcolor: '#8e24aa' }} />
+                  </Box>
+                  <Box sx={{ height: 3, mt: 0.25, borderRadius: 4, width: `${(entry.recommended / maxPivot) * 100}%`, bgcolor: '#43a047' }} />
+                </Box>
+              ))}
+            </Box>
+            <Stack direction="row" spacing={2} sx={{ mt: 0.8 }}>
+              <Typography variant="caption"><Box component="span" sx={{ color: '#00897b' }}>●</Box> Ateliers</Typography>
+              <Typography variant="caption"><Box component="span" sx={{ color: '#8e24aa' }}>●</Box> Prestations</Typography>
+              <Typography variant="caption"><Box component="span" sx={{ color: '#43a047' }}>●</Box> Adaptés au DE</Typography>
+              {chartFilter ? <Chip size="small" color="primary" label={`Filtre : ${chartFilter} ×`} onClick={() => setChartFilter('')} /> : null}
+            </Stack>
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <Paper variant="outlined" sx={{ p: 1.25, height: '100%', borderTop: '5px solid #f57c00' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#8a4b00' }}>Répartition de l’offre</Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-around" sx={{ mt: 1 }}>
+              <Box
+                sx={{
+                  width: 132,
+                  height: 132,
+                  borderRadius: '50%',
+                  position: 'relative',
+                  background: `conic-gradient(#00897b 0 ${(atelierCount / Math.max(items.length, 1)) * 100}%, #8e24aa 0 100%)`,
+                  '&::after': { content: '""', position: 'absolute', inset: 24, borderRadius: '50%', bgcolor: '#fff' },
+                }}
+              >
+                <Box sx={{ position: 'absolute', inset: 0, zIndex: 1, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+                  <Box>
+                    <Typography variant="h5" sx={{ fontWeight: 900 }}>{items.length}</Typography>
+                    <Typography variant="caption">solutions</Typography>
+                  </Box>
+                </Box>
+              </Box>
+              <Stack spacing={1}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">ATELIERS</Typography>
+                  <Typography variant="h5" sx={{ color: '#00897b', fontWeight: 900 }}>{atelierCount}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">PRESTATIONS</Typography>
+                  <Typography variant="h5" sx={{ color: '#8e24aa', fontWeight: 900 }}>{prestationCount}</Typography>
+                </Box>
+              </Stack>
+            </Stack>
+          </Paper>
+        </Grid>
       </Grid>
 
       {alerts.length > 0 ? (
