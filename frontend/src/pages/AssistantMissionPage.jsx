@@ -247,6 +247,27 @@ const formatDateFr = (isoLike) => {
   return d.toLocaleString('fr-FR')
 }
 
+const reformulerRecitPourDemandeur = (texteSource) => {
+  const phrases = String(texteSource || '')
+    .trim()
+    .split(/[.!?]+/)
+    .map((phrase) => phrase.trim())
+    .filter(Boolean)
+
+  return phrases.map((phrase) => {
+    const debutMinuscule = phrase.charAt(0).toLowerCase() + phrase.slice(1)
+    if (/^\d+\s*ans?\b/i.test(phrase)) return `vous disposez de ${debutMinuscule}`
+    if (/^ne sait plus/i.test(phrase)) return phrase.replace(/^ne sait plus/i, 'vous ne savez plus')
+    if (/^ne sait pas/i.test(phrase)) return phrase.replace(/^ne sait pas/i, 'vous ne savez pas')
+    if (/^souhaite/i.test(phrase)) return phrase.replace(/^souhaite/i, 'vous souhaitez')
+    if (/^recherche/i.test(phrase)) return phrase.replace(/^recherche/i, 'vous recherchez')
+    if (/^pas de/i.test(phrase)) return phrase.replace(/^pas de/i, "vous n'avez pas de")
+    if (/^sans /i.test(phrase)) return `vous êtes ${debutMinuscule}`
+    if (/^vous\b/i.test(phrase)) return debutMinuscule
+    return debutMinuscule
+  }).join(', et ')
+}
+
 function AssistantMissionPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -437,7 +458,7 @@ function AssistantMissionPage() {
       objectifsDetectes.push('Formation')
       constats.push('Une demande de formation est exprimée.')
     }
-    if (/projet non defini|projet a definir|ne sait pas|hesite|sans projet/.test(texte)) {
+    if (/projet non defini|projet a definir|ne sait pas|ne sait plus|hesite|sans projet/.test(texte)) {
       freinsDetectes.push('Projet professionnel')
       objectifsDetectes.push('Clarifier le projet professionnel')
       constats.push('Le projet n’est pas encore défini : une phase d’exploration est prioritaire.')
@@ -1085,7 +1106,7 @@ function AssistantMissionPage() {
 
     paragraphes.push(
       demande
-        ? `Vous m'indiquez que ${demande.replace(/[.]+$/, '')}.`
+        ? `Vous m’indiquez que ${reformulerRecitPourDemandeur(demande)}.`
         : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.",
     )
 
@@ -1107,19 +1128,22 @@ function AssistantMissionPage() {
       ...actionsRetenues.map((item) => (
         item.type === 'Partenaire'
           ? `votre orientation vers ${item.nom}`
+          : /pix emploi/i.test(item.nom)
+            ? 'la réalisation de PIX Emploi depuis votre espace personnel France Travail'
           : `votre participation à ${item.nom}`
       )),
-      ...planActionConcret.slice(0, 1).map((etape) => etape.action),
-    ].filter(Boolean).slice(0, 4)
+    ].filter(Boolean).filter((item, index, items) => items.indexOf(item) === index).slice(0, 4)
     paragraphes.push(
       actions.length > 0
         ? `Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`
         : "Nous convenons de préciser ensemble les prochaines actions de votre accompagnement.",
     )
 
-    paragraphes.push(
-      "Je vous invite à réaliser PIX Emploi depuis votre espace personnel France Travail afin d’évaluer vos compétences numériques et d’identifier, si nécessaire, les points à renforcer.",
-    )
+    if (!actionsRetenues.some((item) => /pix emploi/i.test(item.nom))) {
+      paragraphes.push(
+        "Je vous invite à réaliser PIX Emploi depuis votre espace personnel France Travail afin d’évaluer vos compétences numériques et d’identifier, si nécessaire, les points à renforcer.",
+      )
+    }
 
     const conclusion = "Je vous ai expliqué en quoi consistait le contrat d'engagement, vos obligations et vos devoirs. Nous signons ce jour votre contrat d'engagement."
     paragraphes.push(conclusion)
@@ -1134,7 +1158,6 @@ function AssistantMissionPage() {
     freinsSelectionnes,
     ressourcesSelectionnees,
     actionsImmediatesValidees,
-    planActionConcret,
     analyseDemandeAutomatique.freins,
     actionsRetenues,
   ])
