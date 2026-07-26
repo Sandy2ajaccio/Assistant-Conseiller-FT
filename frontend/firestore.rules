@@ -4,7 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner() {
       return request.auth != null
-        && request.auth.token.phone_number == '+33680817064';
+        && request.auth.token.email == 's.marchasson.cip@gmail.com'
+        && request.auth.token.email_verified == true;
     }
 
     match /private/{userId} {
