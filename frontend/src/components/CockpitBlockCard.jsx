@@ -25,7 +25,7 @@ function CockpitBlockCard({
         display: 'flex',
         flexDirection: 'column',
         width: '100%',
-        borderRadius: 2,
+        borderRadius: 2.5,
         border: '1px solid',
         borderColor: 'divider',
         boxShadow: 'none',
@@ -36,10 +36,10 @@ function CockpitBlockCard({
     >
       <AccordionSummary
         sx={{
-          minHeight: 38,
+          minHeight: 46,
           flexShrink: 0,
-          px: 1.25,
-          '& .MuiAccordionSummary-content': { my: 0.5 },
+          px: 2,
+          '& .MuiAccordionSummary-content': { my: 0.75 },
           ...summarySx,
         }}
       >
@@ -56,15 +56,15 @@ function CockpitBlockCard({
       </AccordionSummary>
       <AccordionDetails
         sx={{
-          px: 1.25,
-          pt: 0.5,
-          pb: 1,
+          px: 2,
+          pt: 0.75,
+          pb: 2,
           flex: 1,
           overflow: allowOverflow ? 'visible' : 'auto',
           ...detailsSx,
         }}
       >
-        <Stack spacing={0.75}>{children}</Stack>
+        <Stack spacing={1.25}>{children}</Stack>
       </AccordionDetails>
     </Accordion>
   )

@@ -90,7 +90,7 @@ const QUESTIONS_FALLBACK = [
   'Quelle action concrete declencher aujourd hui ?',
 ]
 
-const UNIFORM_CARD_HEIGHT = 190
+const CARD_MIN_HEIGHT = 230
 
 const formatDateFr = (isoLike) => {
   if (!isoLike) return 'Non renseignee'
@@ -666,16 +666,25 @@ function AssistantMissionPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 0.75, md: 1 }, bgcolor: '#f5f7fa', minHeight: '100vh' }}>
-      <Stack spacing={0.75}>
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: 1680,
+        mx: 'auto',
+        p: { xs: 1, md: 2 },
+        bgcolor: '#f5f7fa',
+        minHeight: '100vh',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Stack spacing={1.5}>
         <CockpitBlockCard
           title="Cockpit Demandeur"
-          sx={{ minHeight: 84, maxHeight: 84 }}
-          summarySx={{ minHeight: 26, px: 1, '& .MuiAccordionSummary-content': { my: 0.25 } }}
-          titleSx={{ fontSize: '0.95rem' }}
-          detailsSx={{ px: 1, pt: 0.25, pb: 0.5 }}
+          summarySx={{ minHeight: 42, px: 2 }}
+          titleSx={{ fontSize: '1.05rem' }}
+          detailsSx={{ px: 2, pt: 0.5, pb: 1.5 }}
         >
-          <Grid container spacing={0.75} alignItems="center">
+          <Grid container spacing={1.5} alignItems="center">
             <Grid size={{ xs: 12, md: 2.5 }}>
               <TextField
                 label="Identifiant France Travail"
@@ -700,28 +709,28 @@ function AssistantMissionPage() {
               </TextField>
             </Grid>
             <Grid size={{ xs: 12, md: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Duree</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>{dureeRendezVous}</Typography>
+              <Typography variant="body2" color="text.secondary">Durée</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>{dureeRendezVous}</Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Conseiller referent</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>Conseiller FT</Typography>
+              <Typography variant="body2" color="text.secondary">Conseiller référent</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>Conseiller FT</Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 2.5 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>Chronometre</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>{formatChrono(chronoSecondes)}</Typography>
+              <Typography variant="body2" color="text.secondary">Chronomètre</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>{formatChrono(chronoSecondes)}</Typography>
             </Grid>
           </Grid>
 
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-            Derniere actualisation: {formatDateFr(new Date().toISOString())}
+          <Typography variant="caption" color="text.secondary">
+            Dernière actualisation : {formatDateFr(new Date().toISOString())}
           </Typography>
         </CockpitBlockCard>
 
-        <Grid container spacing={0.75}>
+        <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={0.75}>
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <Stack spacing={1.5}>
+              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
@@ -772,7 +781,7 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="3. Freins identifies" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
                     options={FREINS_OPTIONS}
@@ -781,7 +790,7 @@ function AssistantMissionPage() {
                   />
               </CockpitBlockCard>
 
-              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Tabs
                     value={advpTab}
                     onChange={(_, value) => setAdvpTab(value)}
@@ -824,7 +833,7 @@ function AssistantMissionPage() {
 
               <CockpitBlockCard
                 title="7. Lecture du conseiller"
-                sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT, bgcolor: '#f8fafc', borderColor: '#d5dde8' }}
+                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#f8fafc', borderColor: '#d5dde8' }}
                 titleSx={{ fontSize: '1rem', fontWeight: 800 }}
               >
                   <Stack spacing={0.25}>
@@ -846,8 +855,8 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <Stack spacing={0.75}>
-              <CockpitBlockCard title="2. Demande exprimee" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <Stack spacing={1.5}>
+              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <TextField
                     label="Ce que dit la personne"
                     value={ceQueDitLaPersonne}
@@ -868,7 +877,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="4. Ressources et points d appui" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
                     options={RESSOURCES_OPTIONS}
@@ -877,7 +886,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="6. Capacite a agir" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT, ...capaciteFondSx }}>
+              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{capaciteAAgir.statut}</Typography>
                   <Stack spacing={0.25}>
                     {capaciteAAgir.observations.map((line) => (
@@ -887,7 +896,7 @@ function AssistantMissionPage() {
                   <Typography variant="body2">Consequence pour l accompagnement: {capaciteAAgir.consequence}</Typography>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Stack spacing={0.25} sx={{ mb: 0.5 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700 }}>
                       Niveau de confiance: {recommandationsMoteur.niveauConfiance || 'Faible'}
@@ -931,9 +940,9 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={0.75}>
+        <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Grid container spacing={1}>
                     <Grid size={12}>
                       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>Objectifs</Typography>
@@ -956,7 +965,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <CockpitBlockCard title="10. Actions immediates" defaultExpanded={false} sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <CockpitBlockCard title="10. Actions immédiates" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                 {actionsImmediatesActives.length === 0 ? (
                   <Typography variant="body2">Toutes les actions immediates sont validees.</Typography>
                 ) : (
@@ -975,7 +984,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <CockpitBlockCard title="Conduite entretien" defaultExpanded={false} sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <CockpitBlockCard title="Conduite d’entretien" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Typography variant="body2">Question en cours: {questionCourante || 'Aucune question'}</Typography>
                   <TextField
                     label="Reponse"
@@ -1026,7 +1035,7 @@ function AssistantMissionPage() {
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <CockpitBlockCard title="Actions dossier" defaultExpanded={false} sx={{ minHeight: UNIFORM_CARD_HEIGHT, maxHeight: UNIFORM_CARD_HEIGHT }}>
+            <CockpitBlockCard title="Actions du dossier" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT }}>
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
                     <Button variant="outlined" onClick={nouveauDossier}>Nouveau dossier</Button>
                     <Button variant="outlined" onClick={ouvrirListeAnalyses}>Ouvrir</Button>
