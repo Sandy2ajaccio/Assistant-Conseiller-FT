@@ -76,11 +76,11 @@ const PrescriptionDashboard = ({
     <Stack spacing={1.25}>
       <Grid container spacing={1}>
         {[
-          ['Dispositifs', items.length, '#1565c0'],
-          ['Ateliers', atelierCount, '#00897b'],
-          ['Prestations', prestationCount, '#7b1fa2'],
-          ['Adaptés au besoin', recommendedCount, recommendedCount ? '#2e7d32' : '#ed6c02'],
-        ].map(([label, value, color], index) => (
+          ['Dispositifs', items.length, Math.min(100, (items.length / 40) * 100), '#1565c0'],
+          ['Ateliers', atelierCount, items.length ? (atelierCount / items.length) * 100 : 0, '#00897b'],
+          ['Prestations', prestationCount, items.length ? (prestationCount / items.length) * 100 : 0, '#7b1fa2'],
+          ['Adaptés au besoin', recommendedCount, items.length ? (recommendedCount / items.length) * 100 : 0, recommendedCount ? '#2e7d32' : '#ed6c02'],
+        ].map(([label, value, percentage, color], index) => (
           <Grid key={label} size={{ xs: 6, md: 3 }}>
             <Paper
               sx={{
@@ -90,8 +90,51 @@ const PrescriptionDashboard = ({
                 boxShadow: '0 2px 8px rgba(15, 35, 65, 0.12)',
               }}
             >
-              <Typography variant="caption" sx={{ color, fontWeight: 800 }}>{label}</Typography>
-              <Typography variant="h4" sx={{ color, fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                <Box>
+                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>{label}</Typography>
+                  <Typography variant="h4" sx={{ color, fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {index === 0 ? 'sur un repère de 40' : `${Math.round(percentage)} % du catalogue`}
+                  </Typography>
+                </Box>
+                <Box
+                  role="img"
+                  aria-label={`${label} : ${Math.round(percentage)} %`}
+                  sx={{
+                    position: 'relative',
+                    width: 62,
+                    height: 62,
+                    flex: '0 0 62px',
+                    borderRadius: '50%',
+                    background: `conic-gradient(${color} ${Math.max(2, percentage)}%, rgba(255,255,255,0.72) 0)`,
+                    boxShadow: 'inset 0 0 0 1px rgba(20,45,75,0.08)',
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 8,
+                      borderRadius: '50%',
+                      bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      zIndex: 1,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color,
+                      fontWeight: 900,
+                      fontSize: '0.72rem',
+                    }}
+                  >
+                    {Math.round(percentage)} %
+                  </Typography>
+                </Box>
+              </Stack>
             </Paper>
           </Grid>
         ))}
