@@ -32,11 +32,11 @@ const TYPES_PRESCRIPTION = [
   'Autre',
 ]
 
-const DOMAINES = ['Tous', 'Emploi', 'Formation', 'Social', 'Mobilité', 'Santé']
-const PUBLICS = ['Tous', 'Jeunes', 'Adultes', 'Beneficiaires RSA', 'TH', 'Senior']
-const LOCALISATIONS = ['Tous', 'Corse', 'Ajaccio', 'Bastia', 'Corte', 'Porto-Vecchio']
+const DOMAINES = ['Tous', ...new Set(offreServiceCorse.map((item) => item.domaine))]
+const PUBLICS = ['Tous', ...new Set(offreServiceCorse.map((item) => item.public))]
+const LOCALISATIONS = ['Tous', ...new Set(offreServiceCorse.map((item) => item.localisation))]
 const DISTANCES = ['Tous', '0-5 km', '5-15 km', '15-30 km', '30+ km']
-const PARTENAIRES = ['Tous', 'France Travail', 'Orange', 'CARSAT', 'Mission Locale', 'AFPA', 'Cap Emploi']
+const PARTENAIRES = ['Tous', ...new Set(offreServiceCorse.map((item) => item.partenaire))]
 const TYPES = ['Tous', ...TYPES_PRESCRIPTION]
 
 const PRESCRIPTIONS_DATA = offreServiceCorse.map((item) => ({
