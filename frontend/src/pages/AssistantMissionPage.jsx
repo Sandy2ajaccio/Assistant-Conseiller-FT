@@ -287,6 +287,7 @@ function AssistantMissionPage() {
   const [historiqueEntretiens, setHistoriqueEntretiens] = useState([])
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
   const [copyStatus, setCopyStatus] = useState('')
+  const [modeApprofondi, setModeApprofondi] = useState(false)
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
@@ -1059,7 +1060,21 @@ function AssistantMissionPage() {
                 <Box sx={{ width: `${missionCompletion}%`, height: '100%', bgcolor: missionCompletion >= 80 ? '#2e7d32' : missionCompletion >= 40 ? '#ed6c02' : '#d32f2f' }} />
               </Box>
               <Chip size="small" color={missionCompletion >= 80 ? 'success' : missionCompletion >= 40 ? 'warning' : 'error'} label={`${missionCompletion} %`} />
+              <Button
+                size="small"
+                variant={modeApprofondi ? 'contained' : 'outlined'}
+                color="secondary"
+                onClick={() => setModeApprofondi((value) => !value)}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                {modeApprofondi ? 'Revenir à l’essentiel' : 'Approfondir si nécessaire'}
+              </Button>
             </Stack>
+            {!modeApprofondi ? (
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                Vue essentielle : renseignez la demande, puis sélectionnez la situation, les freins et les ressources. Le reste est calculé automatiquement.
+              </Typography>
+            ) : null}
           </Paper>
         ) : null}
 
@@ -1261,7 +1276,7 @@ function AssistantMissionPage() {
                   />
               </CockpitBlockCard>
 
-              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #7b1fa2' }}>
+              <CockpitBlockCard title="5. ADVP" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #7b1fa2' }}>
                   <Tabs
                     value={advpTab}
                     onChange={(_, value) => setAdvpTab(value)}
@@ -1304,7 +1319,7 @@ function AssistantMissionPage() {
 
               <CockpitBlockCard
                 title="7. Lecture du conseiller"
-                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#faf7fc', borderColor: '#d5dde8', borderTop: '5px solid #7b1fa2' }}
+                sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, bgcolor: '#faf7fc', borderColor: '#d5dde8', borderTop: '5px solid #7b1fa2' }}
                 titleSx={{ fontSize: '1rem', fontWeight: 800 }}
               >
                   <Stack spacing={0.25}>
@@ -1329,23 +1344,32 @@ function AssistantMissionPage() {
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
               <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #1976d2' }}>
                   <TextField
-                    label="Ce que dit la personne"
+                    label="Demande ou objectif du rendez-vous"
                     value={ceQueDitLaPersonne}
-                    onChange={(event) => setCeQueDitLaPersonne(event.target.value)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value
+                      setCeQueDitLaPersonne(nextValue)
+                      if (!besoinIdentifieConseiller.trim() || besoinIdentifieConseiller === ceQueDitLaPersonne) {
+                        setBesoinIdentifieConseiller(nextValue)
+                      }
+                    }}
                     fullWidth
                     multiline
-                    minRows={2}
+                    minRows={3}
                     size="small"
+                    helperText={!modeApprofondi ? 'Une seule saisie suffit : le besoin est repris automatiquement.' : ''}
                   />
-                  <TextField
-                    label="Besoin identifie par le conseiller"
-                    value={besoinIdentifieConseiller}
-                    onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    size="small"
-                  />
+                  {modeApprofondi ? (
+                    <TextField
+                      label="Besoin identifié par le conseiller"
+                      value={besoinIdentifieConseiller}
+                      onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      size="small"
+                    />
+                  ) : null}
                 </CockpitBlockCard>
 
               <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #ed6c02', bgcolor: '#fffaf2' }}>
@@ -1420,7 +1444,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' ? 'flex' : 'none' }}>
+        <Grid container spacing={1.5} sx={{ display: workspaceTab === 'entretien' && modeApprofondi ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6, xl: 3 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded={false} sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '5px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Grid container spacing={1}>
