@@ -666,6 +666,56 @@ function AssistantMissionPage() {
       .slice(0, 12)
   }, [prescriptionsDetaillees, recommandationsMoteur.partenaires])
 
+  const toutesActionsDisponibles = useMemo(() => {
+    const suggerees = new Set(
+      actionsDecisionPriorisees.map((item) => `${item.categorieDecision}|${item.nom}`),
+    )
+    const catalogue = offreServiceCorse.map((item) => {
+      const descriptionIntervenant = `${item.partenaire || ''} ${item.intervenants || ''}`.toLowerCase()
+      const interne = /france travail|conseiller/.test(descriptionIntervenant)
+      return {
+        ...item,
+        categorieDecision: item.type,
+        interne,
+        suggeree: suggerees.has(`${item.type}|${item.nom}`),
+      }
+    })
+    const partenaires = (recommandationsMoteur.partenaires || []).map((nom, index) => ({
+      id: `partenaire-catalogue-${index}-${nom}`,
+      nom,
+      type: 'Partenaire',
+      categorieDecision: 'Partenaire',
+      interne: false,
+      suggeree: true,
+      objectif: 'Partenaire proposé selon les besoins identifiés.',
+    }))
+    return [...catalogue, ...partenaires]
+      .filter((item, index, items) => items.findIndex(
+        (candidate) => candidate.nom === item.nom && candidate.categorieDecision === item.categorieDecision,
+      ) === index)
+      .sort((left, right) => {
+        if (left.suggeree !== right.suggeree) return Number(right.suggeree) - Number(left.suggeree)
+        if (left.interne !== right.interne) return Number(right.interne) - Number(left.interne)
+        return left.nom.localeCompare(right.nom, 'fr')
+      })
+  }, [actionsDecisionPriorisees, recommandationsMoteur.partenaires])
+
+  const portefeuillePropose = useMemo(() => {
+    const proposition = `${recommandationsMoteur.portefeuille || ''}`.toLowerCase()
+    if (!proposition) return ''
+    const correspondances = [
+      ['Mutualisé', ['mutual']],
+      ['Intensif', ['intensif']],
+      ['EM', ['retour rapide', 'emploi']],
+      ['SP', ['socio-professionnel', 'socio professionnel']],
+      ['GLO', ['global']],
+      ['TH', ['travailleur handicape', 'travailleur handicapé', 'handicap']],
+      ['PP', ['pre-orientation', 'pré-orientation', 'parcours professionnalise', 'parcours professionnalisé']],
+      ['CEJ', ['cej', 'engagement jeune']],
+    ]
+    return correspondances.find(([, termes]) => termes.some((terme) => proposition.includes(terme)))?.[0] || ''
+  }, [recommandationsMoteur.portefeuille])
+
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
     const besoinRenseigne = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
@@ -1505,47 +1555,124 @@ function AssistantMissionPage() {
                 Décision à enregistrer
               </Typography>
               <Grid container spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
-                <Grid size={{ xs: 12, lg: 6 }}>
+                <Grid size={{ xs: 12, lg: 7 }}>
                   <Typography variant="caption" sx={{ fontWeight: 800 }}>
-                    Actions à prescrire — plusieurs choix possibles, offre interne prioritaire
+                    Prescriptions à retenir — sélection multiple, offre interne prioritaire
                   </Typography>
-                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
-                    {actionsDecisionPriorisees.map((item) => {
-                      const selectionnee = actionsRetenues.some(
-                        (action) => action.nom === item.nom && action.type === item.categorieDecision,
-                      )
-                      return (
-                      <Button
-                        key={item.id}
-                        size="small"
-                        variant={selectionnee ? 'contained' : 'outlined'}
+                  <Autocomplete
+                    multiple
+                    disableCloseOnSelect
+                    options={toutesActionsDisponibles}
+                    value={actionsRetenues}
+                    onChange={(_, nouvellesActions) => {
+                      setActionsRetenues(nouvellesActions)
+                      setDecisions((prev) => ({
+                        ...prev,
+                        prescriptionAtelier: nouvellesActions.some((item) => item.type === 'Atelier'),
+                        prescriptionPrestation: nouvellesActions.some((item) => item.type === 'Prestation'),
+                        orientationPartenaire: nouvellesActions.some((item) => item.categorieDecision === 'Partenaire'),
+                      }))
+                    }}
+                    groupBy={(item) => (
+                      item.suggeree
+                        ? '★ Propositions du logiciel'
+                        : item.interne
+                          ? 'Offre interne France Travail'
+                          : item.categorieDecision === 'Partenaire'
+                            ? 'Partenaires'
+                            : 'Autres ateliers et prestations'
+                    )}
+                    getOptionLabel={(item) => item.nom}
+                    isOptionEqualToValue={(option, value) => (
+                      option.nom === value.nom && option.categorieDecision === (value.categorieDecision || value.type)
+                    )}
+                    renderOption={(props, item) => (
+                      <li {...props} key={`${item.categorieDecision}-${item.id || item.nom}`}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: item.suggeree ? 900 : 600 }}>
+                            {item.suggeree ? '★ ' : ''}{item.nom}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.interne ? 'Interne France Travail' : item.categorieDecision} · {item.objectif || item.domaine || 'Prescription disponible'}
+                          </Typography>
+                        </Box>
+                      </li>
+                    )}
+                    renderTags={(value, getTagProps) => value.map((item, index) => (
+                      <Chip
+                        {...getTagProps({ index })}
+                        key={`${item.categorieDecision || item.type}-${item.nom}`}
                         color={item.interne ? 'success' : item.categorieDecision === 'Partenaire' ? 'warning' : 'secondary'}
-                        onClick={() => {
-                          setActionsRetenues((prev) => (
-                            selectionnee
-                              ? prev.filter((action) => !(action.nom === item.nom && action.type === item.categorieDecision))
-                              : [...prev, { nom: item.nom, type: item.categorieDecision, interne: item.interne }]
-                          ))
-                          setDecisions((prev) => ({
-                            ...prev,
-                            prescriptionAtelier: item.type === 'Atelier' || prev.prescriptionAtelier,
-                            prescriptionPrestation: item.type === 'Prestation' || prev.prescriptionPrestation,
-                            orientationPartenaire: item.categorieDecision === 'Partenaire' || prev.orientationPartenaire,
-                          }))
-                        }}
-                      >
-                        {item.categorieDecision === 'Partenaire' ? 'Partenaire' : item.interne ? 'Interne' : 'Externe'} · {item.nom}
-                      </Button>
-                      )
-                    })}
-                    {actionsDecisionPriorisees.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">
-                        Aucune prescription suffisamment ciblée pour le moment.
+                        label={`${item.interne ? 'Interne' : item.categorieDecision || item.type} · ${item.nom}`}
+                      />
+                    ))}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        sx={{ mt: 0.5 }}
+                        label={`${actionsDecisionPriorisees.length} proposition(s) du logiciel — ouvrir la liste complète`}
+                        placeholder="Choisir plusieurs ateliers, prestations ou partenaires"
+                      />
+                    )}
+                  />
+                  {actionsDecisionPriorisees.length > 0 ? (
+                    <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 900, alignSelf: 'center' }}>
+                        Proposé :
                       </Typography>
-                    ) : null}
-                  </Stack>
+                      {actionsDecisionPriorisees.slice(0, 5).map((item) => {
+                        const retenue = actionsRetenues.some(
+                          (action) => action.nom === item.nom
+                            && (action.categorieDecision || action.type) === item.categorieDecision,
+                        )
+                        return (
+                          <Chip
+                            key={`suggestion-${item.categorieDecision}-${item.nom}`}
+                            size="small"
+                            clickable
+                            color={retenue ? 'success' : 'default'}
+                            variant={retenue ? 'filled' : 'outlined'}
+                            label={`${retenue ? '✓ Retenu' : '＋ Retenir'} · ${item.nom}`}
+                            onClick={() => {
+                              const option = toutesActionsDisponibles.find(
+                                (candidate) => candidate.nom === item.nom
+                                  && candidate.categorieDecision === item.categorieDecision,
+                              ) || item
+                              const nouvellesActions = retenue
+                                ? actionsRetenues.filter(
+                                  (action) => !(action.nom === item.nom
+                                    && (action.categorieDecision || action.type) === item.categorieDecision),
+                                )
+                                : [...actionsRetenues, option]
+                              setActionsRetenues(nouvellesActions)
+                              setDecisions((prev) => ({
+                                ...prev,
+                                prescriptionAtelier: nouvellesActions.some((action) => action.type === 'Atelier'),
+                                prescriptionPrestation: nouvellesActions.some((action) => action.type === 'Prestation'),
+                                orientationPartenaire: nouvellesActions.some((action) => action.categorieDecision === 'Partenaire'),
+                              }))
+                            }}
+                          />
+                        )
+                      })}
+                    </Stack>
+                  ) : null}
                 </Grid>
                 <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+                  {portefeuillePropose ? (
+                    <Alert
+                      severity="info"
+                      action={portefeuilleChoisi !== portefeuillePropose ? (
+                        <Button size="small" onClick={() => setPortefeuilleChoisi(portefeuillePropose)}>
+                          Retenir
+                        </Button>
+                      ) : null}
+                      sx={{ mb: 0.75, py: 0 }}
+                    >
+                      Proposition : <strong>{portefeuillePropose}</strong>
+                    </Alert>
+                  ) : null}
                   <TextField
                     select
                     fullWidth
@@ -1559,7 +1686,7 @@ function AssistantMissionPage() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+                <Grid size={{ xs: 12, md: 6, lg: 2 }}>
                   <Button
                     fullWidth
                     variant={decisions.demandeAffectation ? 'contained' : 'outlined'}
