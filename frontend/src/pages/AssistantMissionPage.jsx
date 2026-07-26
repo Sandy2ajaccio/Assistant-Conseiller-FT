@@ -1781,13 +1781,16 @@ function AssistantMissionPage() {
             subtitle="Résultat produit à partir du récit saisi. Vous pouvez corriger les informations avec le mode Approfondir."
             sx={{ borderTop: '6px solid #0b6fb8', boxShadow: '0 4px 16px rgba(15,35,65,0.12)' }}
           >
-            <Stack spacing={0.65}>
-              {alertesDiagnosticAutonome.map((alerte) => (
-                <Alert key={alerte.texte} severity={alerte.severity} variant="filled" sx={{ py: 0.25, fontWeight: 800 }}>
-                  {alerte.texte}
-                </Alert>
-              ))}
-            </Stack>
+            {alertesDiagnosticAutonome.length > 0 ? (
+              <Alert
+                severity={alertesDiagnosticAutonome.some((item) => item.severity === 'error') ? 'error' : 'warning'}
+                variant="filled"
+                sx={{ py: 0.35, fontWeight: 800 }}
+              >
+                {alertesDiagnosticAutonome.length} point(s) de vigilance détecté(s) — priorité :{' '}
+                {alertesDiagnosticAutonome[0].texte}
+              </Alert>
+            ) : null}
             <Grid container spacing={1.25}>
               <Grid size={{ xs: 12, lg: 4 }}>
                 <Box sx={{ height: '100%', p: 1.25, bgcolor: '#eef6ff', borderRadius: 1.5 }}>
@@ -1796,7 +1799,7 @@ function AssistantMissionPage() {
                     {diagnosticAutonome.conclusion}
                   </Typography>
                   <Stack spacing={0.35} sx={{ mt: 0.75 }}>
-                    {analyseDemandeAutomatique.constats.map((constat) => (
+                    {analyseDemandeAutomatique.constats.slice(0, 3).map((constat) => (
                       <Typography key={constat} variant="body2">• {constat}</Typography>
                     ))}
                   </Stack>
@@ -1829,7 +1832,6 @@ function AssistantMissionPage() {
               </Grid>
             </Grid>
             <Accordion
-              defaultExpanded
               disableGutters
               sx={{
                 border: '2px solid #174f86',
@@ -1843,14 +1845,21 @@ function AssistantMissionPage() {
               >
                 <Box>
                   <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#174f86' }}>
-                    Pourquoi le logiciel propose cette décision ?
+                    Voir les explications et toutes les alertes
                   </Typography>
                   <Typography variant="caption">
-                    Explications fondées sur les informations saisies — décision finale à valider par le conseiller.
+                    Éléments détectés, règles appliquées et points à vérifier.
                   </Typography>
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 1.25 }}>
+                <Stack spacing={0.65} sx={{ mb: 1 }}>
+                  {alertesDiagnosticAutonome.map((alerte) => (
+                    <Alert key={alerte.texte} severity={alerte.severity} sx={{ py: 0.15 }}>
+                      {alerte.texte}
+                    </Alert>
+                  ))}
+                </Stack>
                 <Grid container spacing={1}>
                   {explicationsDecision.map((explication, index) => (
                     <Grid key={`${explication.decision}-${index}`} size={{ xs: 12, lg: 6 }}>
@@ -1896,39 +1905,42 @@ function AssistantMissionPage() {
                     : '#edf7ed',
               }}
             >
-              <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }}>
-                <Box sx={{ minWidth: { lg: 245 } }}>
-                  <Typography variant="overline" sx={{ fontWeight: 900 }}>Contrôle de décision</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.15 }}>
-                    {controleDecision.statut}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color={controleDecision.niveauRisque === 'Élevé' ? 'error' : controleDecision.niveauRisque === 'Modéré' ? 'warning' : 'success'}
-                    label={`Risque : ${controleDecision.niveauRisque}`}
-                    sx={{ mt: 0.75, fontWeight: 900 }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>Ce qu’il faut faire maintenant</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{controleDecision.prochaineAction}</Typography>
-                  <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
-                    {controleDecision.manquants.map((item) => (
-                      <Chip key={item} size="small" color="error" label={`Manque : ${item}`} />
-                    ))}
-                    {controleDecision.contradictions.map((item) => (
-                      <Chip key={item} size="small" color="error" variant="outlined" label={`Contradiction : ${item}`} />
-                    ))}
-                    {controleDecision.vigilances.map((item) => (
-                      <Chip key={item} size="small" color="warning" variant="outlined" label={`À vérifier : ${item}`} />
-                    ))}
-                    {controleDecision.manquants.length === 0
-                      && controleDecision.contradictions.length === 0
-                      && controleDecision.vigilances.length === 0 ? (
-                        <Chip size="small" color="success" label="Aucune incohérence détectée" />
-                      ) : null}
-                  </Stack>
-                </Box>
+              <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1} alignItems={{ lg: 'center' }}>
+                <Chip
+                  color={controleDecision.niveauRisque === 'Élevé' ? 'error' : controleDecision.niveauRisque === 'Modéré' ? 'warning' : 'success'}
+                  label={`${controleDecision.statut} · Risque ${controleDecision.niveauRisque}`}
+                  sx={{ fontWeight: 900, fontSize: '0.9rem' }}
+                />
+                <Typography variant="body1" sx={{ flex: 1, fontWeight: 900 }}>
+                  À faire maintenant : {controleDecision.prochaineAction}
+                </Typography>
+                <Accordion
+                  disableGutters
+                  elevation={0}
+                  sx={{ bgcolor: 'transparent', minWidth: { lg: 210 }, '&::before': { display: 'none' } }}
+                >
+                  <AccordionSummary sx={{ minHeight: 34, p: 0.25 }}>
+                    <Typography variant="button" sx={{ fontWeight: 900 }}>Voir les contrôles ({controleDecision.manquants.length + controleDecision.contradictions.length + controleDecision.vigilances.length})</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 0.5 }}>
+                    <Stack spacing={0.35}>
+                      {controleDecision.manquants.map((item) => (
+                        <Typography key={item} variant="caption">● Manque : {item}</Typography>
+                      ))}
+                      {controleDecision.contradictions.map((item) => (
+                        <Typography key={item} variant="caption">● Contradiction : {item}</Typography>
+                      ))}
+                      {controleDecision.vigilances.map((item) => (
+                        <Typography key={item} variant="caption">● À vérifier : {item}</Typography>
+                      ))}
+                      {controleDecision.manquants.length === 0
+                        && controleDecision.contradictions.length === 0
+                        && controleDecision.vigilances.length === 0 ? (
+                          <Typography variant="caption">✓ Aucune incohérence détectée</Typography>
+                        ) : null}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
               </Stack>
             </Box>
             <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
@@ -2115,19 +2127,33 @@ function AssistantMissionPage() {
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }} justifyContent="space-between">
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierPretACloturer ? '#1f6b36' : '#9a5100' }}>
-                      {dossierPretACloturer ? '✓ Dossier prêt à être clôturé' : 'Contrôle avant clôture'}
+                      {dossierPretACloturer
+                        ? '✓ Dossier prêt à être clôturé'
+                        : `${controleCloture.filter((item) => !item.ok).length} élément(s) à compléter avant clôture`}
                     </Typography>
-                    <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
-                      {controleCloture.map((item) => (
-                        <Chip
-                          key={item.id}
-                          size="small"
-                          color={item.ok ? 'success' : 'error'}
-                          variant={item.ok ? 'outlined' : 'filled'}
-                          label={`${item.ok ? '✓' : 'À compléter'} · ${item.label}`}
-                        />
-                      ))}
-                    </Stack>
+                    {!dossierPretACloturer ? (
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        Prochain manque : {controleCloture.find((item) => !item.ok)?.label}.
+                      </Typography>
+                    ) : null}
+                    <Accordion disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&::before': { display: 'none' } }}>
+                      <AccordionSummary sx={{ minHeight: 30, px: 0 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 900 }}>Voir la checklist complète</Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 0 }}>
+                        <Stack direction="row" spacing={0.6} useFlexGap flexWrap="wrap">
+                          {controleCloture.map((item) => (
+                            <Chip
+                              key={item.id}
+                              size="small"
+                              color={item.ok ? 'success' : 'error'}
+                              variant={item.ok ? 'outlined' : 'filled'}
+                              label={`${item.ok ? '✓' : 'À compléter'} · ${item.label}`}
+                            />
+                          ))}
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
                   </Box>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} sx={{ minWidth: { lg: 420 } }}>
                     <Button variant="outlined" fullWidth onClick={enregistrerAnalyse}>
