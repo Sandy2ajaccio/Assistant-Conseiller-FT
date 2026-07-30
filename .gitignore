@@ -25,6 +25,7 @@ dist/
 
 # Test artifacts
 .pytest_cache/
+.tmp/
 
 # SQLite
 *.sqlite3
