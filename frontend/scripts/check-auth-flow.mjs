@@ -12,7 +12,7 @@ const firebaseHosting = JSON.parse(
 
 assert.match(
   firebaseClient,
-  /authDomain:\s*['"]cap-decision-ft\.firebaseapp\.com['"]/,
+  /authDomain:\s*['"]cap-decision-ft\.web\.app['"]/,
   'Le domaine Firebase Auth doit utiliser le domaine d’origine fonctionnel.',
 )
 assert.match(
@@ -51,4 +51,4 @@ assert.match(
   'La CSP doit autoriser l’iframe Firebase Auth du domaine d’origine.',
 )
 
-console.log('Connexion d’origine vérifiée : domaine firebaseapp.com, popup Google et redirection de secours.')
+console.log('Connexion vérifiée : domaine web.app, popup Google et redirection de secours.')
