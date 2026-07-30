@@ -12,7 +12,7 @@ const firebaseHosting = JSON.parse(
 
 assert.match(
   firebaseClient,
-  /authDomain:\s*['"]cap-decision-ft\.web\.app['"]/,
+  /authDomain:\s*['"]cap-decision-ft\.firebaseapp\.com['"]/,
   'Le domaine Firebase Auth doit utiliser le domaine d’origine fonctionnel.',
 )
 assert.match(
