@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import {
+  getRedirectResult,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from 'firebase/auth'
 import { auth } from '../services/firebaseClient'
 import {
   backupAllLocalData,
@@ -15,6 +22,38 @@ const AuthGate = ({ children }) => {
   const [checking, setChecking] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
+
+  const getGoogleProvider = () => {
+    const provider = new GoogleAuthProvider()
+    provider.setCustomParameters({ login_hint: OWNER_EMAIL, prompt: 'select_account' })
+    return provider
+  }
+
+  const authErrorMessage = (error) => {
+    if (error?.code === 'auth/unauthorized-domain') {
+      return 'Cette adresse internet n’est pas encore autorisée dans Firebase. Le domaine cap-decision-ft.web.app doit être ajouté aux domaines autorisés.'
+    }
+    if (error?.code === 'auth/network-request-failed') {
+      return 'Google n’a pas pu être joint. Vérifiez la connexion internet, puis réessayez.'
+    }
+    if (error?.code === 'auth/popup-blocked') {
+      return 'La fenêtre Google a été bloquée. Utilisez le bouton « Connexion Google sans fenêtre séparée ».'
+    }
+    if (error?.code === 'auth/account-exists-with-different-credential') {
+      return 'Ce compte existe déjà avec une autre méthode de connexion.'
+    }
+    if (error?.code === 'auth/operation-not-allowed') {
+      return 'La connexion Google doit être activée dans Firebase Authentication.'
+    }
+    return `La connexion Google n’a pas abouti (${error?.code || 'erreur inconnue'}). Utilisez la connexion sans fenêtre séparée.`
+  }
+
+  useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      setMessage(authErrorMessage(error))
+      setChecking(false)
+    })
+  }, [])
 
   useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
     if (nextUser && nextUser.email?.toLowerCase() !== OWNER_EMAIL) {
@@ -42,17 +81,23 @@ const AuthGate = ({ children }) => {
   const connectWithGoogle = async () => {
     setMessage('')
     try {
-      const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({ login_hint: OWNER_EMAIL, prompt: 'select_account' })
-      const result = await signInWithPopup(auth, provider)
+      const result = await signInWithPopup(auth, getGoogleProvider())
       if (result.user.email?.toLowerCase() !== OWNER_EMAIL) {
         await signOut(auth)
         setMessage('Ce compte Google n’est pas autorisé. Choisissez le compte propriétaire.')
       }
     } catch (error) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        setMessage('La connexion Google n’a pas abouti. Réessayez et choisissez le compte propriétaire.')
-      }
+      if (error.code === 'auth/popup-closed-by-user') return
+      setMessage(authErrorMessage(error))
+    }
+  }
+
+  const connectWithGoogleRedirect = async () => {
+    setMessage('')
+    try {
+      await signInWithRedirect(auth, getGoogleProvider())
+    } catch (error) {
+      setMessage(authErrorMessage(error))
     }
   }
 
@@ -95,8 +140,11 @@ const AuthGate = ({ children }) => {
             <Button variant="contained" size="large" onClick={connectWithGoogle} sx={{ fontWeight: 900 }}>
               Continuer avec Google
             </Button>
+            <Button variant="outlined" size="large" onClick={connectWithGoogleRedirect} sx={{ fontWeight: 900 }}>
+              Connexion Google sans fenêtre séparée
+            </Button>
             <Typography variant="caption" color="text.secondary" textAlign="center">
-              Utilisez votre compte Google professionnel habituel.
+              Utilisez uniquement le compte propriétaire {OWNER_EMAIL}.
             </Typography>
             {message ? <Alert severity="warning">{message}</Alert> : null}
           </Stack>
