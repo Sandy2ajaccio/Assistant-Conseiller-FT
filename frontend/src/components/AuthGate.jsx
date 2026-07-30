@@ -4,7 +4,6 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
@@ -36,16 +35,13 @@ const AuthGate = ({ children }) => {
     if (error?.code === 'auth/network-request-failed') {
       return 'Google n’a pas pu être joint. Vérifiez la connexion internet, puis réessayez.'
     }
-    if (error?.code === 'auth/popup-blocked') {
-      return 'La fenêtre Google a été bloquée. Utilisez le bouton « Connexion Google sans fenêtre séparée ».'
-    }
     if (error?.code === 'auth/account-exists-with-different-credential') {
       return 'Ce compte existe déjà avec une autre méthode de connexion.'
     }
     if (error?.code === 'auth/operation-not-allowed') {
       return 'La connexion Google doit être activée dans Firebase Authentication.'
     }
-    return `La connexion Google n’a pas abouti (${error?.code || 'erreur inconnue'}). Utilisez la connexion sans fenêtre séparée.`
+    return `La connexion Google n’a pas abouti (${error?.code || 'erreur inconnue'}). Réessayez avec le compte propriétaire.`
   }
 
   useEffect(() => {
@@ -77,20 +73,6 @@ const AuthGate = ({ children }) => {
     }
     setChecking(false)
   }), [])
-
-  const connectWithGoogle = async () => {
-    setMessage('')
-    try {
-      const result = await signInWithPopup(auth, getGoogleProvider())
-      if (result.user.email?.toLowerCase() !== OWNER_EMAIL) {
-        await signOut(auth)
-        setMessage('Ce compte Google n’est pas autorisé. Choisissez le compte propriétaire.')
-      }
-    } catch (error) {
-      if (error.code === 'auth/popup-closed-by-user') return
-      setMessage(authErrorMessage(error))
-    }
-  }
 
   const connectWithGoogleRedirect = async () => {
     setMessage('')
@@ -137,11 +119,8 @@ const AuthGate = ({ children }) => {
             Espace personnel sécurisé. Seul le compte Google propriétaire peut accéder aux dossiers.
           </Typography>
           <Stack spacing={2}>
-            <Button variant="contained" size="large" onClick={connectWithGoogle} sx={{ fontWeight: 900 }}>
-              Continuer avec Google
-            </Button>
-            <Button variant="outlined" size="large" onClick={connectWithGoogleRedirect} sx={{ fontWeight: 900 }}>
-              Connexion Google sans fenêtre séparée
+            <Button variant="contained" size="large" onClick={connectWithGoogleRedirect} sx={{ fontWeight: 900 }}>
+              Se connecter avec Google
             </Button>
             <Typography variant="caption" color="text.secondary" textAlign="center">
               Utilisez uniquement le compte propriétaire {OWNER_EMAIL}.
