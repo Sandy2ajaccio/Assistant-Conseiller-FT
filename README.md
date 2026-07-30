@@ -1,29 +1,33 @@
-# Assistant Conseiller FT
+# Cap Décision FT
 
-Projet professionnel FastAPI + React + PostgreSQL pour une application de conseiller assistant.
+Assistant personnel d’aide à la décision pour les conseillers France Travail Corse.
+
+## Ouvrir le logiciel
+
+- Site public sécurisé : https://cap-decision-ft.web.app
+- Sous Windows, double-cliquer sur `DEMARRER_CAP_DECISION.cmd` ou `Cap Decision FT.url`.
+
+Le lanceur principal ouvre directement la version Firebase. Il ne nécessite ni installation de Node.js, ni serveur local, et sa fenêtre peut être fermée immédiatement.
+
+## Développement local
+
+Le fichier `DEMARRER_LOCAL_DEV.cmd` est réservé au développement. Il installe les dépendances si nécessaire, démarre Vite et ouvre http://localhost:3000.
 
 ## Architecture
 
-- `backend/` : API Python FastAPI, SQLAlchemy, configuration PostgreSQL
-- `frontend/` : interface React avec Vite
-- `docker-compose.yml` : services Postgres, backend et frontend
-- `.env.example` : variables d'environnement de base
+- `frontend/` : application React, Vite, Firebase Authentication et Firestore
+- `backend/` : API Python FastAPI et SQLAlchemy
+- `database/` : ressources de données
+- `docs/` : documentation du projet
+- `tests/` : contrôles complémentaires
 
-## Démarrage local
+## Commandes de validation du frontend
 
-1. Copier `.env.example` en `.env`
-2. Démarrer Docker Compose :
-   ```bash
-   docker compose up --build
-   ```
-3. Backend : http://localhost:8000
-4. Frontend : http://localhost:3000
+Depuis le dossier `frontend` :
 
-## Backend
-
-- API : `/api/v1/advisors`
-- Healthcheck : `/health`
-
-## Frontend
-
-- Page d'accueil avec liste d'advisors
+```bash
+npm install
+npm run check:auth
+npm run check:routes
+npm run build
+```

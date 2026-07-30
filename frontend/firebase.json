@@ -1,4 +1,16 @@
 {
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Cap Décision FT",
+        "supportEmail": "s.marchasson.cip@gmail.com",
+        "authorizedRedirectUris": [
+          "https://cap-decision-ft.firebaseapp.com/__/auth/handler",
+          "https://cap-decision-ft.web.app/__/auth/handler"
+        ]
+      }
+    }
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
