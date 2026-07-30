@@ -42,6 +42,7 @@ export default function App() {
     }
   }, [])
 
+export default function App() {
   return (
     <AuthGate>
       <BrowserRouter>
