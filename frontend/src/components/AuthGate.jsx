@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
 import {
-  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithRedirect,
+  signInWithCredential,
   signOut,
 } from 'firebase/auth'
 import { auth } from '../services/firebaseClient'
@@ -15,18 +14,14 @@ import {
 } from '../services/cloudPersistenceService'
 
 const OWNER_EMAIL = 's.marchasson.cip@gmail.com'
+const GOOGLE_CLIENT_ID = '151527769596-6vv0hrndkp533r4h0lb10fr53egp3rk3.apps.googleusercontent.com'
 
 const AuthGate = ({ children }) => {
   const [user, setUser] = useState(null)
   const [checking, setChecking] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
-
-  const getGoogleProvider = () => {
-    const provider = new GoogleAuthProvider()
-    provider.setCustomParameters({ login_hint: OWNER_EMAIL, prompt: 'select_account' })
-    return provider
-  }
+  const googleButtonRef = useRef(null)
 
   const authErrorMessage = (error) => {
     if (error?.code === 'auth/unauthorized-domain') {
@@ -43,13 +38,6 @@ const AuthGate = ({ children }) => {
     }
     return `La connexion Google n’a pas abouti (${error?.code || 'erreur inconnue'}). Réessayez avec le compte propriétaire.`
   }
-
-  useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      setMessage(authErrorMessage(error))
-      setChecking(false)
-    })
-  }, [])
 
   useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
     if (nextUser && nextUser.email?.toLowerCase() !== OWNER_EMAIL) {
@@ -74,14 +62,62 @@ const AuthGate = ({ children }) => {
     setChecking(false)
   }), [])
 
-  const connectWithGoogleRedirect = async () => {
-    setMessage('')
-    try {
-      await signInWithRedirect(auth, getGoogleProvider())
-    } catch (error) {
-      setMessage(authErrorMessage(error))
+  useEffect(() => {
+    if (checking || syncing || user || !googleButtonRef.current) return undefined
+
+    const handleGoogleCredential = async ({ credential }) => {
+      setMessage('')
+      try {
+        const firebaseCredential = GoogleAuthProvider.credential(credential)
+        const result = await signInWithCredential(auth, firebaseCredential)
+        if (result.user.email?.toLowerCase() !== OWNER_EMAIL) {
+          await signOut(auth)
+          setMessage('Ce compte Google n’est pas autorisé. Choisissez le compte propriétaire.')
+        }
+      } catch (error) {
+        setMessage(authErrorMessage(error))
+      }
     }
-  }
+
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      })
+      googleButtonRef.current.replaceChildren()
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: 396,
+      })
+    }
+
+    const existingScript = document.querySelector('script[data-google-identity]')
+    if (existingScript) {
+      if (window.google?.accounts?.id) renderGoogleButton()
+      else existingScript.addEventListener('load', renderGoogleButton, { once: true })
+      return () => existingScript.removeEventListener('load', renderGoogleButton)
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.dataset.googleIdentity = 'true'
+    script.addEventListener('load', renderGoogleButton, { once: true })
+    script.addEventListener('error', () => {
+      setMessage('Le bouton Google n’a pas pu être chargé. Vérifiez la connexion internet puis actualisez la page.')
+    }, { once: true })
+    document.head.appendChild(script)
+    return () => script.removeEventListener('load', renderGoogleButton)
+  }, [checking, syncing, user])
 
   const disconnectFromGoogle = async () => {
     setMessage('')
@@ -119,9 +155,7 @@ const AuthGate = ({ children }) => {
             Espace personnel sécurisé. Seul le compte Google propriétaire peut accéder aux dossiers.
           </Typography>
           <Stack spacing={2}>
-            <Button variant="contained" size="large" onClick={connectWithGoogleRedirect} sx={{ fontWeight: 900 }}>
-              Se connecter avec Google
-            </Button>
+            <Box ref={googleButtonRef} sx={{ minHeight: 44, display: 'flex', justifyContent: 'center' }} />
             <Typography variant="caption" color="text.secondary" textAlign="center">
               Utilisez uniquement le compte propriétaire {OWNER_EMAIL}.
             </Typography>

@@ -23,13 +23,13 @@ assert.match(
 )
 assert.match(
   authGate,
-  /signInWithRedirect\(auth,\s*getGoogleProvider\(\)\)/,
-  'La connexion Google doit utiliser la redirection fiable.',
+  /signInWithCredential\(auth,\s*firebaseCredential\)/,
+  'La connexion Google doit transmettre directement le justificatif à Firebase.',
 )
 assert.doesNotMatch(
   authGate,
-  /signInWithPopup/,
-  'Le parcours popup incompatible ne doit plus être proposé.',
+  /signInWithPopup|signInWithRedirect|getRedirectResult/,
+  'Les parcours Firebase avec fenêtre ou retour de page ne doivent plus être utilisés.',
 )
 assert.equal(
   firebaseHosting.auth?.providers?.emailPassword,
@@ -53,6 +53,11 @@ assert.match(
 )
 assert.match(
   contentSecurityPolicy,
+  /script-src[^;]*https:\/\/accounts\.google\.com/,
+  'La CSP doit autoriser le bouton officiel Google.',
+)
+assert.match(
+  contentSecurityPolicy,
   /frame-ancestors 'self'/,
   'Seules les pages du même domaine peuvent intégrer le logiciel.',
 )
@@ -62,4 +67,4 @@ assert.equal(
   'La protection anti-intégration doit rester compatible avec Firebase Auth.',
 )
 
-console.log('Connexion vérifiée : un seul parcours Google fiable sur firebaseapp.com.')
+console.log('Connexion vérifiée : identité Google transmise directement à Firebase.')
