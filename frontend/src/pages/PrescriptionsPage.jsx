@@ -7,6 +7,8 @@ import {
   Chip,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -14,6 +16,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import DailyWorkQueue from '../components/DailyWorkQueue'
 import PrescriptionFollowUp from '../components/PrescriptionFollowUp'
+import PortfolioManagementPanel from '../components/PortfolioManagementPanel'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import {
   getLastOpenedDossierId,
@@ -55,6 +58,9 @@ const PrescriptionsPage = () => {
   }, [portfolioRecords])
   const initialDossier = searchParams.get('dossier') || getLastOpenedDossierId() || ''
   const [selectedDossierId, setSelectedDossierId] = useState(initialDossier)
+  const [activeView, setActiveView] = useState(
+    searchParams.get('q') || searchParams.get('type') ? 'services' : 'work',
+  )
 
   const selectedEntry = dossiers.find((item) => item.identifiant === selectedDossierId)
   const dossier = selectedEntry?.dossier || null
@@ -204,7 +210,16 @@ const PrescriptionsPage = () => {
   }, [dossier, selectedEntry])
 
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, py: 1.5 }}>
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: 1480,
+        mx: 'auto',
+        px: { xs: 0.5, sm: 1, lg: 1.5 },
+        py: 1,
+        boxSizing: 'border-box',
+      }}
+    >
       <Stack spacing={1.25}>
         <Paper
           sx={{
@@ -216,9 +231,9 @@ const PrescriptionsPage = () => {
         >
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={1.5}>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>Tableau de bord de l’offre de services</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Tableau de bord Cap Décision FT</Typography>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.88)' }}>
-                Sélectionnez le demandeur pour actualiser automatiquement les propositions et les alertes.
+                Sélectionnez un demandeur, puis choisissez la vue utile sans parcourir toute la page.
               </Typography>
             </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -229,7 +244,8 @@ const PrescriptionsPage = () => {
                 onChange={(_, value) => setSelectedDossierId(value?.identifiant || '')}
                 getOptionLabel={(item) => {
                   const identity = [item.portfolioRecord?.nom, item.portfolioRecord?.prenom].filter(Boolean).join(' ')
-                  return `${identity ? `${identity} — ` : ''}${item.identifiant}`
+                  const age = item.portfolioRecord?.age ? ` · ${item.portfolioRecord.age} ans` : ''
+                  return `${identity ? `${identity} — ` : ''}${item.identifiant}${age}`
                 }}
                 isOptionEqualToValue={(option, value) => option.identifiant === value.identifiant}
                 renderInput={(params) => <TextField {...params} label={`Demandeur d’emploi (${dossiers.length})`} />}
@@ -253,19 +269,50 @@ const PrescriptionsPage = () => {
           ) : null}
         </Paper>
 
-        <DailyWorkQueue
-          dossiers={dossiers}
-          selectedDossierId={selectedDossierId}
-          onSelect={setSelectedDossierId}
-          onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
-        />
+        <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: '#a8bfd5' }}>
+          <Tabs
+            value={activeView}
+            onChange={(_, value) => setActiveView(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+            aria-label="Vues du tableau de bord"
+            sx={{
+              minHeight: 44,
+              bgcolor: '#f7fafc',
+              '& .MuiTab-root': { minHeight: 44, fontWeight: 900, px: { xs: 1.5, sm: 2.5 } },
+            }}
+          >
+            <Tab value="work" label="Travail du jour" />
+            <Tab value="services" label="Offre de services" />
+            <Tab value="portfolio" label="Gestion et export" />
+          </Tabs>
+        </Paper>
 
-        <PrescriptionFollowUp
-          dossiers={dossiers}
-          onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
-        />
+        {activeView === 'portfolio' ? (
+          <PortfolioManagementPanel
+            portfolioVersion={portfolioVersion}
+            onPortfolioChanged={(identifiant) => {
+              setPortfolioVersion((value) => value + 1)
+              setSelectedDossierId(identifiant)
+            }}
+          />
+        ) : null}
 
-        <Paper
+        {activeView === 'work' ? (
+          <>
+            <DailyWorkQueue
+              dossiers={dossiers}
+              selectedDossierId={selectedDossierId}
+              onSelect={setSelectedDossierId}
+              onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
+            />
+
+            <PrescriptionFollowUp
+              dossiers={dossiers}
+              onOpen={(identifiant) => navigate(`/assistant?dossier=${encodeURIComponent(identifiant)}`)}
+            />
+
+            <Paper
           sx={{
             p: 1.25,
             border: '2px solid',
@@ -288,10 +335,10 @@ const PrescriptionsPage = () => {
               ))}
             </Stack>
           </Stack>
-        </Paper>
+            </Paper>
 
-        {analyseIndividuelle ? (
-          <Paper
+            {analyseIndividuelle ? (
+              <Paper
             variant="outlined"
             sx={{
               p: 1.5,
@@ -308,6 +355,7 @@ const PrescriptionsPage = () => {
                 <Typography variant="h5" sx={{ fontWeight: 900 }}>{analyseIndividuelle.currentStatus}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {selectedEntry?.portfolioRecord?.nom} {selectedEntry?.portfolioRecord?.prenom} · {selectedDossierId}
+                  {selectedEntry?.portfolioRecord?.age ? ` · ${selectedEntry.portfolioRecord.age} ans` : ''}
                 </Typography>
                 <Box sx={{ mt: 1 }}>
                   <Stack direction="row" justifyContent="space-between">
@@ -354,16 +402,20 @@ const PrescriptionsPage = () => {
                 </Button>
               </Box>
             </Stack>
-          </Paper>
+              </Paper>
+            ) : null}
+          </>
         ) : null}
 
-        <PrescriptionDashboard
-          items={offreServiceCorse}
-          recommendedNames={recommendedNames}
-          alerts={[]}
-          initialSearch={searchParams.get('q') || ''}
-          initialType={searchParams.get('type') || 'Tous'}
-        />
+        {activeView === 'services' ? (
+          <PrescriptionDashboard
+            items={offreServiceCorse}
+            recommendedNames={recommendedNames}
+            alerts={situationAlerts}
+            initialSearch={searchParams.get('q') || ''}
+            initialType={searchParams.get('type') || 'Tous'}
+          />
+        ) : null}
       </Stack>
     </Box>
   )

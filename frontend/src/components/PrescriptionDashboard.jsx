@@ -4,13 +4,13 @@ import {
   Box,
   Button,
   Chip,
-  FormControl,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
-  InputLabel,
-  LinearProgress,
-  MenuItem,
+  Link,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
@@ -20,8 +20,6 @@ const normalize = (value) => String(value || '')
   .toLowerCase()
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
-
-const DOMAIN_COLORS = ['#1976d2', '#8e24aa', '#00897b', '#f57c00', '#d32f2f']
 
 const PrescriptionDashboard = ({
   items = [],
@@ -33,10 +31,10 @@ const PrescriptionDashboard = ({
 }) => {
   const [search, setSearch] = useState(initialSearch)
   const [type, setType] = useState(initialType)
+  const [recommendedOnly, setRecommendedOnly] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
-  const [retainedId, setRetainedId] = useState(null)
-  const [chartDimension, setChartDimension] = useState('domaine')
-  const [chartFilter, setChartFilter] = useState('')
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [retainedIds, setRetainedIds] = useState([])
 
   const recommended = useMemo(
     () => recommendedNames.map(normalize).filter(Boolean),
@@ -48,14 +46,19 @@ const PrescriptionDashboard = ({
     return recommended.some((name) => label.includes(name) || name.includes(normalize(item.nom)))
   }
 
+  const recommendedItems = useMemo(
+    () => items.filter(isRecommended).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
+    [items, recommended],
+  )
+
   const filteredItems = useMemo(() => {
     const query = normalize(search)
     return items
       .filter((item) => type === 'Tous' || item.type === type)
-      .filter((item) => !chartFilter || item[chartDimension] === chartFilter)
+      .filter((item) => !recommendedOnly || isRecommended(item))
       .filter((item) => !query || normalize(Object.values(item).join(' ')).includes(query))
-      .sort((a, b) => Number(isRecommended(b)) - Number(isRecommended(a)) || a.nom.localeCompare(b.nom))
-  }, [items, search, type, recommended, chartFilter, chartDimension])
+      .sort((a, b) => Number(isRecommended(b)) - Number(isRecommended(a)) || a.nom.localeCompare(b.nom, 'fr'))
+  }, [items, search, type, recommendedOnly, recommended])
 
   useEffect(() => {
     if (!filteredItems.some((item) => item.id === selectedId)) {
@@ -64,222 +67,129 @@ const PrescriptionDashboard = ({
   }, [filteredItems, selectedId])
 
   const selected = filteredItems.find((item) => item.id === selectedId) || filteredItems[0]
-  const atelierCount = items.filter((item) => item.type === 'Atelier').length
-  const prestationCount = items.filter((item) => item.type === 'Prestation').length
-  const recommendedCount = items.filter(isRecommended).length
-  const domainCounts = Object.entries(items.reduce((acc, item) => {
-    acc[item.domaine] = (acc[item.domaine] || 0) + 1
-    return acc
-  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const maxDomain = Math.max(...domainCounts.map(([, count]) => count), 1)
-  const pivotData = useMemo(() => {
-    const groups = items.reduce((acc, item) => {
-      const key = item[chartDimension] || 'Non renseigné'
-      if (!acc[key]) acc[key] = { label: key, Atelier: 0, Prestation: 0, total: 0, recommended: 0 }
-      acc[key][item.type] = (acc[key][item.type] || 0) + 1
-      acc[key].total += 1
-      if (isRecommended(item)) acc[key].recommended += 1
-      return acc
-    }, {})
-    return Object.values(groups).sort((a, b) => b.total - a.total).slice(0, 8)
-  }, [items, chartDimension, recommended])
-  const maxPivot = Math.max(...pivotData.map((entry) => entry.total), 1)
+  const selectedRetained = selected ? retainedIds.includes(selected.id) : false
+
+  const showRecommendedDetails = (item) => {
+    setType('Tous')
+    setRecommendedOnly(false)
+    setSearch('')
+    setSelectedId(item.id)
+    setDetailOpen(true)
+  }
+
+  const openDetails = (item) => {
+    setSelectedId(item.id)
+    setDetailOpen(true)
+  }
 
   const choose = () => {
-    if (!selected) return
-    setRetainedId(selected.id)
+    if (!selected || selectedRetained) return
+    setRetainedIds((current) => [...current, selected.id])
     onSelect?.(selected)
   }
 
   return (
-    <Stack spacing={1.25}>
-      <Grid container spacing={1}>
-        {[
-          ['Dispositifs', items.length, Math.min(100, (items.length / 40) * 100), '#1565c0'],
-          ['Ateliers', atelierCount, items.length ? (atelierCount / items.length) * 100 : 0, '#00897b'],
-          ['Prestations', prestationCount, items.length ? (prestationCount / items.length) * 100 : 0, '#7b1fa2'],
-          ['Adaptés au besoin', recommendedCount, items.length ? (recommendedCount / items.length) * 100 : 0, recommendedCount ? '#2e7d32' : '#ed6c02'],
-        ].map(([label, value, percentage, color], index) => (
-          <Grid key={label} size={{ xs: 6, md: 3 }}>
-            <Paper
-              sx={{
-                p: 1.25,
-                minHeight: 104,
-                borderLeft: `7px solid ${color}`,
-                bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
-                boxShadow: '0 2px 8px rgba(15, 35, 65, 0.12)',
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                <Box>
-                  <Typography variant="caption" sx={{ color, fontWeight: 800 }}>{label}</Typography>
-                  <Typography variant="h4" sx={{ color, fontWeight: 900, lineHeight: 1.1 }}>{value}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {index === 0 ? 'sur un repère de 40' : `${Math.round(percentage)} % du catalogue`}
-                  </Typography>
-                </Box>
-                <Box
-                  role="img"
-                  aria-label={`${label} : ${Math.round(percentage)} %`}
-                  sx={{
-                    position: 'relative',
-                    width: 84,
-                    height: 84,
-                    flex: '0 0 84px',
-                    borderRadius: '50%',
-                    background: `conic-gradient(${color} ${Math.max(2, percentage)}%, rgba(255,255,255,0.72) 0)`,
-                    boxShadow: 'inset 0 0 0 1px rgba(20,45,75,0.08)',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      inset: 11,
-                      borderRadius: '50%',
-                      bgcolor: ['#e3f2fd', '#e0f2f1', '#f3e5f5', '#fff3e0'][index],
-                    },
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      zIndex: 1,
-                      display: 'grid',
-                      placeItems: 'center',
-                      color,
-                      fontWeight: 900,
-                      fontSize: '0.9rem',
-                    }}
-                  >
-                    {Math.round(percentage)} %
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Grid container spacing={1}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: '#fff', borderTop: '5px solid #244d78' }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#244d78' }}>
-                  Graphique croisé dynamique
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Cliquez sur une barre pour filtrer la liste.
-                </Typography>
-              </Box>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel id="pivot-axis-label">Analyser par</InputLabel>
-                <Select
-                  labelId="pivot-axis-label"
-                  value={chartDimension}
-                  label="Analyser par"
-                  onChange={(event) => {
-                    setChartDimension(event.target.value)
-                    setChartFilter('')
-                  }}
-                >
-                  <MenuItem value="domaine">Domaine</MenuItem>
-                  <MenuItem value="public">Public</MenuItem>
-                  <MenuItem value="localisation">Localisation</MenuItem>
-                  <MenuItem value="partenaire">Partenaire</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 0.8 }}>
-              {pivotData.map((entry) => (
-                <Box
-                  key={entry.label}
-                  onClick={() => setChartFilter((current) => current === entry.label ? '' : entry.label)}
-                  sx={{
-                    p: 0.7,
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                    bgcolor: chartFilter === entry.label ? '#dcecff' : '#f7f9fc',
-                    border: '1px solid',
-                    borderColor: chartFilter === entry.label ? '#1976d2' : '#e1e6ed',
-                  }}
-                >
-                  <Typography variant="caption" sx={{ fontWeight: 800 }} noWrap>
-                    {entry.label} · <Box component="span" sx={{ fontWeight: 900 }}>{entry.total}</Box>
-                  </Typography>
-                  <Box sx={{ display: 'flex', height: 10, mt: 0.35, bgcolor: '#e8edf3', borderRadius: 5, overflow: 'hidden' }}>
-                    <Box title={`${entry.Atelier} atelier(s)`} sx={{ width: `${(entry.Atelier / maxPivot) * 100}%`, bgcolor: '#00897b' }} />
-                    <Box title={`${entry.Prestation} prestation(s)`} sx={{ width: `${(entry.Prestation / maxPivot) * 100}%`, bgcolor: '#8e24aa' }} />
-                  </Box>
-                  <Box sx={{ height: 3, mt: 0.25, borderRadius: 4, width: `${(entry.recommended / maxPivot) * 100}%`, bgcolor: '#43a047' }} />
-                </Box>
-              ))}
+    <Stack spacing={1.25} sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
+      <Paper
+        variant="outlined"
+        sx={{ p: 1.5, bgcolor: '#eef6ff', border: '2px solid #1976d2' }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 900, color: '#174f86' }}>
+          Comment utiliser cet écran ?
+        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mt: 1 }}>
+          {[
+            ['1', 'Regardez les solutions proposées pour ce demandeur.'],
+            ['2', 'Ouvrez une fiche pour vérifier l’objectif et les conditions.'],
+            ['3', 'Ajoutez la solution retenue aux actions de l’entretien.'],
+          ].map(([number, label]) => (
+            <Box key={number} sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+              <Chip label={number} color="primary" sx={{ fontWeight: 900 }} />
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{label}</Typography>
             </Box>
-            <Stack direction="row" spacing={2} sx={{ mt: 0.8 }}>
-              <Typography variant="caption"><Box component="span" sx={{ color: '#00897b' }}>●</Box> Ateliers</Typography>
-              <Typography variant="caption"><Box component="span" sx={{ color: '#8e24aa' }}>●</Box> Prestations</Typography>
-              <Typography variant="caption"><Box component="span" sx={{ color: '#43a047' }}>●</Box> Adaptés au DE</Typography>
-              {chartFilter ? <Chip size="small" color="primary" label={`Filtre : ${chartFilter} ×`} onClick={() => setChartFilter('')} /> : null}
-            </Stack>
-          </Paper>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Paper variant="outlined" sx={{ p: 1.25, height: '100%', borderTop: '5px solid #f57c00' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#8a4b00' }}>Répartition de l’offre</Typography>
-            <Stack direction="row" alignItems="center" justifyContent="space-around" sx={{ mt: 1 }}>
-              <Box
-                sx={{
-                  width: 132,
-                  height: 132,
-                  borderRadius: '50%',
-                  position: 'relative',
-                  background: `conic-gradient(#00897b 0 ${(atelierCount / Math.max(items.length, 1)) * 100}%, #8e24aa 0 100%)`,
-                  '&::after': { content: '""', position: 'absolute', inset: 24, borderRadius: '50%', bgcolor: '#fff' },
-                }}
-              >
-                <Box sx={{ position: 'absolute', inset: 0, zIndex: 1, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-                  <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 900 }}>{items.length}</Typography>
-                    <Typography variant="caption">solutions</Typography>
-                  </Box>
-                </Box>
-              </Box>
-              <Stack spacing={1}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">ATELIERS</Typography>
-                  <Typography variant="h5" sx={{ color: '#00897b', fontWeight: 900 }}>{atelierCount}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">PRESTATIONS</Typography>
-                  <Typography variant="h5" sx={{ color: '#8e24aa', fontWeight: 900 }}>{prestationCount}</Typography>
-                </Box>
-              </Stack>
-            </Stack>
-          </Paper>
-        </Grid>
-      </Grid>
+          ))}
+        </Stack>
+      </Paper>
 
       {alerts.length > 0 ? (
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
           {alerts.slice(0, 2).map((alert) => (
-            <Alert key={`${alert.severity}-${alert.texte}`} severity={alert.severity} sx={{ flex: 1, py: 0 }}>
+            <Alert key={`${alert.severity}-${alert.texte}`} severity={alert.severity} sx={{ flex: 1, py: 0.25 }}>
               {alert.texte}
             </Alert>
           ))}
         </Stack>
       ) : null}
 
-      <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f4f8fd', borderColor: '#bbdefb' }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
+      <Paper variant="outlined" sx={{ p: 1.5, borderLeft: '8px solid #2e7d32', bgcolor: '#f3faf4' }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={0.5}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 900, color: '#246b2d' }}>
+              1. Solutions adaptées au besoin
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Ces propositions proviennent des informations renseignées pendant l’entretien. Vérifiez-les avant de les retenir.
+            </Typography>
+          </Box>
+          <Chip
+            color={recommendedItems.length ? 'success' : 'warning'}
+            label={`${recommendedItems.length} proposition${recommendedItems.length > 1 ? 's' : ''}`}
+            sx={{ fontWeight: 900, alignSelf: { xs: 'flex-start', md: 'center' } }}
+          />
+        </Stack>
+
+        {recommendedItems.length ? (
+          <Grid container spacing={1} sx={{ mt: 0.5 }}>
+            {recommendedItems.slice(0, 6).map((item) => (
+              <Grid key={item.id} size={{ xs: 12, md: 6, xl: 4 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.2,
+                    height: '100%',
+                    bgcolor: '#fff',
+                    borderColor: selectedId === item.id ? '#1976d2' : '#a5d6a7',
+                    borderWidth: selectedId === item.id ? 2 : 1,
+                  }}
+                >
+                  <Stack spacing={0.75} sx={{ height: '100%' }}>
+                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Chip size="small" label={item.type} color={item.type === 'Atelier' ? 'primary' : 'secondary'} />
+                      <Typography variant="caption" color="text.secondary">{item.domaine}</Typography>
+                    </Stack>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{item.nom}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                      {item.objectif}
+                    </Typography>
+                    <Button size="small" variant="outlined" onClick={() => showRecommendedDetails(item)}>
+                      Voir la fiche
+                    </Button>
+                  </Stack>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Alert severity="warning" sx={{ mt: 1 }}>
+            Aucune solution n’est encore proposée. Complétez la demande, les freins et les ressources dans la conduite de l’entretien.
+          </Alert>
+        )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#fff' }}>
+        <Typography variant="h6" sx={{ fontWeight: 900, color: '#174f86' }}>
+          2. Rechercher une autre solution
+        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} sx={{ mt: 1 }}>
           <TextField
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             size="small"
-            placeholder="Rechercher un atelier, un besoin, un code..."
+            label="Besoin, nom, code ou mot-clé"
+            placeholder="Exemple : mobilité, formation, création d’entreprise…"
             sx={{ flex: 1 }}
           />
-          <Stack direction="row" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
             {['Tous', 'Atelier', 'Prestation'].map((value) => (
               <Button
                 key={value}
@@ -287,150 +197,203 @@ const PrescriptionDashboard = ({
                 variant={type === value ? 'contained' : 'outlined'}
                 onClick={() => setType(value)}
               >
-                {value}
+                {value === 'Tous' ? 'Tout le catalogue' : `${value}s`}
               </Button>
             ))}
+            <Button
+              size="small"
+              color="success"
+              variant={recommendedOnly ? 'contained' : 'outlined'}
+              onClick={() => setRecommendedOnly((current) => !current)}
+              disabled={!recommendedItems.length}
+            >
+              Adaptés au besoin
+            </Button>
           </Stack>
         </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+          {filteredItems.length} solution(s) affichée(s) sur {items.length}.
+        </Typography>
       </Paper>
 
-      <Grid container spacing={1.25}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: '70px minmax(190px, 1.6fr) 1fr 90px 1fr',
-                gap: 1,
-                px: 1.25,
-                py: 0.8,
-                bgcolor: '#244d78',
-                color: '#fff',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              {['État', 'Dispositif', 'Public', 'Durée', 'Domaine'].map((label) => (
-                <Typography key={label} variant="caption" sx={{ fontWeight: 800, color: 'inherit' }}>{label}</Typography>
-              ))}
-            </Box>
-            <Box sx={{ height: 430, overflowY: 'auto' }}>
-              {filteredItems.map((item) => {
-                const active = selected?.id === item.id
-                const suggested = isRecommended(item)
-                return (
-                  <Box
-                    key={item.id}
-                    onClick={() => setSelectedId(item.id)}
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: '70px minmax(190px, 1.6fr) 1fr 90px 1fr',
-                      gap: 1,
-                      alignItems: 'center',
-                      px: 1.25,
-                      py: 0.85,
-                      cursor: 'pointer',
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: active ? '#d9ecff' : suggested ? '#e5f6e9' : item.type === 'Atelier' ? '#f3fbfa' : '#fbf5fc',
-                      borderLeft: '5px solid',
-                      borderLeftColor: suggested ? 'success.main' : item.type === 'Atelier' ? '#26a69a' : '#ab47bc',
-                      '&:hover': { bgcolor: '#e6f1fc' },
-                    }}
-                  >
-                    <Chip
-                      size="small"
-                      color={suggested ? 'success' : item.type === 'Atelier' ? 'primary' : 'secondary'}
-                      label={suggested ? 'Conseillé' : item.type}
-                      sx={{ fontSize: '0.67rem' }}
-                    />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 800 }} noWrap>
-                        {item.code ? `${item.code} · ` : ''}{item.nom}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap display="block">
-                        {item.intervenants}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" noWrap>{item.public}</Typography>
-                    <Typography variant="caption" noWrap>{item.duree}</Typography>
-                    <Typography variant="body2" noWrap>{item.domaine}</Typography>
-                  </Box>
-                )
-              })}
-              {filteredItems.length === 0 ? (
-                <Typography color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>
-                  Aucun dispositif ne correspond à cette recherche.
-                </Typography>
-              ) : null}
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Stack spacing={1.25}>
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 1.5,
-                minHeight: 315,
-                borderTop: '7px solid',
-                borderTopColor: isRecommended(selected || {}) ? 'success.main' : selected?.type === 'Atelier' ? '#00897b' : '#8e24aa',
-                bgcolor: isRecommended(selected || {}) ? '#f1faf3' : selected?.type === 'Atelier' ? '#f1fbfa' : '#fbf4fc',
-                boxShadow: '0 3px 12px rgba(15, 35, 65, 0.12)',
-              }}
-            >
-              {selected ? (
-                <Stack spacing={1}>
-                  <Stack direction="row" justifyContent="space-between" spacing={1}>
-                    <Box>
-                      <Typography variant="caption" color="primary.main" sx={{ fontWeight: 800 }}>
-                        {selected.type.toUpperCase()} · {selected.code}
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.15 }}>{selected.nom}</Typography>
-                    </Box>
-                    {isRecommended(selected) ? <Chip color="success" size="small" label="Adapté au besoin" /> : null}
-                  </Stack>
-                  <Typography variant="body2"><strong>Objectif :</strong> {selected.objectif}</Typography>
-                  <Typography variant="body2"><strong>Accès :</strong> {selected.conditions}</Typography>
-                  <Box sx={{ p: 1, bgcolor: '#dcecff', borderRadius: 1, borderLeft: '4px solid #1976d2' }}>
-                    <Typography variant="caption" color="primary.main" sx={{ fontWeight: 800 }}>CHEMIN DE PRESCRIPTION</Typography>
-                    <Typography variant="body2">{selected.prescription}</Typography>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {selected.localisation} · {selected.duree} · {selected.intervenants}
+      <Paper variant="outlined" sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
+        <Box sx={{ px: 1.5, py: 1, bgcolor: '#244d78', color: '#fff' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+            3. Choisir une solution
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)' }}>
+            Cliquez sur une ligne pour ouvrir sa fiche complète.
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: { xs: 'none', sm: 'grid' },
+            gridTemplateColumns: '80px minmax(0, 1.7fr) minmax(110px, 1fr) 90px',
+            gap: 1,
+            px: 1.25,
+            py: 0.7,
+            bgcolor: '#eaf0f6',
+          }}
+        >
+          {['Type', 'Solution', 'Besoin', 'Durée'].map((label) => (
+            <Typography key={label} variant="caption" sx={{ fontWeight: 900 }}>{label}</Typography>
+          ))}
+        </Box>
+        <Box sx={{ maxHeight: 380, overflowY: 'auto', overflowX: 'hidden' }}>
+          {filteredItems.map((item) => {
+            const active = selected?.id === item.id
+            const suggested = isRecommended(item)
+            return (
+              <Box
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openDetails(item)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') openDetails(item)
+                }}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '74px minmax(0, 1fr)',
+                    sm: '80px minmax(0, 1.7fr) minmax(110px, 1fr) 90px',
+                  },
+                  gap: 1,
+                  alignItems: 'center',
+                  px: 1.25,
+                  py: 0.8,
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #e1e6ed',
+                  borderLeft: '5px solid',
+                  borderLeftColor: suggested ? 'success.main' : 'transparent',
+                  bgcolor: active ? '#d9ecff' : suggested ? '#eef8f0' : '#fff',
+                  '&:hover': { bgcolor: '#e6f1fc' },
+                  '&:focus-visible': { outline: '3px solid #1976d2', outlineOffset: -3 },
+                }}
+              >
+                <Chip
+                  size="small"
+                  color={suggested ? 'success' : item.type === 'Atelier' ? 'primary' : 'secondary'}
+                  label={suggested ? 'Adapté' : item.type}
+                  sx={{ fontSize: '0.68rem', maxWidth: '100%' }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                    {item.code ? `${item.code} · ` : ''}{item.nom}
                   </Typography>
-                  <Button variant="contained" color={retainedId === selected.id ? 'success' : 'primary'} onClick={choose}>
-                    {retainedId === selected.id ? 'Prescription retenue' : 'Retenir cette prescription'}
-                  </Button>
-                </Stack>
-              ) : null}
-            </Paper>
-
-            <Paper variant="outlined" sx={{ p: 1.25, bgcolor: '#f8f9fc' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75, color: '#244d78' }}>Répartition par besoin</Typography>
-              {domainCounts.map(([domain, count], index) => (
-                <Box key={domain} sx={{ mb: 0.65 }}>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="caption">{domain}</Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>{count}</Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(count / maxDomain) * 100}
-                    sx={{
-                      height: 7,
-                      borderRadius: 4,
-                      bgcolor: '#e3e8ef',
-                      '& .MuiLinearProgress-bar': { bgcolor: DOMAIN_COLORS[index] },
-                    }}
-                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {item.localisation}
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                      {` · ${item.domaine} · ${item.duree}`}
+                    </Box>
+                  </Typography>
                 </Box>
-              ))}
-            </Paper>
-          </Stack>
-        </Grid>
-      </Grid>
+                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>{item.domaine}</Typography>
+                <Typography variant="caption" sx={{ display: { xs: 'none', sm: 'block' } }}>{item.duree}</Typography>
+              </Box>
+            )
+          })}
+          {!filteredItems.length ? (
+            <Alert severity="info" sx={{ m: 1.5 }}>
+              Aucune solution ne correspond à ces critères. Effacez la recherche ou choisissez « Tout le catalogue ».
+            </Alert>
+          ) : null}
+        </Box>
+      </Paper>
+
+      <Dialog
+        open={detailOpen && Boolean(selected)}
+        onClose={() => setDetailOpen(false)}
+        fullWidth
+        maxWidth="md"
+        scroll="paper"
+      >
+        {selected ? (
+          <>
+            <DialogTitle sx={{ pb: 1, borderTop: '7px solid', borderTopColor: isRecommended(selected) ? 'success.main' : '#1976d2' }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+                <Box>
+                  <Typography variant="caption" color="primary.main" sx={{ fontWeight: 900 }}>
+                    {selected.type.toUpperCase()} {selected.code ? `· ${selected.code}` : ''}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.2 }}>{selected.nom}</Typography>
+                </Box>
+                {isRecommended(selected) ? <Chip color="success" size="small" label="Adapté au besoin" sx={{ alignSelf: 'flex-start' }} /> : null}
+              </Stack>
+            </DialogTitle>
+            <DialogContent dividers sx={{ bgcolor: isRecommended(selected) ? '#f3faf4' : '#f7faff' }}>
+              <Stack spacing={1.1}>
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 900, color: '#174f86' }}>À QUOI SERT CETTE SOLUTION ?</Typography>
+                  <Typography variant="body2">{selected.objectif}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 900, color: '#174f86' }}>QUI PEUT EN BÉNÉFICIER ?</Typography>
+                  <Typography variant="body2">{selected.public}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 900, color: '#174f86' }}>CONDITIONS À VÉRIFIER</Typography>
+                  <Typography variant="body2">{selected.conditions}</Typography>
+                </Box>
+                <Box sx={{ p: 1, bgcolor: '#dcecff', borderRadius: 1, borderLeft: '4px solid #1976d2' }}>
+                  <Typography variant="caption" color="primary.main" sx={{ fontWeight: 900 }}>COMMENT LA PRESCRIRE ?</Typography>
+                  <Typography variant="body2">{selected.prescription}</Typography>
+                </Box>
+                {Array.isArray(selected.pointsVigilance) && selected.pointsVigilance.length ? (
+                  <Box sx={{ p: 1, bgcolor: '#fff8e8', borderRadius: 1, borderLeft: '4px solid #ed6c02' }}>
+                    <Typography variant="caption" sx={{ color: '#8a4b00', fontWeight: 900 }}>POINTS À VÉRIFIER</Typography>
+                    {selected.pointsVigilance.map((point) => (
+                      <Typography key={point} variant="body2">• {point}</Typography>
+                    ))}
+                  </Box>
+                ) : null}
+                {selected.confirmationInterne ? (
+                  <Alert severity="warning" sx={{ py: 0.25 }}>
+                    <strong>Procédure interne à confirmer :</strong> {selected.confirmationInterne}
+                  </Alert>
+                ) : null}
+                {selected.sourceInterne ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Source métier interne : {selected.sourceInterne}
+                  </Typography>
+                ) : null}
+                {Array.isArray(selected.sourcesOfficielles) && selected.sourcesOfficielles.length ? (
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" sx={{ fontWeight: 900, color: '#174f86' }}>
+                      SOURCES OFFICIELLES
+                    </Typography>
+                    {selected.sourcesOfficielles.map((source) => (
+                      <Link
+                        key={source.url}
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        variant="caption"
+                      >
+                        {source.nom}
+                      </Link>
+                    ))}
+                  </Stack>
+                ) : null}
+                <Typography variant="caption" color="text.secondary">
+                  {selected.localisation} · {selected.duree} · {selected.intervenants}
+                </Typography>
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 2, py: 1.25, justifyContent: 'space-between' }}>
+              <Button onClick={() => setDetailOpen(false)}>Fermer</Button>
+              <Button
+                variant="contained"
+                color={selectedRetained ? 'success' : 'primary'}
+                onClick={choose}
+                disabled={selectedRetained}
+              >
+                {selectedRetained ? 'Ajoutée aux actions' : 'Ajouter aux actions de l’entretien'}
+              </Button>
+            </DialogActions>
+          </>
+        ) : null}
+      </Dialog>
     </Stack>
   )
 }

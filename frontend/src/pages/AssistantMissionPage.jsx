@@ -10,15 +10,10 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  FormControlLabel,
   Grid,
-  List,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Paper,
   Stack,
@@ -47,11 +42,17 @@ import { offreServiceCorse } from '../data/offreServiceCorse'
 import { portefeuillesCorse } from '../data/configurationCorse'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { listPortfolioRecords } from '../services/portfolioImportService'
+import {
+  buildFormalitesSynthese,
+  DEFAULT_FORMALITES_ENTRETIEN,
+  formalitesEntretienCompletes,
+  normalizeFormalitesEntretien,
+} from '../services/syntheseFormalitesService'
 
 const ENTRETIEN_TYPES = [
-  { value: 'premier-physique', label: 'Premier entretien (60 min)' },
-  { value: 'suivi-physique', label: 'Entretien de suivi (30 min)' },
-  { value: 'telephonique', label: 'Entretien telephonique (15 a 20 min)' },
+  { value: 'premier-physique', label: 'Premier entretien (60 min)', duree: '60 min', secondes: 60 * 60 },
+  { value: 'suivi-physique', label: 'Entretien de suivi (30 min)', duree: '30 min', secondes: 30 * 60 },
+  { value: 'telephonique', label: 'Entretien téléphonique (15 à 20 min)', duree: '15-20 min', secondes: 20 * 60 },
 ]
 
 const DECISION_LABELS = {
@@ -105,6 +106,13 @@ const SITUATION_ADMINISTRATIVE_OPTIONS = [
   'Indemnisation ARE',
   'Allocation ASS',
   'Bénéficiaire du RSA',
+  'BRSA sans orientation enregistrée',
+  'Primo-inscrit',
+  'Réinscrit après plus de 10 ans',
+  'Catégorie 1',
+  'Catégorie 2',
+  'Catégorie 3',
+  'Orientation Collectivité / Conseil départemental',
   'Sans indemnisation',
   'Reconnaissance RQTH',
   'Demande RQTH en cours',
@@ -274,15 +282,22 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     .filter(Boolean)
 
   return phrases.map((phrase) => {
-    const debutMinuscule = phrase.charAt(0).toLowerCase() + phrase.slice(1)
-    if (/^\d+\s*ans?\b/i.test(phrase)) return `vous disposez de ${debutMinuscule}`
-    if (/^ne sait plus/i.test(phrase)) return phrase.replace(/^ne sait plus/i, 'vous ne savez plus')
-    if (/^ne sait pas/i.test(phrase)) return phrase.replace(/^ne sait pas/i, 'vous ne savez pas')
-    if (/^souhaite/i.test(phrase)) return phrase.replace(/^souhaite/i, 'vous souhaitez')
-    if (/^recherche/i.test(phrase)) return phrase.replace(/^recherche/i, 'vous recherchez')
-    if (/^pas de/i.test(phrase)) return phrase.replace(/^pas de/i, "vous n'avez pas de")
-    if (/^sans /i.test(phrase)) return `vous êtes ${debutMinuscule}`
-    if (/^vous\b/i.test(phrase)) return debutMinuscule
+    const phraseNormalisee = phrase
+      .replace(/\bRégion\b/g, 'région')
+      .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
+      .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
+      .replace(/\bau regard de son profil\b/gi, 'au regard de votre profil')
+      .replace(/\bet dans cette perspective,\s*souhaite\b/gi, 'et, dans cette perspective, vous souhaitez')
+    const debutMinuscule = phraseNormalisee.charAt(0).toLowerCase() + phraseNormalisee.slice(1)
+    if (/^\d+\s*ans?\b/i.test(phraseNormalisee)) return `vous disposez de ${debutMinuscule}`
+    if (/^ne sait plus/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait plus/i, 'vous ne savez plus')
+    if (/^ne sait pas/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait pas/i, 'vous ne savez pas')
+    if (/^envisage/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^envisage/i, 'vous envisagez')
+    if (/^souhaite/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^souhaite/i, 'vous souhaitez')
+    if (/^recherche/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^recherche/i, 'vous recherchez')
+    if (/^pas de/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^pas de/i, "vous n'avez pas de")
+    if (/^sans /i.test(phraseNormalisee)) return `vous êtes ${debutMinuscule}`
+    if (/^vous\b/i.test(phraseNormalisee)) return debutMinuscule
     return debutMinuscule
   }).join(', et ')
 }
@@ -291,6 +306,9 @@ function AssistantMissionPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const recognitionRef = useRef(null)
+  const ignorerProchaineSauvegardeRef = useRef(false)
+  const chronoDepartRef = useRef(null)
+  const chronoBaseSecondesRef = useRef(0)
 
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState('premier-physique')
@@ -315,6 +333,7 @@ function AssistantMissionPage() {
     entreeFormation: false,
     demandeAffectation: false,
   })
+  const [formalitesEntretien, setFormalitesEntretien] = useState(DEFAULT_FORMALITES_ENTRETIEN)
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
@@ -329,6 +348,7 @@ function AssistantMissionPage() {
   const [decisionConseillerCommentaire, setDecisionConseillerCommentaire] = useState('')
   const [actionsImmediatesValidees, setActionsImmediatesValidees] = useState([])
   const [chronoSecondes, setChronoSecondes] = useState(0)
+  const [chronoActif, setChronoActif] = useState(false)
 
   const [diagnosticMetier, setDiagnosticMetier] = useState(null)
   const [recommandationsMetier, setRecommandationsMetier] = useState(null)
@@ -338,7 +358,6 @@ function AssistantMissionPage() {
   const [isListening, setIsListening] = useState(false)
   const [speechStatus, setSpeechStatus] = useState('')
   const [storageStatus, setStorageStatus] = useState('')
-  const [ouvertureDialogOpen, setOuvertureDialogOpen] = useState(false)
   const [analysesEnregistrees, setAnalysesEnregistrees] = useState([])
   const [historiqueEntretiens, setHistoriqueEntretiens] = useState([])
   const [workspaceTab, setWorkspaceTab] = useState('entretien')
@@ -433,9 +452,12 @@ function AssistantMissionPage() {
   const questionCourante = questionsEntretien[questionIndex] || ''
   const questionCouranteOuverte = /^(quel|quelle|quels|quelles|comment|pourquoi|dans quel|dans quelle|decrivez|décrivez|precisez|précisez)/i
     .test(questionCourante.trim())
+  const aideQuestionCourante = /métier|secteur|compétence/i.test(questionCourante)
+    ? 'Aide : notez les métiers déjà envisagés, les secteurs refusés, les tâches appréciées et les savoir-faire transférables. Si la personne ne sait pas, écrivez « aucune piste à ce stade ».'
+    : 'Notez les éléments exprimés par la personne. Si elle ne sait pas répondre, indiquez-le clairement.'
 
   const analyseDemandeAutomatique = useMemo(() => {
-    const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${reponsesGuideesTexte}`.trim()
+    const texteOriginal = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${reponsesGuideesTexte}`.trim()
     const texte = texteOriginal
       .toLowerCase()
       .normalize('NFD')
@@ -456,6 +478,10 @@ function AssistantMissionPage() {
     }
     if (/\brsa\b/.test(texte)) {
       constats.push('La situation RSA nécessite de coordonner les démarches et le contrat d’engagement.')
+    }
+    if (/(?:brsa|rsa).{0,30}sans orientation|sans orientation.{0,30}(?:brsa|rsa)/.test(texte)) {
+      objectifsDetectes.push('Vérifier l’orientation RSA')
+      constats.push('Une situation BRSA sans orientation enregistrée nécessite une vérification de la procédure d’orientation applicable.')
     }
     if (/enfant|garde|creche/.test(texte)) {
       freinsDetectes.push('Garde d’enfants')
@@ -484,13 +510,17 @@ function AssistantMissionPage() {
       objectifsDetectes.push('Clarifier le projet professionnel')
       constats.push('Le projet n’est pas encore défini : une phase d’exploration est prioritaire.')
     }
+    if (/immersion|pmsmp|decouvrir.*metier|confirmer.*projet|tester.*metier|tester.*environnement/.test(texte)) {
+      objectifsDetectes.push('Immersion professionnelle')
+      constats.push('Une immersion peut être étudiée pour découvrir un métier, confirmer le projet ou préparer une mise en relation avec un employeur.')
+    }
 
     return {
       constats: Array.from(new Set(constats)),
       freins: Array.from(new Set(freinsDetectes)),
       objectifs: Array.from(new Set(objectifsDetectes)),
     }
-  }, [ceQueDitLaPersonne, besoinIdentifieConseiller, reponsesGuideesTexte])
+  }, [ceQueDitLaPersonne, besoinIdentifieConseiller, situationAdministrative, reponsesGuideesTexte])
 
   const diagnosticAutonome = useMemo(() => {
     const freins = analyseDemandeAutomatique.freins
@@ -552,8 +582,14 @@ function AssistantMissionPage() {
         texte: 'Difficultés numériques : proposer l’atelier PIX Emploi à réaliser à domicile afin d’identifier les connaissances informatiques de base du DE.',
       })
     }
+    if (analyseDemandeAutomatique.objectifs.includes('Vérifier l’orientation RSA')) {
+      alertes.push({
+        severity: 'warning',
+        texte: 'BRSA sans orientation : vérifier la procédure interne France Travail et l’orientation relevant de la Collectivité avant toute décision. Ne pas déduire l’orientation du seul dossier.',
+      })
+    }
     return alertes
-  }, [analyseDemandeAutomatique.freins])
+  }, [analyseDemandeAutomatique.freins, analyseDemandeAutomatique.objectifs])
 
   const capaciteAAgir = useMemo(() => {
     const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
@@ -639,6 +675,7 @@ function AssistantMissionPage() {
   const recommandationsService = useMemo(() => {
     const orientation = recommandationsMoteur.orientation?.principale || 'Orientation a preciser'
     const compatibles = recommandationsMoteur.orientation?.compatibles || []
+    const propositionIAE = recommandationsMoteur.diagnostic?.propositionIAE
 
     return [
       {
@@ -648,6 +685,16 @@ function AssistantMissionPage() {
         preconisation: compatibles.length > 0
           ? compatibles.map((item) => `${item.situation} (priorite ${item.priorite})`).join(' | ')
           : 'Aucune regle compatible',
+      },
+      {
+        key: 'iae',
+        title: 'Insertion par l’activité économique',
+        justification: propositionIAE?.pertinente
+          ? `Piste IAE à étudier : ${propositionIAE.motifs.join(' ')}`
+          : 'Aucun signal suffisant ne justifie une proposition IAE à ce stade.',
+        preconisation: propositionIAE?.pertinente
+          ? `Structures à examiner selon le secteur et la mobilité : ${propositionIAE.propositions.map((item) => `${item.nom} (${item.activites.join(', ')})`).join(' ; ')}. Éligibilité, postes et circuit à confirmer en interne.`
+          : 'Compléter la situation d’emploi et les difficultés d’insertion avant d’étudier cette piste.',
       },
       {
         key: 'ateliers',
@@ -708,6 +755,12 @@ function AssistantMissionPage() {
     ]
   }, [recommandationsMoteur])
 
+  useEffect(() => {
+    if (recommandationTab === 'iae' && !recommandationsMoteur.diagnostic?.propositionIAE?.pertinente) {
+      setRecommandationTab('orientation')
+    }
+  }, [recommandationTab, recommandationsMoteur.diagnostic?.propositionIAE?.pertinente])
+
   const prescriptionsSuggerees = useMemo(() => {
     const contexte = `${ceQueDitLaPersonne} ${besoinIdentifieConseiller} ${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel}`
       .toLowerCase()
@@ -721,6 +774,10 @@ function AssistantMissionPage() {
     const senior = /\b(5[0-9]|6[0-9])\s*ans\b|senior/.test(contexte)
     const rechercheEmploi = /recherche d.?emploi|candidature|retour a l.?emploi|emploi durable|emploi stable|retrouver.*emploi/.test(contexte)
     const mobiliteInternationale = /etranger|international|mobilite internationale|anglais|allemand|espagnol/.test(contexte)
+    const immersion = /immersion|pmsmp|decouvrir.*metier|confirmer.*projet|tester.*metier|tester.*environnement|metier en tension/.test(contexte)
+    const regardsCroises = /regards? croises?|psychologue du travail|besoin.*reconversion|reconversion.*(?:rsa|deld|senior|50 ans)/.test(contexte)
+    const financementFormation = /\baif\b|financement.*formation|formation.*financement|cpf insuffisant|reste a charge|devis.*formation/.test(contexte)
+    const pisteIAEPertinente = Boolean(recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
 
     if (typeEntretien === 'premier-physique' || /contrat|engagement|droit|obligation/.test(contexte)) {
       ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
@@ -730,6 +787,9 @@ function AssistantMissionPage() {
     }
     if (/formation|reconversion|financement/.test(contexte)) {
       ateliersInternes.push({ nom: 'Formation et financements', type: 'Atelier' })
+    }
+    if (financementFormation && !projetFlou) {
+      ateliersInternes.push({ nom: 'Aide individuelle à la formation (AIF)', type: 'Prestation' })
     }
     if (/numerique|demarche|organisation|autonomie|espace personnel/.test(contexte)) {
       ateliersInternes.push({ nom: 'Organisation des démarches', type: 'Atelier' })
@@ -757,6 +817,15 @@ function AssistantMissionPage() {
     if (mobiliteInternationale) {
       ateliersInternes.push({ nom: 'Réaliser mon CV en langue étrangère', type: 'Atelier' })
       ateliersInternes.push({ nom: 'Activ International', type: 'Prestation' })
+    }
+    if (immersion) {
+      ateliersInternes.push({ nom: 'Immersion professionnelle', type: 'Atelier' })
+    }
+    if (regardsCroises) {
+      ateliersInternes.push({ nom: 'Regards croisés', type: 'Prestation' })
+    }
+    if (pisteIAEPertinente) {
+      ateliersInternes.push({ nom: 'Parcours IAE / SIAE Corse-du-Sud', type: 'Prestation' })
     }
 
     const suggestions = [
@@ -932,8 +1001,13 @@ function AssistantMissionPage() {
   const orientationPrioritaire = useMemo(() => {
     if (analyseDemandeAutomatique.freins.includes('Projet professionnel')) return 'Projet à clarifier'
     if (analyseDemandeAutomatique.freins.includes('Santé / RQTH')) return 'Handicap / compensation à sécuriser'
+    if (recommandationsMoteur.diagnostic?.propositionIAE?.pertinente) return 'Piste IAE à étudier'
     return recommandationsMoteur.orientation?.principale || 'À préciser'
-  }, [analyseDemandeAutomatique.freins, recommandationsMoteur.orientation])
+  }, [
+    analyseDemandeAutomatique.freins,
+    recommandationsMoteur.orientation,
+    recommandationsMoteur.diagnostic?.propositionIAE?.pertinente,
+  ])
 
   const explicationsDecision = useMemo(() => {
     const freins = analyseDemandeAutomatique.freins
@@ -987,6 +1061,16 @@ function AssistantMissionPage() {
         'Un accompagnement au démarrage pourra être ajouté si la personne ne peut pas réaliser seule l’atelier à la maison.',
       )
     }
+    if (recommandationsMoteur.diagnostic?.propositionIAE?.pertinente) {
+      const pisteIAE = recommandationsMoteur.diagnostic.propositionIAE
+      ajouter(
+        'Étudier une orientation vers l’insertion par l’activité économique',
+        pisteIAE.motifs.slice(0, 4),
+        'La piste IAE est une proposition d’accompagnement par le travail, l’encadrement technique et un suivi renforcé ; elle n’est pas une décision automatique.',
+        `Éligibilité, absence d’activité incompatible, secteur, mobilité, postes disponibles et circuit interne. Structures suggérées : ${pisteIAE.propositions.map((item) => item.nom).join(', ')}.`,
+        'La piste sera retirée si la situation d’emploi ou de retraite la rend incompatible, ou réorientée vers une autre structure selon le secteur et les postes ouverts.',
+      )
+    }
 
     ajouter(
       `Orientation proposée : ${orientationPrioritaire}`,
@@ -998,7 +1082,7 @@ function AssistantMissionPage() {
       'Toute correction du récit, des freins ou des ressources recalcule automatiquement cette proposition.',
     )
     return explications
-  }, [analyseDemandeAutomatique, orientationPrioritaire])
+  }, [analyseDemandeAutomatique, orientationPrioritaire, recommandationsMoteur.diagnostic?.propositionIAE])
 
   const alertesPrescriptions = useMemo(() => {
     const alertes = []
@@ -1158,10 +1242,10 @@ function AssistantMissionPage() {
 
     const parcoursEtProjet = [
       parcoursProfessionnel.trim() ? `Votre parcours : ${parcoursProfessionnel.trim().replace(/[.]+$/, '')}.` : '',
-      projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : 'Votre projet professionnel reste à préciser.',
+      projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
       contexte ? `Votre situation actuelle : ${contexte.replace(/[.]+$/, '')}.` : '',
     ].filter(Boolean).join(' ')
-    paragraphes.push(parcoursEtProjet)
+    if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
 
     const constats = []
     const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
@@ -1174,26 +1258,21 @@ function AssistantMissionPage() {
       ...actionsRetenues.map((item) => (
         item.type === 'Partenaire'
           ? `votre orientation vers ${item.nom}`
-          : /pix emploi/i.test(item.nom)
-            ? 'la réalisation à votre domicile de l’atelier PIX Emploi depuis votre espace personnel France Travail, afin d’identifier vos connaissances informatiques de base'
           : `votre participation à ${item.nom}${item.echeanceAction ? ` avant le ${new Date(`${item.echeanceAction}T12:00:00`).toLocaleDateString('fr-FR')}` : ''}`
       )),
-    ].filter(Boolean).filter((item, index, items) => items.indexOf(item) === index).slice(0, 4)
-    paragraphes.push(
-      actions.length > 0
-        ? `Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`
-        : "Nous convenons de préciser ensemble les prochaines actions de votre accompagnement.",
-    )
-
-    if (!actionsRetenues.some((item) => /pix emploi/i.test(item.nom))) {
-      paragraphes.push(
-        "Je vous invite à réaliser à votre domicile l’atelier PIX Emploi depuis votre espace personnel France Travail. Cet atelier permettra d’identifier vos connaissances informatiques de base et, si nécessaire, les points à renforcer.",
-      )
+    ]
+      .filter(Boolean)
+      .filter((item) => !/pix(?:\s+emploi)?|test pix/i.test(item))
+      .filter((item, index, items) => items.indexOf(item) === index)
+      .slice(0, 4)
+    if (actions.length > 0) {
+      paragraphes.push(`Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`)
     }
 
-    const conclusion = "Je vous ai expliqué en quoi consistait le contrat d'engagement, vos obligations et vos devoirs. Nous signons ce jour votre contrat d'engagement."
-    paragraphes.push(conclusion)
-    return paragraphes.filter(Boolean).join('\n\n')
+    const texteFormalites = buildFormalitesSynthese(formalitesEntretien)
+    if (texteFormalites) paragraphes.push(texteFormalites)
+
+    return paragraphes.filter(Boolean).join('\n')
   }, [
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
@@ -1206,7 +1285,10 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     analyseDemandeAutomatique.freins,
     actionsRetenues,
+    formalitesEntretien,
   ])
+
+  const formalitesCompletes = formalitesEntretienCompletes(formalitesEntretien)
 
   const controleCloture = useMemo(() => [
     { id: 'identifiant', label: 'Identifiant France Travail renseigné', ok: Boolean(identifiantDemandeur.trim()) },
@@ -1224,6 +1306,7 @@ function AssistantMissionPage() {
         && (Boolean(item.echeanceAction) || ['Réalisé', 'Abandonné'].includes(item.suiviStatut))
       )),
     },
+    { id: 'formalites', label: 'Présence, PIX et contrat d’engagement confirmés', ok: formalitesCompletes },
     { id: 'synthese', label: 'Synthèse destinée au DE générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
@@ -1235,6 +1318,7 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     portefeuilleChoisi,
     decisions.demandeAffectation,
+    formalitesCompletes,
     syntheseEntretien,
   ])
 
@@ -1369,16 +1453,40 @@ function AssistantMissionPage() {
 
   const dossierCoherentEtComplet = dossierPretACloturer && controleDecision.bloquants === 0
 
-  const dureeRendezVous = useMemo(() => {
-    if (typeEntretien === 'premier-physique') return '60 min'
-    if (typeEntretien === 'suivi-physique') return '30 min'
-    return '15-20 min'
-  }, [typeEntretien])
+  const rendezVousConfig = useMemo(
+    () => ENTRETIEN_TYPES.find((item) => item.value === typeEntretien) || ENTRETIEN_TYPES[0],
+    [typeEntretien],
+  )
+  const dureeRendezVous = rendezVousConfig.duree
+  const dureeRendezVousSecondes = rendezVousConfig.secondes
+  const chronoRestantSecondes = Math.max(0, dureeRendezVousSecondes - chronoSecondes)
+  const chronoDureeAtteinte = chronoRestantSecondes === 0
+  const minimumTelephoniqueAtteint = typeEntretien === 'telephonique' && chronoSecondes >= 15 * 60
 
   useEffect(() => {
-    const id = setInterval(() => setChronoSecondes((prev) => prev + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
+    if (!chronoActif) return undefined
+    const actualiserChrono = () => {
+      const depart = chronoDepartRef.current || Date.now()
+      const ecoulees = chronoBaseSecondesRef.current + Math.floor((Date.now() - depart) / 1000)
+      const nouvellesSecondes = Math.min(dureeRendezVousSecondes, ecoulees)
+      setChronoSecondes(nouvellesSecondes)
+      if (nouvellesSecondes >= dureeRendezVousSecondes) {
+        chronoDepartRef.current = null
+        chronoBaseSecondesRef.current = dureeRendezVousSecondes
+        setChronoActif(false)
+      }
+    }
+    actualiserChrono()
+    const id = window.setInterval(actualiserChrono, 250)
+    return () => window.clearInterval(id)
+  }, [chronoActif, dureeRendezVousSecondes])
+
+  useEffect(() => {
+    if (decisionConseillerStatut === 'Acceptee') {
+      chronoDepartRef.current = null
+      setChronoActif(false)
+    }
+  }, [decisionConseillerStatut])
 
   useEffect(() => {
     const entryId = getEntryDossierId(location.search)
@@ -1402,6 +1510,7 @@ function AssistantMissionPage() {
     setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+    setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
@@ -1415,6 +1524,10 @@ function AssistantMissionPage() {
     setClassementTab(dossier.classementTab || 'maintenant')
     setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
+    setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
+    setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
+    setChronoSecondes(Number(dossier.chronoSecondes) || 0)
+    setChronoActif(false)
   }, [location.search])
 
   useEffect(
@@ -1430,6 +1543,35 @@ function AssistantMissionPage() {
     return `${minutes}:${seconds}`
   }
 
+  const changerTypeEntretien = (event) => {
+    setTypeEntretien(event.target.value)
+    chronoDepartRef.current = null
+    chronoBaseSecondesRef.current = 0
+    setChronoSecondes(0)
+    setChronoActif(false)
+  }
+
+  const basculerChronometre = () => {
+    if (chronoActif) {
+      const depart = chronoDepartRef.current || Date.now()
+      const secondesAuMomentDeLaPause = Math.min(
+        dureeRendezVousSecondes,
+        chronoBaseSecondesRef.current + Math.floor((Date.now() - depart) / 1000),
+      )
+      chronoDepartRef.current = null
+      chronoBaseSecondesRef.current = secondesAuMomentDeLaPause
+      setChronoSecondes(secondesAuMomentDeLaPause)
+      setChronoActif(false)
+      return
+    }
+
+    const secondesDeDepart = chronoDureeAtteinte ? 0 : chronoSecondes
+    chronoBaseSecondesRef.current = secondesDeDepart
+    chronoDepartRef.current = Date.now()
+    setChronoSecondes(secondesDeDepart)
+    setChronoActif(true)
+  }
+
   const onToggleBadge = (setter) => (label) => {
     setter((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]))
   }
@@ -1443,6 +1585,13 @@ function AssistantMissionPage() {
 
   const onToggleDecision = (key) => {
     setDecisions((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const onFormaliteChange = (field) => (event) => {
+    const value = ['presenceRappelee', 'contratPresente'].includes(field)
+      ? event.target.checked
+      : event.target.value
+    setFormalitesEntretien((prev) => ({ ...prev, [field]: value }))
   }
 
   const onActionRecommandation = (key) => {
@@ -1461,7 +1610,20 @@ function AssistantMissionPage() {
       return
     }
 
-    if (key === 'partenaires' || key === 'iae' || key === 'handicap') {
+    if (key === 'iae') {
+      const parcoursIAE = offreServiceCorse.find((item) => item.nom === 'Parcours IAE / SIAE Corse-du-Sud')
+      setDecisions((prev) => ({ ...prev, orientationPartenaire: true, prescriptionPrestation: true }))
+      if (parcoursIAE) {
+        setActionsRetenues((current) => (
+          current.some((action) => action.nom === parcoursIAE.nom)
+            ? current
+            : [...current, normaliserSuiviAction(parcoursIAE)]
+        ))
+      }
+      return
+    }
+
+    if (key === 'partenaires' || key === 'handicap') {
       setDecisions((prev) => ({ ...prev, orientationPartenaire: true }))
       return
     }
@@ -1519,6 +1681,7 @@ function AssistantMissionPage() {
     ressourcesSelectionnees,
     freinsEngine,
     decisions,
+    formalitesEntretien,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1543,6 +1706,7 @@ function AssistantMissionPage() {
     decisionConseillerStatut,
     decisionConseillerCommentaire,
     chronoSecondes,
+    chronoActif: decisionConseillerStatut === 'Acceptee' ? false : chronoActif,
     controleCloture,
     clotureValidee: dossierCoherentEtComplet && decisionConseillerStatut === 'Acceptee',
     dossierStatut: decisionConseillerStatut === 'Acceptee' ? 'termine' : 'brouillon',
@@ -1571,6 +1735,7 @@ function AssistantMissionPage() {
         setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
         setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
         setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+        setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
         setAssistantAnswers(dossier.assistantAnswers || {})
         setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1589,6 +1754,7 @@ function AssistantMissionPage() {
         setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
         setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
         setChronoSecondes(Number(dossier.chronoSecondes) || 0)
+        setChronoActif(false)
         setBrouillonAutomatiqueStatut('Entretien en cours restauré automatiquement.')
       }
     } catch {
@@ -1600,6 +1766,11 @@ function AssistantMissionPage() {
 
   useEffect(() => {
     if (!brouillonAutomatiquePret) return undefined
+    if (ignorerProchaineSauvegardeRef.current) {
+      ignorerProchaineSauvegardeRef.current = false
+      window.localStorage.removeItem(ENTRETIEN_DRAFT_KEY)
+      return undefined
+    }
     const timer = window.setTimeout(() => {
       const snapshot = buildSnapshot()
       window.localStorage.setItem(ENTRETIEN_DRAFT_KEY, JSON.stringify(snapshot))
@@ -1623,6 +1794,7 @@ function AssistantMissionPage() {
     ressourcesSelectionnees,
     freinsEngine,
     decisions,
+    formalitesEntretien,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1640,6 +1812,7 @@ function AssistantMissionPage() {
     questionIndex,
     decisionConseillerStatut,
     decisionConseillerCommentaire,
+    chronoActif,
   ])
 
   const enregistrerAnalyse = () => {
@@ -1652,17 +1825,25 @@ function AssistantMissionPage() {
   }
 
   const ouvrirListeAnalyses = () => {
-    const items = listStoredDossiers().map((item) => {
-      const dossier = item.dossier || {}
-      return {
-        identifiant: item.identifiant,
-        updatedAt: dossier.versionnement?.updatedAt || '',
-        statut: dossier.dossierStatut || 'brouillon',
-      }
-    })
+    const items = listStoredDossiers()
+      .map((item) => {
+        const dossier = item.dossier || {}
+        return {
+          identifiant: item.identifiant,
+          updatedAt: dossier.versionnement?.updatedAt || item.payload?.updatedAt || '',
+          statut: dossier.dossierStatut || 'brouillon',
+          typeEntretien: dossier.typeEntretien || 'premier-physique',
+          chronoSecondes: Number(dossier.chronoSecondes) || 0,
+        }
+      })
+      .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
     setAnalysesEnregistrees(items)
-    setOuvertureDialogOpen(true)
+    setWorkspaceTab('sauvegardes')
   }
+
+  useEffect(() => {
+    if (workspaceTab === 'sauvegardes') ouvrirListeAnalyses()
+  }, [workspaceTab])
 
   const ouvrirAnalyseParIdentifiant = (id) => {
     const result = loadStoredDossier(id)
@@ -1686,14 +1867,32 @@ function AssistantMissionPage() {
     setRessourcesSelectionnees(Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [])
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
+    setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
+    setAssistantAnswers(dossier.assistantAnswers || {})
+    setQuestionPrecisions(dossier.questionPrecisions || {})
+    setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
+    setActionsImmediatesValidees(Array.isArray(dossier.actionsImmediatesValidees) ? dossier.actionsImmediatesValidees : [])
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
-    setOuvertureDialogOpen(false)
-    setStorageStatus(`Analyse ${id} chargee.`)
+    setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
+    setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
+    setClassementTab(dossier.classementTab || 'maintenant')
+    setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
+    setAssistantPhase(dossier.assistantPhase || 'exploration')
+    setModeApprofondi(Boolean(dossier.modeApprofondi))
+    setRecommandationTab(dossier.recommandationTab || 'orientation')
+    setAdvpTab(dossier.advpTab || ADVP_STEPS[0])
+    setQuestionIndex(Number.isInteger(dossier.questionIndex) ? dossier.questionIndex : 0)
+    setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
+    setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
+    setChronoSecondes(Number(dossier.chronoSecondes) || 0)
+    setChronoActif(false)
+    setWorkspaceTab('entretien')
+    navigate(`/assistant?dossier=${encodeURIComponent(id)}`, { replace: true })
+    setStorageStatus(`Sauvegarde ${id} chargée. Vous pouvez la modifier.`)
   }
 
   const supprimerAnalyse = () => {
-    const result = deleteStoredDossier(identifiantDemandeur)
-    setStorageStatus(result.ok ? 'Analyse supprimee.' : 'Suppression impossible.')
+    nouveauDossier()
   }
 
   const dupliquerAnalyse = () => {
@@ -1702,12 +1901,21 @@ function AssistantMissionPage() {
     setStorageStatus(result.ok ? `Copie creee: ${duplicatedId}` : 'Duplication impossible.')
   }
 
-  const nouveauDossier = () => {
-    const confirmation = window.confirm(
-      'Effacer entièrement l’entretien en cours ? Toutes les saisies, sélections et prescriptions de ce brouillon seront supprimées.',
-    )
-    if (!confirmation) return
+  const nouveauDossier = async (options = {}) => {
+    if (options?.sansConfirmation !== true) {
+      const confirmation = window.confirm(
+        'Effacer définitivement cet entretien ? Le brouillon et l’entretien enregistré pour cet identifiant seront supprimés.',
+      )
+      if (!confirmation) return
+    }
+    const identifiantAEffacer = identifiantDemandeur.trim()
+    let suppressionCloudSynced = true
+    ignorerProchaineSauvegardeRef.current = true
     window.localStorage.removeItem(ENTRETIEN_DRAFT_KEY)
+    if (identifiantAEffacer) {
+      const suppression = await deleteStoredDossier(identifiantAEffacer)
+      suppressionCloudSynced = suppression.cloudSynced !== false
+    }
     setIdentifiantDemandeur('')
     setTypeEntretien('premier-physique')
     setSituationAdministrative('')
@@ -1729,6 +1937,7 @@ function AssistantMissionPage() {
       entreeFormation: false,
       demandeAffectation: false,
     })
+    setFormalitesEntretien(DEFAULT_FORMALITES_ENTRETIEN)
     setAssistantAnswers({})
     setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1745,19 +1954,52 @@ function AssistantMissionPage() {
     setRecommandationTab('orientation')
     setModeApprofondi(false)
     setChronoSecondes(0)
+    setChronoActif(false)
     setWorkspaceTab('entretien')
     setAssistantPhase('exploration')
     setCopyStatus('')
     setBrouillonAutomatiqueStatut('')
-    setStorageStatus('Entretien effacé. Vous pouvez commencer un nouveau dossier.')
+    setStorageStatus(
+      identifiantAEffacer
+        ? suppressionCloudSynced
+          ? `Entretien ${identifiantAEffacer} effacé sur cet appareil et en ligne. Le chronomètre est arrêté.`
+          : `Entretien ${identifiantAEffacer} effacé sur cet appareil. La suppression en ligne sera retentée automatiquement.`
+        : 'Entretien effacé. Le chronomètre est arrêté.',
+    )
+    if (location.search) navigate('/assistant', { replace: true })
+  }
+
+  const supprimerSauvegardeAutomatique = async (id) => {
+    const confirmation = window.confirm(
+      `Effacer définitivement la sauvegarde automatique ${id} ? Cette action est irréversible.`,
+    )
+    if (!confirmation) return
+
+    if (id === identifiantDemandeur.trim()) {
+      await nouveauDossier({ sansConfirmation: true })
+    } else {
+      const result = await deleteStoredDossier(id)
+      setStorageStatus(
+        result.ok
+          ? result.cloudSynced === false
+            ? `Sauvegarde ${id} effacée localement. La suppression en ligne sera retentée automatiquement.`
+            : `Sauvegarde ${id} effacée sur cet appareil et en ligne.`
+          : 'Suppression impossible.',
+      )
+    }
+    setAnalysesEnregistrees((items) => items.filter((item) => item.identifiant !== id))
   }
 
   const enregistrerEtPasserAuSuivant = () => {
-    const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
+    const result = saveStoredDossier(identifiantDemandeur, {
+      ...buildSnapshot(),
+      chronoActif: false,
+    })
     if (!result.ok) {
       setStorageStatus(result.message || 'Enregistrement impossible.')
       return
     }
+    setChronoActif(false)
     const dossiers = listPortfolioRecords()
     const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
     const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
@@ -1781,6 +2023,7 @@ function AssistantMissionPage() {
     }
     const result = saveStoredDossier(identifiantDemandeur, {
       ...buildSnapshot(),
+      chronoActif: false,
       clotureValidee: true,
       dossierStatut: 'termine',
     })
@@ -1788,6 +2031,7 @@ function AssistantMissionPage() {
       setStorageStatus(result.message || 'Clôture impossible.')
       return
     }
+    setChronoActif(false)
     setDecisionConseillerStatut('Acceptee')
     const dossiers = listPortfolioRecords()
     const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
@@ -1848,6 +2092,10 @@ function AssistantMissionPage() {
   }
 
   const copierSynthese = async () => {
+    if (!formalitesCompletes) {
+      setCopyStatus('Confirmez d’abord le rappel de présence, PIX et le contrat d’engagement.')
+      return
+    }
     try {
       await navigator.clipboard.writeText(syntheseEntretien)
       setCopyStatus('Synthèse copiée. Vous pouvez maintenant la coller dans le logiciel France Travail.')
@@ -1913,7 +2161,7 @@ function AssistantMissionPage() {
                 select
                 label="Type de rendez-vous"
                 value={typeEntretien}
-                onChange={(event) => setTypeEntretien(event.target.value)}
+                onChange={changerTypeEntretien}
                 fullWidth
                 size="small"
               >
@@ -1931,8 +2179,34 @@ function AssistantMissionPage() {
               <Typography variant="body1" sx={{ fontWeight: 700 }}>Conseiller FT</Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 2.5 }}>
-              <Typography variant="body2" color="text.secondary">Chronomètre</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 700 }}>{formatChrono(chronoSecondes)}</Typography>
+              <Typography variant="body2" color="text.secondary">Temps restant</Typography>
+              <Typography
+                variant="body1"
+                sx={{ fontWeight: 900, color: chronoDureeAtteinte ? 'error.main' : minimumTelephoniqueAtteint ? 'warning.main' : 'text.primary' }}
+              >
+                {formatChrono(chronoRestantSecondes)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {formatChrono(chronoSecondes)} écoulé
+                {minimumTelephoniqueAtteint && !chronoDureeAtteinte ? ' · minimum de 15 min atteint' : ''}
+              </Typography>
+              <Button
+                size="small"
+                variant={chronoActif ? 'text' : 'contained'}
+                disabled={decisionConseillerStatut === 'Acceptee'}
+                onClick={basculerChronometre}
+                sx={{ minWidth: 0, px: chronoActif ? 0 : 1, mt: 0.25 }}
+              >
+                {decisionConseillerStatut === 'Acceptee'
+                  ? 'Entretien terminé'
+                  : chronoActif
+                    ? 'Mettre en pause'
+                    : chronoDureeAtteinte
+                      ? 'Recommencer'
+                      : chronoSecondes > 0
+                      ? 'Reprendre'
+                      : 'Commencer l’entretien'}
+              </Button>
             </Grid>
           </Grid>
 
@@ -1953,7 +2227,12 @@ function AssistantMissionPage() {
 
         <Tabs
           value={workspaceTab}
-          onChange={(_, value) => setWorkspaceTab(value)}
+          onChange={(_, value) => {
+            if (value === 'sauvegardes') ouvrirListeAnalyses()
+            else setWorkspaceTab(value)
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
           sx={{
             bgcolor: '#fff',
             border: '1px solid',
@@ -1965,7 +2244,64 @@ function AssistantMissionPage() {
           <Tab value="entretien" label="Conduite de l’entretien" />
           <Tab value="prescriptions" label="Offre de services" />
           <Tab value="synthese" label="Synthèse d’entretien" />
+          <Tab value="sauvegardes" label="Sauvegardes automatiques" />
         </Tabs>
+
+        {workspaceTab === 'sauvegardes' ? (
+          <CockpitBlockCard
+            title="Sauvegardes automatiques des entretiens"
+            subtitle="Reprenez un entretien pour le modifier, ou effacez définitivement sa sauvegarde."
+            detailsSx={{ p: { xs: 1.5, md: 2 } }}
+          >
+            <Stack spacing={1.25}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Les entretiens disposant d’un identifiant France Travail sont sauvegardés automatiquement.
+                </Typography>
+                <Button size="small" variant="outlined" onClick={ouvrirListeAnalyses}>
+                  Actualiser la liste
+                </Button>
+              </Stack>
+
+              {analysesEnregistrees.length > 0 ? analysesEnregistrees.map((item) => (
+                <Paper key={item.identifiant} variant="outlined" sx={{ p: 1.5 }}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ md: 'center' }} justifyContent="space-between">
+                    <Box>
+                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
+                        <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                          {item.identifiant}
+                        </Typography>
+                        <Chip size="small" color={item.statut === 'termine' ? 'success' : 'warning'} label={item.statut === 'termine' ? 'Terminé' : 'Brouillon'} />
+                        {item.identifiant === identifiantDemandeur.trim() ? (
+                          <Chip size="small" color="primary" variant="outlined" label="Ouvert actuellement" />
+                        ) : null}
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {ENTRETIEN_TYPES.find((type) => type.value === item.typeEntretien)?.label || 'Type non renseigné'}
+                        {' · '}
+                        Dernière sauvegarde : {formatDateFr(item.updatedAt)}
+                        {' · '}
+                        Chronomètre : {formatChrono(item.chronoSecondes)}
+                      </Typography>
+                    </Box>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                      <Button variant="contained" size="small" onClick={() => ouvrirAnalyseParIdentifiant(item.identifiant)}>
+                        Reprendre et modifier
+                      </Button>
+                      <Button color="error" variant="outlined" size="small" onClick={() => supprimerSauvegardeAutomatique(item.identifiant)}>
+                        Effacer
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              )) : (
+                <Alert severity="info">
+                  Aucune sauvegarde automatique disponible. Renseignez un identifiant France Travail pour conserver un entretien dans cette liste.
+                </Alert>
+              )}
+            </Stack>
+          </CockpitBlockCard>
+        ) : null}
 
         {workspaceTab === 'entretien' ? (
           <Paper
@@ -2055,6 +2391,7 @@ function AssistantMissionPage() {
                 size="small"
                 label={questionCouranteOuverte ? 'Votre réponse' : 'Précision facultative'}
                 placeholder={questionCouranteOuverte ? 'Saisissez les éléments donnés par la personne…' : ''}
+                helperText={questionCouranteOuverte ? aideQuestionCourante : ''}
                 value={questionCouranteOuverte ? assistantAnswers[questionCourante] || '' : questionPrecisions[questionCourante] || ''}
                 onChange={(event) => (
                   questionCouranteOuverte
@@ -2181,6 +2518,13 @@ function AssistantMissionPage() {
               items={offreServiceCorse}
               recommendedNames={prescriptionsDetaillees.map((item) => item.nom)}
               alerts={alertesPrescriptions}
+              onSelect={(item) => {
+                setActionsRetenues((current) => (
+                  current.some((action) => action.nom === item.nom)
+                    ? current
+                    : [...current, normaliserSuiviAction(item)]
+                ))
+              }}
             />
           </CockpitBlockCard>
         ) : null}
@@ -2195,6 +2539,76 @@ function AssistantMissionPage() {
             <Typography variant="body2" color="text.secondary">
               Relisez la synthèse avant son envoi. Elle est rédigée à la deuxième personne et ne remplace pas la validation du conseiller.
             </Typography>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: formalitesCompletes ? '#f1f8f3' : '#fff8e8' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                Formalités de fin d’entretien à confirmer
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Le texte ne mentionne que les informations que vous confirmez ci-dessous.
+              </Typography>
+              {!formalitesCompletes ? (
+                <Alert severity="warning" sx={{ mb: 1 }}>
+                  Confirmez les quatre éléments avant de copier ou de clôturer la synthèse.
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ mb: 1 }}>
+                  Formalités confirmées : la conclusion de la synthèse est prête.
+                </Alert>
+              )}
+              <Grid container spacing={1.25} alignItems="center">
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={formalitesEntretien.presenceRappelee}
+                        onChange={onFormaliteChange('presenceRappelee')}
+                      />
+                    )}
+                    label="J’ai rappelé que la présence aux rendez-vous fixés est obligatoire"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Situation PIX"
+                    value={formalitesEntretien.pixStatut}
+                    onChange={onFormaliteChange('pixStatut')}
+                  >
+                    <MenuItem value="a-confirmer">À confirmer</MenuItem>
+                    <MenuItem value="invite">Test PIX proposé à domicile</MenuItem>
+                    <MenuItem value="deja-realise">Test PIX déjà réalisé</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <FormControlLabel
+                    control={(
+                      <Checkbox
+                        checked={formalitesEntretien.contratPresente}
+                        onChange={onFormaliteChange('contratPresente')}
+                      />
+                    )}
+                    label="J’ai présenté le contrat d’engagement, les droits et les obligations"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Situation du contrat d’engagement"
+                    value={formalitesEntretien.contratStatut}
+                    onChange={onFormaliteChange('contratStatut')}
+                  >
+                    <MenuItem value="a-confirmer">À confirmer</MenuItem>
+                    <MenuItem value="signe-ce-jour">Signé ce jour</MenuItem>
+                    <MenuItem value="deja-signe">Déjà signé</MenuItem>
+                    <MenuItem value="signature-a-finaliser">Signature à finaliser</MenuItem>
+                  </TextField>
+                </Grid>
+              </Grid>
+            </Paper>
             <TextField
               label="Synthèse prête à copier"
               value={syntheseEntretien}
@@ -2206,12 +2620,12 @@ function AssistantMissionPage() {
               sx={{
                 '& .MuiInputBase-input': {
                   fontSize: '1rem',
-                  lineHeight: 1.65,
+                  lineHeight: 1.3,
                 },
               }}
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
-              <Button variant="contained" size="large" onClick={copierSynthese}>
+              <Button variant="contained" size="large" onClick={copierSynthese} disabled={!formalitesCompletes}>
                 Copier la synthèse
               </Button>
               <Button variant="outlined" onClick={() => setWorkspaceTab('entretien')}>
@@ -3022,11 +3436,22 @@ function AssistantMissionPage() {
                     <Alert severity="warning" sx={{ py: 0 }}>
                       Complétez d’abord la demande exprimée pour fiabiliser les recommandations.
                     </Alert>
+                  ) : confianceSousReserve ? (
+                    <Alert severity="info" sx={{ py: 0 }}>
+                      Premières pistes calculées à partir des informations disponibles — à confirmer pendant l’exploration.
+                    </Alert>
                   ) : (
                     <Alert severity="success" sx={{ py: 0 }}>
-                      Les recommandations ci-dessous tiennent compte du besoin actuellement renseigné.
+                      Recommandations suffisamment étayées par les informations confirmées pendant l’entretien.
                     </Alert>
                   )}
+                  {recommandationsMoteur.diagnostic?.propositionIAE?.pertinente ? (
+                    <Alert severity="info" sx={{ py: 0.25 }}>
+                      <strong>Piste IAE à étudier.</strong>{' '}
+                      {recommandationsMoteur.diagnostic.propositionIAE.motifs.slice(0, 3).join(' ')}
+                      {' '}Les structures, l’éligibilité, les postes disponibles et le circuit doivent être confirmés selon les procédures internes France Travail.
+                    </Alert>
+                  ) : null}
                   <Tabs
                     value={recommandationTab}
                     onChange={(_, value) => setRecommandationTab(value)}
@@ -3035,7 +3460,10 @@ function AssistantMissionPage() {
                     sx={{ minHeight: 30, '& .MuiTab-root': { minHeight: 30, py: 0 } }}
                   >
                     {recommandationsService
-                      .filter((item) => ['orientation', 'ateliers', 'prestations', 'partenaires', 'formation', 'actions'].includes(item.key))
+                      .filter((item) => (
+                        ['orientation', 'ateliers', 'prestations', 'partenaires', 'formation', 'actions'].includes(item.key)
+                        || (item.key === 'iae' && recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
+                      ))
                       .map((item) => (
                       <Tab key={item.key} value={item.key} label={item.title} />
                     ))}
@@ -3050,6 +3478,19 @@ function AssistantMissionPage() {
                         ? `Sécuriser d’abord : ${diagnosticAutonome.priorites.join(' • ') || orientationPrioritaire}.`
                         : recommandationActive.preconisation}
                       onAction={() => onActionRecommandation(recommandationActive.key)}
+                      actionLabel={recommandationActive.key === 'orientation'
+                        ? 'Commencer la clarification du projet'
+                        : recommandationActive.key === 'iae'
+                          ? 'Ajouter la piste IAE aux actions'
+                        : recommandationActive.key === 'ateliers'
+                          ? 'Voir et choisir les ateliers'
+                          : recommandationActive.key === 'prestations'
+                            ? 'Voir et choisir les prestations'
+                            : recommandationActive.key === 'partenaires'
+                              ? 'Voir et choisir les partenaires'
+                              : recommandationActive.key === 'formation'
+                                ? 'Examiner les pistes de formation'
+                                : 'Ajouter au plan d’action'}
                     />
                   ) : null}
                 </CockpitBlockCard>
@@ -3186,28 +3627,6 @@ function AssistantMissionPage() {
         {speechStatus ? <Typography variant="caption" color="text.secondary">{speechStatus}</Typography> : null}
         {storageStatus ? <Typography variant="caption" color="text.secondary">{storageStatus}</Typography> : null}
 
-        <Dialog open={ouvertureDialogOpen} onClose={() => setOuvertureDialogOpen(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Analyses enregistrees</DialogTitle>
-          <DialogContent dividers>
-            {analysesEnregistrees.length > 0 ? (
-              <List dense>
-                {analysesEnregistrees.map((item) => (
-                  <ListItemButton key={item.identifiant} onClick={() => ouvrirAnalyseParIdentifiant(item.identifiant)}>
-                    <ListItemText
-                      primary={item.identifiant}
-                      secondary={`Derniere modification: ${formatDateFr(item.updatedAt)} - Statut: ${item.statut}`}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            ) : (
-              <Typography variant="body2">Aucune analyse enregistree.</Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOuvertureDialogOpen(false)}>Fermer</Button>
-          </DialogActions>
-        </Dialog>
       </Stack>
     </Box>
   )

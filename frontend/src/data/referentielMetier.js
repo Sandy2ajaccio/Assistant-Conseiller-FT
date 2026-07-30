@@ -1,4 +1,4 @@
-import { ateliersOffreServiceCorse, prestationsOffreServiceCorse } from './offreServiceCorse'
+import { ateliersOffreServiceCorse, prestationsOffreServiceCorse } from './offreServiceCorse.js'
 
 const asReferentielEntries = (items) => items.map((item) => ({
   id: item.id,
@@ -417,7 +417,8 @@ export const REFERENTIEL_METIER = {
     {
       id: 'prestation-aif',
       libelle: 'AIF',
-      description: 'Aide individuelle au financement de la formation.',
+      description: 'Financement ou cofinancement des frais pédagogiques d’une formation cohérente avec un projet professionnel défini, après recherche des financements plus appropriés.',
+      conditions: ['Projet de formation validé', 'Besoin de compétences identifié', 'Demande déposée avant le début de la formation', 'Accord non automatique de France Travail'],
     },
     {
       id: 'prestation-afc',
@@ -590,7 +591,7 @@ export const REFERENTIEL_METIER = {
     {
       id: 'formation-aif',
       libelle: 'AIF',
-      description: 'Aide individuelle au financement de la formation.',
+      description: 'Aide conditionnelle aux frais pédagogiques, mobilisable après validation du projet et étude du devis par France Travail.',
     },
     {
       id: 'formation-vae',

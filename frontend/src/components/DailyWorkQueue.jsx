@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  LinearProgress,
   Paper,
   Stack,
   TextField,
@@ -131,7 +130,7 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
         }
         return { ...item, displayStatus: item.status, displayColor: item.color, displayReason: item.reason }
       })
-      .slice(0, 8)
+      .slice(0, 6)
   }, [activeFilter, allItems, search])
 
   const activeFilterConfig = filters.find((filter) => filter.id === activeFilter) || filters[0]
@@ -194,7 +193,17 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) 110px minmax(260px, 1.8fr) 145px 220px', bgcolor: '#173f67', color: '#fff', px: 1.25, py: 0.65, gap: 1 }}>
+      <Box
+        sx={{
+          display: { xs: 'none', lg: 'grid' },
+          gridTemplateColumns: 'minmax(170px, 1fr) 100px minmax(220px, 1.5fr) 130px 170px',
+          bgcolor: '#173f67',
+          color: '#fff',
+          px: 1.25,
+          py: 0.65,
+          gap: 1,
+        }}
+      >
         {['DE', 'Niveau', 'Pourquoi maintenant ?', 'Dernier contact', 'Action directe'].map((label) => (
           <Typography key={label} variant="caption" sx={{ fontWeight: 900 }}>{label}</Typography>
         ))}
@@ -205,12 +214,13 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
           key={item.identifiant}
           onClick={() => onSelect(item.identifiant)}
           sx={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(220px, 1.2fr) 110px minmax(260px, 1.8fr) 145px 220px',
-            alignItems: 'center',
+            display: { xs: 'flex', lg: 'grid' },
+            flexDirection: { xs: 'column' },
+            gridTemplateColumns: { lg: 'minmax(170px, 1fr) 100px minmax(220px, 1.5fr) 130px 170px' },
+            alignItems: { xs: 'stretch', lg: 'center' },
             gap: 1,
             px: 1.25,
-            py: 0.8,
+            py: 0.7,
             cursor: 'pointer',
             bgcolor: selectedDossierId === item.identifiant ? '#e3f2fd' : '#fff',
             borderBottom: '1px solid #e2e8ef',
@@ -220,20 +230,26 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
         >
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" noWrap sx={{ fontWeight: 900 }}>{item.identity}</Typography>
-            <Typography variant="caption" color="text.secondary">{item.identifiant}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {item.identifiant}{item.portfolioRecord?.age ? ` · ${item.portfolioRecord.age} ans` : ''}
+            </Typography>
           </Box>
-          <Chip label={item.displayStatus} color={item.displayColor} size="small" sx={{ fontWeight: 800 }} />
+          <Chip
+            label={item.displayStatus}
+            color={item.displayColor}
+            size="small"
+            sx={{ fontWeight: 800, alignSelf: { xs: 'flex-start', lg: 'center' }, minWidth: 88 }}
+          />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.displayReason}</Typography>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(100, item.score)}
-              color={item.displayColor === 'error' ? 'error' : item.displayColor === 'warning' ? 'warning' : 'info'}
-              sx={{ mt: 0.5, height: 5, borderRadius: 3 }}
-            />
           </Box>
-          <Typography variant="caption" sx={{ fontWeight: 700 }}>{item.lastContact}</Typography>
-          <Stack direction="row" spacing={0.5}>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>
+            <Box component="span" sx={{ display: { xs: 'inline', lg: 'none' }, fontWeight: 900 }}>
+              Dernier contact :{' '}
+            </Box>
+            {item.lastContact}
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ justifyContent: { xs: 'flex-start', lg: 'flex-end' } }}>
             <Button size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); onSelect(item.identifiant) }}>
               Analyser
             </Button>
@@ -250,7 +266,7 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
 
       {displayedItems.length ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1.5, py: 0.75 }}>
-          Les 8 dossiers les plus prioritaires sont affichés. Utilisez les filtres ou la recherche pour accéder aux autres.
+          Les {displayedItems.length} dossiers les plus prioritaires sont affichés. Utilisez les filtres ou la recherche pour accéder aux autres.
         </Typography>
       ) : null}
     </Paper>

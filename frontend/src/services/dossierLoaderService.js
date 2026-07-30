@@ -1,6 +1,10 @@
 import { buildVersionnementModel, mapStoredDossierPayload } from '../types/dossierContract'
 import { listPortfolioRecords, portfolioRecordToDossier } from './portfolioImportService'
-import { deleteDossierFromCloud, syncDossierToCloud } from './cloudPersistenceService'
+import {
+  deleteDossierFromCloud,
+  markDossierDeletionPending,
+  syncDossierToCloud,
+} from './cloudPersistenceService'
 
 export const DOSSIER_STORAGE_PREFIX = 'assistant-mission-analyse:'
 export const LAST_OPENED_DOSSIER_KEY = 'assistant:last-opened-id'
@@ -164,7 +168,7 @@ export const saveStoredDossier = (identifiant, payload) => {
   return { ok: true, identifiant: id, payload: normalized.payload, dossier: normalized.dossier }
 }
 
-export const deleteStoredDossier = (identifiant) => {
+export const deleteStoredDossier = async (identifiant) => {
   const id = String(identifiant || '').trim()
   if (!id) return { ok: false, code: 'missing-id' }
 
@@ -173,12 +177,22 @@ export const deleteStoredDossier = (identifiant) => {
   if (!existing) return { ok: false, code: 'not-found' }
 
   localStorage.removeItem(key)
-  deleteDossierFromCloud(id).catch(() => {})
+  markDossierDeletionPending(id)
   if (localStorage.getItem(LAST_OPENED_DOSSIER_KEY) === id) {
     localStorage.removeItem(LAST_OPENED_DOSSIER_KEY)
   }
 
-  return { ok: true, identifiant: id }
+  try {
+    await deleteDossierFromCloud(id)
+    return { ok: true, identifiant: id, cloudSynced: true }
+  } catch {
+    return {
+      ok: true,
+      identifiant: id,
+      cloudSynced: false,
+      message: 'Suppression locale effectuée ; la suppression en ligne sera retentée automatiquement.',
+    }
+  }
 }
 
 export const listStoredDossiers = () => {

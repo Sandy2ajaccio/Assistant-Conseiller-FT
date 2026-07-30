@@ -539,7 +539,20 @@ export function getRecommandations(diagnostic = {}) {
   const avertissements = []
 
   const ateliers = filterAndSortRecommendations(candidatesByCategory.ateliers, exclusionsByCategory.ateliers, avertissements)
-  const prestations = filterAndSortRecommendations(candidatesByCategory.prestations, exclusionsByCategory.prestations, avertissements)
+  const prestationsCandidates = filterAndSortRecommendations(candidatesByCategory.prestations, exclusionsByCategory.prestations, avertissements)
+  const projectSignals = classifyProjectSignals(diagnostic.projet)
+  const besoinCompetences = asArray(diagnostic.freins).some((item) =>
+    textIncludesAny(normalizeText(item), ['competence', 'qualification', 'formation']),
+  )
+  const aifPeutEtreEtudiee = !projectSignals.uncertain
+    && projectSignals.validated
+    && (projectSignals.formation || besoinCompetences)
+  const prestations = prestationsCandidates.filter((item) => {
+    if (normalizeText(item) !== 'aif') return true
+    if (aifPeutEtreEtudiee) return true
+    avertissements.push('AIF non proposée : le métier visé et le besoin de formation doivent d’abord être suffisamment définis.')
+    return false
+  })
   const partenaires = filterAndSortRecommendations(candidatesByCategory.partenaires, exclusionsByCategory.partenaires, avertissements)
   const formations = filterAndSortRecommendations(candidatesByCategory.formations, exclusionsByCategory.formations, avertissements)
   const map = uniqueValues(

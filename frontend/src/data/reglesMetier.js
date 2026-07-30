@@ -74,7 +74,7 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Les Lundis de l\'entrepreneuriat', 'Présentation Activ\'Projet'],
-      prestations: ["Activ'Créa", 'AIF'],
+      prestations: ["Activ'Créa"],
       partenaires: ['BGE Corse', 'ADIE'],
       formations: ['Initiation gestion entreprise'],
       portefeuille: 'SP',
@@ -158,7 +158,7 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Atelier 360'],
-      prestations: ['AIF'],
+      prestations: [],
       partenaires: ['Cap Emploi'],
       formations: ['Formation adaptée'],
       portefeuille: 'TH',
@@ -179,7 +179,7 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Mon Marché du Travail', 'Découvrez l\'immersion facilitée'],
-      prestations: ['Aide à la mobilité', 'PMSMP'],
+      prestations: ['Bilan mobilité', 'Aide à la mobilité', 'PMSMP'],
       partenaires: ['Collectivité de Corse'],
       formations: ['Mobilité territoriale'],
       portefeuille: 'GLO',
@@ -221,7 +221,7 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Atelier 360'],
-      prestations: ['Accompagnement Global'],
+      prestations: ['Parcours Emploi Santé', 'Accompagnement Global'],
       partenaires: ['Organismes de formation'],
       formations: ['Reprise progressive'],
       portefeuille: 'GLO',
@@ -326,8 +326,8 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Atelier 360'],
-      prestations: ['Accompagnement Global', 'PMSMP'],
-      partenaires: ['Collectivité de Corse'],
+      prestations: ['Parcours IAE / SIAE Corse-du-Sud', 'Accompagnement Global', 'PMSMP'],
+      partenaires: ['Structures IAE Corse-du-Sud', 'Collectivité de Corse'],
       formations: ['Remobilisation vers l emploi'],
       portefeuille: 'GLO',
       map: ['Verifier eligibilite IAE', 'Construire une progression vers l emploi durable'],
@@ -347,7 +347,7 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Mon Marché du Travail', 'Focus Compétences'],
-      prestations: ["Activ'Projet", 'AIF', 'AFC'],
+      prestations: ["Activ'Projet", 'AFC'],
       partenaires: ['Organismes de formation'],
       formations: ['Parcours de reconversion'],
       portefeuille: 'PP',
@@ -368,8 +368,8 @@ export const REGLES_METIER = [
     },
     recommandations: {
       ateliers: ['Mon Marché du Travail', 'Les bonnes pratiques CV'],
-      prestations: ['VAE', 'POEI'],
-      partenaires: ['Mission Locale'],
+      prestations: ['Agil Cadres', 'VAE', 'POEI'],
+      partenaires: ['AFPA'],
       formations: ['Positionnement marché cadre'],
       portefeuille: 'EM',
       map: ['Affiner le positionnement marche', 'Activer reseau et ciblage sectoriel'],

@@ -7,7 +7,7 @@ import {
   Typography,
 } from '@mui/material'
 
-function CockpitRecommendationCard({ title, justification, preconisation, onAction }) {
+function CockpitRecommendationCard({ title, justification, preconisation, onAction, actionLabel = 'Action' }) {
   return (
     <Accordion
       disableGutters
@@ -30,7 +30,7 @@ function CockpitRecommendationCard({ title, justification, preconisation, onActi
           <Typography variant="body2">Justification: {justification}</Typography>
           <Typography variant="body2">Preconisation: {preconisation}</Typography>
           <Button size="small" variant="outlined" onClick={onAction}>
-            Action
+            {actionLabel}
           </Button>
         </Stack>
       </AccordionDetails>

@@ -1,10 +1,11 @@
-export const VEILLE_DERNIERE_VERIFICATION = '26 juillet 2026'
+export const VEILLE_DERNIERE_VERIFICATION = '29 juillet 2026'
 
 export const sourcesOfficielles = [
   { nom: 'Légifrance', role: 'Lois, décrets et dates d’entrée en vigueur', url: 'https://www.legifrance.gouv.fr/' },
   { nom: 'Ministère du Travail', role: 'Actualités réglementaires et politiques de l’emploi', url: 'https://travail-emploi.gouv.fr/actualites-presse-et-outils/actualites-et-breves' },
   { nom: 'France Travail', role: 'Évolutions opérationnelles des dispositifs', url: 'https://www.francetravail.org/' },
   { nom: 'Service-Public.fr', role: 'Droits, obligations et démarches vérifiés', url: 'https://www.service-public.fr/particuliers/actualites' },
+  { nom: 'Vie-publique.fr', role: 'Décryptage institutionnel des politiques publiques', url: 'https://www.vie-publique.fr/actualites' },
 ]
 
 export const veilleOfficielle = [
@@ -13,7 +14,7 @@ export const veilleOfficielle = [
     titre: 'Loi n° 2023-1196 du 18 décembre 2023 pour le plein emploi',
     resume: 'Le texte consolidé demeure la référence juridique centrale pour l’inscription, l’accompagnement et le contrat d’engagement.',
     impact: 'Avant de modifier une règle du logiciel, vérifier le texte consolidé et sa date d’entrée en vigueur.',
-    dateSource: 'Texte consolidé consulté le 26 juillet 2026', source: 'Légifrance',
+    dateSource: 'Texte consolidé consulté le 29 juillet 2026', source: 'Légifrance',
     url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000048581935',
   },
   {
@@ -21,7 +22,7 @@ export const veilleOfficielle = [
     titre: 'Sanctions en cas de non-respect du contrat d’engagement',
     resume: 'Service-Public présente le régime de sanctions lié au non-respect des obligations prévues par le contrat d’engagement.',
     impact: 'Expliquer les obligations et tracer l’information donnée. Toute décision reste soumise aux procédures France Travail en vigueur.',
-    dateSource: 'Information vérifiée le 26 juillet 2026', source: 'Service-Public.fr',
+    dateSource: 'Information vérifiée le 29 juillet 2026', source: 'Service-Public.fr',
     url: 'https://www.service-public.fr/particuliers/actualites/A18302',
   },
   {
@@ -39,5 +40,46 @@ export const veilleOfficielle = [
     impact: 'Pour une situation RQTH ou un besoin de compensation, vérifier les appuis mobilisables et la coordination avec Cap emploi avant de retenir une action.',
     dateSource: 'Publié le 21 mai 2026', source: 'France Travail',
     url: 'https://www.francetravail.org/accueil/communiques/2026/l-emploi-des-personnes-en-situation-de-handicap-une-dynamique-positive-en-2025-avec-une-augmentation-de-4-5-des-maintiens-dans-l.html',
+  },
+  {
+    id: 'accompagnement-essentiel-intensif-2026', niveau: 'Nouveauté', categorie: 'Accompagnement',
+    titre: 'Nouvelles modalités d’accompagnement Essentiel et Intensif',
+    resume: 'France Travail structure désormais l’accompagnement autour d’un socle Essentiel et d’un accompagnement Intensif, mobilisable selon les besoins évalués et réévalués pendant le parcours. Le déploiement est progressif et territorialisé.',
+    impact: 'Réévaluer régulièrement le besoin d’intensification et assurer la continuité du parcours. Confirmer dans les procédures internes France Travail le calendrier de déploiement en Corse, les critères d’orientation et les outils disponibles avant de modifier une recommandation métier.',
+    dateSource: 'Délibération du 25 juin 2026, publiée au BO France Travail du 1er juillet 2026', source: 'France Travail',
+    url: 'https://bo.francetravail.org/bulletinsofficiels/deliberation-n-2026-30-du-25-juin-2026-bo-n-2026-37.html?type=dossiers%2F2026%2Fbo-n-2026-37-du-1er-juillet-2026',
+  },
+  {
+    id: 'criteres-formations-septembre-2026', niveau: 'Vigilance', categorie: 'Formation',
+    titre: 'Nouveaux critères d’exposition et de financement des formations',
+    resume: 'À compter du 1er septembre 2026, France Travail retient notamment la finalité professionnelle, la cohérence avec le parcours, des compétences évaluables, une reconnaissance vérifiable et une information loyale pour exposer ou financer une formation.',
+    impact: 'Avant de présenter une formation comme visible ou finançable, vérifier sa présence et son statut dans les outils France Travail. Le catalogue local reste indicatif ; toute incidence sur une prescription doit être confirmée par les procédures internes France Travail.',
+    dateSource: 'Délibération du 25 juin 2026, publiée le 1er juillet 2026 ; entrée en vigueur le 1er septembre 2026', source: 'France Travail',
+    url: 'https://bo.francetravail.org/bulletinsofficiels/deliberation-n-2026-31-du-25-juin-2026-bo-n-2026-37.html?type=dossiers%2F2026%2Fbo-n-2026-37-du-1er-juillet-2026',
+  },
+  {
+    id: 'aif-formation-contrat-engagement', niveau: 'Vigilance', categorie: 'Formation',
+    titre: 'AIF : financement conditionnel lié au projet professionnel',
+    resume: 'L’AIF peut financer ou cofinancer les frais pédagogiques lorsque la formation est cohérente avec le projet de retour à l’emploi et qu’aucun financement plus approprié ne couvre le besoin. La décision intervient après étude du projet et du devis ; elle n’est pas automatique.',
+    impact: 'Ne proposer l’AIF qu’après avoir défini le métier visé et le besoin de compétences, recherché le CPF, le PRF, l’AFC, la POEI, l’AFPR, la POEC et les cofinancements, puis vérifié le devis et le dépôt avant l’entrée en formation. Inscrire l’action dans le plan du contrat d’engagement. Confirmer les délais et circuits régionaux dans les procédures internes France Travail.',
+    dateSource: 'Page France Travail vérifiée le 29 juillet 2026 ; instruction BO du 10 janvier 2017 ; contrat d’engagement en vigueur depuis le 1er janvier 2025',
+    source: 'France Travail / Bulletin officiel France Travail / Légifrance',
+    url: 'https://www.francetravail.fr/candidat/en-formation/mes-aides-financieres/laide-individuelle-a-la-formatio.html',
+  },
+  {
+    id: 'aide-mobilite-juin-2026', niveau: 'Nouveauté', categorie: 'Mobilité',
+    titre: 'Aide à la mobilité France Travail applicable depuis le 1er juin 2026',
+    resume: 'La délibération 2026-26 précise les publics, actions, délais et montants : seuil de distance de 60 km aller-retour ou 2 heures, barème kilométrique de 0,23 €, repas à 6,25 €, nuitée à 31,20 € et plafond annuel de 5 200 €, avec possibilités dérogatoires encadrées.',
+    impact: 'Vérifier l’éligibilité, les délais de demande et la validation préalable de l’action dans les outils en vigueur. Les dérogations et l’expérimentation concernant certaines formations nécessitent une confirmation par les procédures internes France Travail en Corse.',
+    dateSource: 'Délibération du 28 mai 2026, publiée le 2 juin 2026 ; entrée en vigueur le 1er juin 2026', source: 'France Travail',
+    url: 'https://bo.francetravail.org/bulletinsofficiels/deliberation-n-2026-26-du-28-mai-2026-bo-n-2026-33.html?type=dossiers%2F2026%2Fbo-n-2026-33-du-2-juin-2026',
+  },
+  {
+    id: 'suppression-bon-tresor-mobilite-2026', niveau: 'Vigilance', categorie: 'Mobilité',
+    titre: 'Suppression du bon au Trésor public pour l’aide à la mobilité',
+    resume: 'La mise à jour de juin 2026 de l’instruction sur l’aide à la mobilité supprime l’avance en numéraire par bon au Trésor public. Les bons SNCF de réduction de 100 % ou de 30 % restent mentionnés pour la recherche d’emploi.',
+    impact: 'Ne plus orienter vers un bon à échanger au Trésor public. Vérifier dans les procédures internes France Travail les modalités de paiement ou d’avance actuellement proposées avant d’informer le demandeur.',
+    dateSource: 'Instruction mise à jour en juin 2026, publiée au BO France Travail du 1er juillet 2026', source: 'France Travail',
+    url: 'https://bo.francetravail.org/bulletinsofficiels/instruction-dg-n-2024-7-du-7-fevrier-2024-mise-a-jour-de-juin-2026-bo-n-2026-37.html?type=dossiers%2F2026%2Fbo-n-2026-37-du-1er-juillet-2026',
   },
 ]

@@ -1,4 +1,4 @@
-import { REFERENTIEL_METIER } from '../data/referentielMetier'
+import { REFERENTIEL_METIER } from '../data/referentielMetier.js'
 
 const normalize = (value) => String(value || '')
   .toLowerCase()

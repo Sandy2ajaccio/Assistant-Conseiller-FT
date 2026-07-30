@@ -1,7 +1,7 @@
 import React from 'react'
 import { renderToString } from 'react-dom/server'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { createServer } from 'vite'
+import { fileURLToPath } from 'node:url'
 
 globalThis.localStorage = {
   get length() {
@@ -20,6 +20,31 @@ globalThis.localStorage = {
 const server = await createServer({
   server: { middlewareMode: true },
   appType: 'custom',
+  resolve: {
+    alias: [
+      {
+        find: /^react-router-dom$/,
+        replacement: fileURLToPath(
+          new URL('../node_modules/react-router-dom/dist/index.mjs', import.meta.url),
+        ),
+      },
+      {
+        find: /^react-router\/dom$/,
+        replacement: fileURLToPath(
+          new URL('../node_modules/react-router/dist/development/dom-export.mjs', import.meta.url),
+        ),
+      },
+      {
+        find: /^react-router$/,
+        replacement: fileURLToPath(
+          new URL('../node_modules/react-router/dist/development/index.mjs', import.meta.url),
+        ),
+      },
+    ],
+  },
+  ssr: {
+    noExternal: ['react-router', 'react-router-dom'],
+  },
 })
 
 const pages = [
@@ -31,11 +56,16 @@ const pages = [
   ['/preparation-entretien', '/src/pages/PreparationEntretienPage.jsx'],
   ['/tableau-de-bord', '/src/pages/PrescriptionsPage.jsx'],
   ['/connaissances', '/src/pages/CentreConnaissancesPage.jsx'],
+  ['/formations', '/src/pages/FormationsPage.jsx'],
   ['/parametres', '/src/pages/ParametresPage.jsx'],
   ['/demandeurs', '/src/pages/DemandeurPage.jsx'],
 ]
 
 try {
+  const { MemoryRouter, Route, Routes } = await server.ssrLoadModule(
+    '/node_modules/react-router-dom/dist/index.mjs',
+  )
+
   for (const [url, modulePath, routePath = url] of pages) {
     const { default: Page } = await server.ssrLoadModule(modulePath)
     const html = renderToString(

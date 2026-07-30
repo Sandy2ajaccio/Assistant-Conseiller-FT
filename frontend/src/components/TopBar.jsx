@@ -9,6 +9,8 @@ const TITLES = {
   '/prescriptions': 'Tableau de bord',
   '/assistant': 'Assistant de mission',
   '/connaissances': 'Centre de connaissances',
+  '/formations': 'Formations à venir',
+  '/veille-officielle': 'Veille officielle',
   '/parametres': 'Paramètres',
 }
 

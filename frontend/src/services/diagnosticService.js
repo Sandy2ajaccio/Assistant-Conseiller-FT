@@ -1,5 +1,6 @@
-import { REFERENTIEL_METIER } from '../data/referentielMetier'
-import { getReferentielSection } from './referentielService'
+import { REFERENTIEL_METIER } from '../data/referentielMetier.js'
+import { getReferentielSection } from './referentielService.js'
+import { analyserPisteIAE } from './iaeDiagnosticService.js'
 
 const normalize = (value) =>
   String(value || '')
@@ -30,6 +31,11 @@ const findByLabel = (sectionName, value) => {
 const includesAny = (text, terms) => {
   const normalizedText = normalize(text)
   return terms.some((term) => normalizedText.includes(normalize(term)))
+}
+
+const isExplicitlyConfirmed = (value) => {
+  if (value === true) return true
+  return /^(oui|true|valide|validee|confirme|confirmee|actif|active)$/.test(normalize(value))
 }
 
 const readFirstString = (...values) => asString(values.find((value) => asString(value)))
@@ -83,13 +89,9 @@ const getFreinsDetectes = (dossier = {}, age = null) => {
 
   const projectText = getProjectText(dossier)
   const mobilityText = readFirstString(dossier.mobilite, dossier.mobiliteDetaillee)
-  const experienceText = getExperienceText(dossier)
   const formationText = getFormationText(dossier)
   const autonomyHint = getAutonomyHint(dossier)
 
-  if (dossier.rsa) freins.push('RSA')
-  if (dossier.are) freins.push('ARE')
-  if (dossier.reconnaissanceTH) freins.push('Handicap')
   if (!readFirstString(dossier.projetProfessionnel, dossier.projet)) freins.push('Projet flou')
   if (!dossier.cvVisible) freins.push('Absence CV')
   if (normalize(dossier.rechercheEmploi).includes('faible')) freins.push('Recherche emploi')
@@ -97,9 +99,7 @@ const getFreinsDetectes = (dossier = {}, age = null) => {
   if (includesAny(projectText, ['flou', 'à définir', 'a definir', 'incertain', 'hesitation'])) freins.push('Projet professionnel à clarifier')
   if (includesAny(formationText, ['aucun', 'non', 'pas'])) freins.push('Formation non précisée')
   if (includesAny(autonomyHint, ['faible', 'limite', 'à renforcer', 'a renforcer'])) freins.push('Autonomie à renforcer')
-  if (age !== null && age < 26 && !includesAny(dossier.contratEngagement, ['oui', 'actif'])) freins.push('Jeune sans cadre d accompagnement explicite')
-  if (age !== null && age >= 50 && !experienceText) freins.push('Expérience à expliciter')
-  if (Number(dossier.nombreFreins || 0) > 0) freins.push('Freins multiples')
+  if (Number(dossier.nombreFreins || 0) >= 2 || explicitFreins.length >= 2) freins.push('Freins multiples')
 
   return unique(freins)
 }
@@ -114,9 +114,6 @@ const getAtouts = (dossier = {}, age = null) => {
   if (dossier.cvVisible) atouts.push('CV visible')
   if (normalize(dossier.rechercheEmploi).includes('active')) atouts.push("Recherche d'emploi active")
   if (asString(dossier.contratEngagement).toLowerCase() === 'oui') atouts.push("Contrat d'engagement actif")
-  if (dossier.reconnaissanceTH) atouts.push('RQTH identifiée')
-  if (age !== null && age >= 50) atouts.push('Expérience senior mobilisable')
-  if (age !== null && age < 26) atouts.push('Public jeune mobilisable')
   if (experienceText) atouts.push('Expérience renseignée')
   if (getFormationText(dossier)) atouts.push('Formation renseignée')
   if (projectText && projectText.length >= 20) atouts.push('Projet renseigné')
@@ -131,10 +128,8 @@ const getProjectSignals = (dossier = {}) => {
   const projectText = getProjectText(dossier)
   const age = getAge(dossier)
   const categories = readSection('categoriesDE')
-  const projets = readSection('projetsProfessionnels')
   const orientationLabels = readSection('orientations').map((item) => normalize(item.libelle))
 
-  const knownProject = projets.find((item) => includesAny(projectText, [item.libelle, item.description])) || null
   const knownCategory = categories.find((item) => normalize(item.libelle) === normalize(dossier.categorie)) || null
   const knownOrientation = orientationLabels.find((label) => normalize(projectText) === label || includesAny(projectText, [label])) || ''
 
@@ -144,7 +139,11 @@ const getProjectSignals = (dossier = {}) => {
     hasProject: Boolean(projectText),
     projectLength: projectText.length,
     projectIsFlou: !projectText || includesAny(projectText, ['flou', 'à définir', 'a definir', 'incertain', 'hésitation', 'hesitation']),
-    projectIsValidated: Boolean(knownProject) || projectText.length >= 25,
+    projectIsValidated: isExplicitlyConfirmed(
+      dossier.projetValide
+      ?? dossier.validationProjet
+      ?? dossier.statutProjet,
+    ),
     projectIsFormation: includesAny(projectText, ['formation', 'qualif', 'prepa', 'prépa', 'aif', 'afc', 'vae']),
     projectIsCreation: includesAny(projectText, ['creation', 'création', 'entreprise', 'reprise', 'entrepreneur']),
     projectIsEmployment: includesAny(projectText, ['emploi', 'candidature', 'recrutement', 'poste', 'travail']),
@@ -161,6 +160,7 @@ const getProjectSignals = (dossier = {}) => {
 
 const getAutonomie = (dossier = {}, freinsDetectes = [], atouts = [], signals = {}) => {
   let score = 45
+  const autonomyHint = normalize(getAutonomyHint(dossier))
 
   if (dossier.cvVisible) score += 12
   if (normalize(dossier.rechercheEmploi).includes('active')) score += 10
@@ -173,13 +173,8 @@ const getAutonomie = (dossier = {}, freinsDetectes = [], atouts = [], signals = 
   if (asArray(dossier.ateliers).length > 0) score += 3
   if (asArray(dossier.prestations).length > 0) score += 2
 
-  if (freinsDetectes.some((item) => includesAny(item, ['absence cv']))) score -= 10
-  if (freinsDetectes.some((item) => includesAny(item, ['autonomie à renforcer', 'autonomie'])) && !dossier.cvVisible) score -= 8
-  if (freinsDetectes.some((item) => includesAny(item, ['mobilité']))) score -= 7
-  if (freinsDetectes.some((item) => includesAny(item, ['freins multiples']))) score -= 8
-  if (freinsDetectes.some((item) => includesAny(item, ['sante', 'handicap']))) score -= 10
-  if (signals.projectIsFlou) score -= 8
-  if (signals.projectIsYoung && !dossier.premierEntretienRealise) score -= 3
+  if (includesAny(autonomyHint, ['faible', 'limite', 'à renforcer', 'a renforcer'])) score -= 15
+  if (includesAny(autonomyHint, ['forte', 'élevée', 'elevee', 'autonome'])) score += 10
 
   return clamp(score)
 }
@@ -215,9 +210,7 @@ const getMaturiteProjet = (dossier = {}, signals = {}) => {
   let score = 10
 
   if (signals.hasProject) score += 20
-  if (projectText.length >= 20) score += 10
-  if (projectText.length >= 40) score += 10
-  if (signals.projectIsValidated) score += 15
+  if (signals.projectIsValidated) score += 35
   if (signals.projectIsFormation || signals.projectIsCreation || signals.projectIsEmployment) score += 10
   if (signals.projectIsPmsmp) score += 8
   if (signals.projectIsIae) score += 8
@@ -298,7 +291,7 @@ const pushIfPresent = (items, value) => {
   if (value) items.push(value)
 }
 
-const buildRecommendations = ({ dossier, signals, freinsDetectes, autonomie, distanceEmploi, maturiteProjet }) => {
+const buildRecommendations = ({ dossier, signals, freinsDetectes, autonomie, distanceEmploi, maturiteProjet, propositionIAE }) => {
   const recommendations = []
 
   const projetFlou = findByLabel('projetsProfessionnels', 'Projet flou')
@@ -350,7 +343,9 @@ const buildRecommendations = ({ dossier, signals, freinsDetectes, autonomie, dis
     pushIfPresent(recommendations, prepaCompetences?.libelle)
     pushIfPresent(recommendations, preparationFormation?.libelle)
     pushIfPresent(recommendations, afpa?.libelle)
-    pushIfPresent(recommendations, aif?.libelle)
+    if (signals.projectIsFormation && signals.projectIsValidated && !signals.projectIsFlou) {
+      pushIfPresent(recommendations, aif?.libelle)
+    }
     pushIfPresent(recommendations, afc?.libelle)
     pushIfPresent(recommendations, remuneration?.libelle)
     pushIfPresent(recommendations, parcoursFormation?.libelle)
@@ -397,11 +392,12 @@ const buildRecommendations = ({ dossier, signals, freinsDetectes, autonomie, dis
     pushIfPresent(recommendations, acquisitionImmersion?.libelle)
   }
 
-  if (signals.projectIsIae || freinsDetectes.some((item) => includesAny(item, ['iae', 'insertion']))) {
+  if (signals.projectIsIae || propositionIAE?.pertinente || freinsDetectes.some((item) => includesAny(item, ['iae', 'insertion']))) {
     pushIfPresent(recommendations, orientationIAE?.libelle)
     pushIfPresent(recommendations, parcoursIAE?.libelle)
     pushIfPresent(recommendations, structuresIAE?.libelle)
-    pushIfPresent(recommendations, findByLabel('prestations', 'PASS IAE')?.libelle)
+    pushIfPresent(recommendations, findByLabel('prestations', 'Parcours IAE / SIAE Corse-du-Sud')?.libelle)
+    pushIfPresent(recommendations, findByLabel('iae', 'PASS IAE')?.libelle)
   }
 
   if (signals.projectIsSenior || (getAge(dossier) !== null && getAge(dossier) >= 50)) {
@@ -452,8 +448,22 @@ export const analyseDiagnostic = (dossier = {}) => {
   const employabilite = detectEmployability({ autonomie, distanceEmploi, maturiteProjet, freinsDetectes, atouts })
   const urgence = getUrgence({ freinsDetectes, autonomie, distanceEmploi, maturiteProjet, dossier, signals })
   const scoreGlobal = getScoreGlobal({ autonomie, distanceEmploi, maturiteProjet, employabilite: employabilite === 'forte' ? 85 : employabilite === 'moyenne' ? 60 : 35, freinsDetectes, atouts })
-  const vigilance = buildVigilance({ dossier, freinsDetectes, autonomie, distanceEmploi, maturiteProjet, signals })
-  const recommandationsPrioritaires = buildRecommendations({ dossier, signals, freinsDetectes, autonomie, distanceEmploi, maturiteProjet })
+  const propositionIAE = analyserPisteIAE({ ...dossier, freins: [...asArray(dossier.freins), ...freinsDetectes] })
+  const vigilance = unique([
+    ...buildVigilance({ dossier, freinsDetectes, autonomie, distanceEmploi, maturiteProjet, signals }),
+    ...(propositionIAE.pertinente
+      ? ['Piste IAE détectée : confirmer l’éligibilité, le circuit interne et les postes disponibles avant toute orientation.']
+      : []),
+  ])
+  const recommandationsPrioritaires = buildRecommendations({
+    dossier,
+    signals,
+    freinsDetectes,
+    autonomie,
+    distanceEmploi,
+    maturiteProjet,
+    propositionIAE,
+  })
 
   return {
     autonomie,
@@ -465,6 +475,7 @@ export const analyseDiagnostic = (dossier = {}) => {
     urgence,
     employabilite,
     recommandationsPrioritaires,
+    propositionIAE,
     scoreGlobal,
   }
 }

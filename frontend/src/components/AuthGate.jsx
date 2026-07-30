@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth } from '../services/firebaseClient'
-import { backupAllLocalData, hydrateLocalDataFromCloud } from '../services/cloudPersistenceService'
+import {
+  backupAllLocalData,
+  clearSensitiveLocalData,
+  hydrateLocalDataFromCloud,
+} from '../services/cloudPersistenceService'
 
 const OWNER_EMAIL = 's.marchasson.cip@gmail.com'
 
@@ -52,6 +56,20 @@ const AuthGate = ({ children }) => {
     }
   }
 
+  const disconnectFromGoogle = async () => {
+    setMessage('')
+    setSyncing(true)
+    try {
+      await backupAllLocalData()
+      await signOut(auth)
+      clearSensitiveLocalData()
+    } catch {
+      setMessage('Déconnexion annulée : la sauvegarde en ligne doit réussir avant d’effacer les données de cet appareil.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   if (checking || syncing) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#eef3f8' }}>
@@ -90,11 +108,19 @@ const AuthGate = ({ children }) => {
   return (
     <>
       {children}
+      {message ? (
+        <Alert
+          severity="error"
+          sx={{ position: 'fixed', right: 14, bottom: 58, zIndex: 1400, maxWidth: 520 }}
+        >
+          {message}
+        </Alert>
+      ) : null}
       <Button
         size="small"
         variant="contained"
         color="inherit"
-        onClick={() => signOut(auth)}
+        onClick={disconnectFromGoogle}
         sx={{ position: 'fixed', right: 14, bottom: 14, zIndex: 1400 }}
       >
         Se déconnecter

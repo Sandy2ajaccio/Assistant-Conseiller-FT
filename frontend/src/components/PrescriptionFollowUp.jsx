@@ -96,7 +96,7 @@ export default function PrescriptionFollowUp({ dossiers, onOpen }) {
       activeFilter === 'all'
         || (activeFilter === 'deadlines' ? item.deadline : item.category === activeFilter)
     ))
-    .slice(0, 12), [activeFilter, items])
+    .slice(0, 6), [activeFilter, items])
 
   return (
     <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: '#8fb2cf' }}>
@@ -129,7 +129,16 @@ export default function PrescriptionFollowUp({ dossiers, onOpen }) {
         </Stack>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) minmax(240px,1.6fr) 130px 150px 130px', gap: 1, px: 1.25, py: .6, bgcolor: '#e9f1f7' }}>
+      <Box
+        sx={{
+          display: { xs: 'none', lg: 'grid' },
+          gridTemplateColumns: 'minmax(170px,1fr) minmax(220px,1.6fr) 110px 130px 110px',
+          gap: 1,
+          px: 1.25,
+          py: .6,
+          bgcolor: '#e9f1f7',
+        }}
+      >
         {['DE', 'Prescription / action', 'Type', 'État', 'Échéance'].map((label) => (
           <Typography key={label} variant="caption" sx={{ fontWeight: 900 }}>{label}</Typography>
         ))}
@@ -140,10 +149,11 @@ export default function PrescriptionFollowUp({ dossiers, onOpen }) {
           key={item.id}
           onClick={() => onOpen(item.identifiant)}
           sx={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(180px,1fr) minmax(240px,1.6fr) 130px 150px 130px',
+            display: { xs: 'flex', lg: 'grid' },
+            flexDirection: { xs: 'column' },
+            gridTemplateColumns: { lg: 'minmax(170px,1fr) minmax(220px,1.6fr) 110px 130px 110px' },
             gap: 1,
-            alignItems: 'center',
+            alignItems: { xs: 'flex-start', lg: 'center' },
             px: 1.25,
             py: .7,
             borderBottom: '1px solid #e0e7ee',
@@ -163,6 +173,9 @@ export default function PrescriptionFollowUp({ dossiers, onOpen }) {
             label={item.status}
           />
           <Typography variant="body2" color={item.deadline ? 'secondary.main' : 'text.secondary'} sx={{ fontWeight: 800 }}>
+            <Box component="span" sx={{ display: { xs: 'inline', lg: 'none' }, fontWeight: 900 }}>
+              Échéance :{' '}
+            </Box>
             {item.deadline || 'Non datée'}
           </Typography>
         </Box>
