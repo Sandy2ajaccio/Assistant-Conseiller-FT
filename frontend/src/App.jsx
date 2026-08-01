@@ -1,41 +1,59 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+
+import AuthGate from './components/AuthGate'
 import Layout from './components/Layout'
-import AccueilMissionsPage from './pages/AccueilMissionsPage'
-import MissionWorkflowPage from './pages/MissionWorkflowPage'
+
 import AnalyseSituationPage from './pages/AnalyseSituationPage'
-import DashboardPage from './pages/DashboardPage'
-import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
-import ParametresPage from './pages/ParametresPage'
 import AssistantMissionPage from './pages/AssistantMissionPage'
+import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
+import DashboardPage from './pages/DashboardPage'
 import DemandeurPage from './pages/DemandeurPage'
+import FormationsPage from './pages/FormationsPage'
+import MissionWorkflowPage from './pages/MissionWorkflowPage'
+import ParametresPage from './pages/ParametresPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
 import VeilleOfficiellePage from './pages/VeilleOfficiellePage'
-import FormationsPage from './pages/FormationsPage'
-import AuthGate from './components/AuthGate'
 
 export default function App() {
   useEffect(() => {
     const verifierNouvelleVersion = async () => {
       try {
-        const response = await fetch(`/index.html?version=${Date.now()}`, { cache: 'no-store' })
+        const response = await fetch(
+          `/index.html?version=${Date.now()}`,
+          { cache: 'no-store' },
+        )
+
         const html = await response.text()
         const nouvelleSource = html.match(/assets\/index-[^"]+\.js/)?.[0]
+
         const sourceChargee = Array.from(document.scripts)
           .map((script) => script.src)
           .find((source) => source.includes('/assets/index-'))
 
-        if (nouvelleSource && sourceChargee && !sourceChargee.includes(nouvelleSource)) {
+        if (
+          nouvelleSource &&
+          sourceChargee &&
+          !sourceChargee.includes(nouvelleSource)
+        ) {
           window.location.reload()
         }
       } catch {
-        // Une indisponibilité réseau ne doit jamais interrompre le travail en cours.
+        // Une indisponibilité réseau ne doit pas interrompre le travail.
       }
     }
 
-    const premiereVerification = window.setTimeout(verifierNouvelleVersion, 5000)
-    const verificationReguliere = window.setInterval(verifierNouvelleVersion, 60000)
+    const premiereVerification = window.setTimeout(
+      verifierNouvelleVersion,
+      5000,
+    )
+
+    const verificationReguliere = window.setInterval(
+      verifierNouvelleVersion,
+      60000,
+    )
+
     return () => {
       window.clearTimeout(premiereVerification)
       window.clearInterval(verificationReguliere)
@@ -47,21 +65,80 @@ export default function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
-          <Route path="/" element={<Navigate to="/tableau-de-bord" replace />} />
-          <Route path="/assistant" element={<AssistantMissionPage />} />
-          <Route path="/missions/:missionId" element={<MissionWorkflowPage />} />
-          <Route path="/analyse" element={<AnalyseSituationPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/preparation-entretien" element={<PreparationEntretienPage />} />
-          <Route path="/tableau-de-bord" element={<PrescriptionsPage />} />
-          <Route path="/prescriptions" element={<Navigate to="/tableau-de-bord" replace />} />
-          <Route path="/connaissances" element={<CentreConnaissancesPage />} />
-          <Route path="/veille-officielle" element={<VeilleOfficiellePage />} />
-          <Route path="/formations" element={<FormationsPage />} />
-          <Route path="/parametres" element={<ParametresPage />} />
-          <Route path="/demandeurs" element={<DemandeurPage />} />
-          <Route path="/demandeurs/:id" element={<DemandeurPage />} />
-          <Route path="*" element={<Navigate to="/tableau-de-bord" replace />} />
+            <Route
+              path="/"
+              element={<Navigate to="/tableau-de-bord" replace />}
+            />
+
+            <Route
+              path="/assistant"
+              element={<AssistantMissionPage />}
+            />
+
+            <Route
+              path="/missions/:missionId"
+              element={<MissionWorkflowPage />}
+            />
+
+            <Route
+              path="/analyse"
+              element={<AnalyseSituationPage />}
+            />
+
+            <Route
+              path="/dashboard"
+              element={<DashboardPage />}
+            />
+
+            <Route
+              path="/preparation-entretien"
+              element={<PreparationEntretienPage />}
+            />
+
+            <Route
+              path="/tableau-de-bord"
+              element={<PrescriptionsPage />}
+            />
+
+            <Route
+              path="/prescriptions"
+              element={<Navigate to="/tableau-de-bord" replace />}
+            />
+
+            <Route
+              path="/connaissances"
+              element={<CentreConnaissancesPage />}
+            />
+
+            <Route
+              path="/veille-officielle"
+              element={<VeilleOfficiellePage />}
+            />
+
+            <Route
+              path="/formations"
+              element={<FormationsPage />}
+            />
+
+            <Route
+              path="/parametres"
+              element={<ParametresPage />}
+            />
+
+            <Route
+              path="/demandeurs"
+              element={<DemandeurPage />}
+            />
+
+            <Route
+              path="/demandeurs/:id"
+              element={<DemandeurPage />}
+            />
+
+            <Route
+              path="*"
+              element={<Navigate to="/tableau-de-bord" replace />}
+            />
           </Routes>
         </Layout>
       </BrowserRouter>

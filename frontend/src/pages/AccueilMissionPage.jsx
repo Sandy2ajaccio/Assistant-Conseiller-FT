@@ -1,3 +1,6 @@
+
+
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -36,6 +39,7 @@ import {
 } from '../services/dossierLoaderService'
 import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
+import CockpitHeader from '../components/cockpit/CockpitHeader'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
@@ -2140,94 +2144,25 @@ function AssistantMissionPage() {
       }}
     >
       <Stack spacing={1}>
-        <Paper
-          variant="outlined"
-          sx={{
-            p: { xs: 1, md: 1.25 },
-            borderRadius: 2,
-            borderColor: '#bdd0e4',
-            boxShadow: '0 3px 12px rgba(15,35,65,0.08)',
-            bgcolor: '#fff',
-          }}
-        >
-          <Grid container spacing={1} alignItems="center">
-            <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
-              <TextField
-                label="Identifiant France Travail"
-                value={identifiantDemandeur}
-                onChange={(event) => setIdentifiantDemandeur(event.target.value)}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.8 }}>
-              <TextField
-                select
-                label="Type de rendez-vous"
-                value={typeEntretien}
-                onChange={changerTypeEntretien}
-                fullWidth
-                size="small"
-              >
-                {ENTRETIEN_TYPES.map((item) => (
-                  <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3, lg: 1.2 }}>
-              <Typography variant="caption" color="text.secondary">Durée</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 900 }}>{dureeRendezVous}</Typography>
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3, lg: 1.5 }}>
-              <Typography variant="caption" color="text.secondary">Conseiller</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 900 }}>Conseiller FT</Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.1 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Temps restant</Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ lineHeight: 1, fontWeight: 950, color: chronoDureeAtteinte ? 'error.main' : minimumTelephoniqueAtteint ? 'warning.main' : '#174f7f' }}
-                  >
-                    {formatChrono(chronoRestantSecondes)}
-                  </Typography>
-                </Box>
-                <Button
-                  size="small"
-                  variant={chronoActif ? 'outlined' : 'contained'}
-                  disabled={decisionConseillerStatut === 'Acceptee'}
-                  onClick={basculerChronometre}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  {decisionConseillerStatut === 'Acceptee'
-                    ? 'Terminé'
-                    : chronoActif
-                      ? 'Pause'
-                      : chronoDureeAtteinte
-                        ? 'Recommencer'
-                        : chronoSecondes > 0
-                          ? 'Reprendre'
-                          : 'Démarrer'}
-                </Button>
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, lg: 2 }}>
-              <Stack direction="row" spacing={0.75} justifyContent={{ lg: 'flex-end' }} alignItems="center">
-                <Chip
-                  size="small"
-                  color="success"
-                  variant="outlined"
-                  label={brouillonAutomatiqueStatut || 'Sauvegarde active'}
-                  sx={{ maxWidth: 190, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-                />
-                <Button size="small" color="error" variant="text" onClick={nouveauDossier}>
-                  Effacer
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
-        </Paper>
+        <CockpitHeader
+          identifiantDemandeur={identifiantDemandeur}
+          setIdentifiantDemandeur={setIdentifiantDemandeur}
+          typeEntretien={typeEntretien}
+          changerTypeEntretien={changerTypeEntretien}
+          entretienTypes={ENTRETIEN_TYPES}
+          dureeRendezVous={dureeRendezVous}
+          chronoRestantSecondes={chronoRestantSecondes}
+          chronoSecondes={chronoSecondes}
+          chronoActif={chronoActif}
+          chronoDureeAtteinte={chronoDureeAtteinte}
+          minimumTelephoniqueAtteint={minimumTelephoniqueAtteint}
+          decisionConseillerStatut={decisionConseillerStatut}
+          basculerChronometre={basculerChronometre}
+          formatChrono={formatChrono}
+          formatDateFr={formatDateFr}
+          brouillonAutomatiqueStatut={brouillonAutomatiqueStatut}
+          nouveauDossier={nouveauDossier}
+        />
 
         <Tabs
           value={workspaceTab}
@@ -3236,17 +3171,7 @@ function AssistantMissionPage() {
 
         <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }} sx={{ display: modeApprofondi ? 'block' : 'none' }}>
-            <Stack
-  spacing={1}
-  sx={{
-    display: { xs: 'flex', xl: 'grid' },
-    gridTemplateColumns: {
-      xl: modeApprofondi ? '0.9fr 1.1fr' : '0.85fr 0.85fr 1.3fr',
-    },
-    gap: { xl: 1 },
-    alignItems: 'start',
-  }}
->
+            <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
               <CockpitBlockCard title="1. Analyse de la situation" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>

@@ -3236,7 +3236,7 @@ function AssistantMissionPage() {
 
         <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }} sx={{ display: modeApprofondi ? 'block' : 'none' }}>
-            <Stack
+            <<Stack
   spacing={1}
   sx={{
     display: { xs: 'flex', xl: 'grid' },
