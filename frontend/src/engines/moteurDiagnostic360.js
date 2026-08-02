@@ -1,3 +1,4 @@
+import analyserPrescriptions from './moteurPrescriptions'
 import analyserCategorieEtSituation from '../data/categorieRules'
 import orienterVersPortefeuille from './moteurOrientationPortefeuille'
 
