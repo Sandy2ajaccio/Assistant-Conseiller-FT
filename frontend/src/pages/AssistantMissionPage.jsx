@@ -38,6 +38,7 @@ import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
+import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
@@ -69,6 +70,13 @@ import {
   genererAlertesSuivi,
   normaliserSuiviObligations,
 } from '../data/suiviObligations'
+import {
+  DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE,
+  NOM_PORTEFEUILLE_MUTUALISE,
+  compterAlertesPortefeuilleMutualise,
+  getFilePortefeuilleMutualise,
+  normaliserSuiviPortefeuilleMutualise,
+} from '../data/portefeuilleMutualise'
 
 const DECISION_LABELS = {
   poursuiteAccompagnement: "Poursuite de l'accompagnement",
@@ -352,6 +360,7 @@ function AssistantMissionPage() {
   const [contratEngagementDetails, setContratEngagementDetails] = useState(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
   const [orientationReseau, setOrientationReseau] = useState(DEFAULT_ORIENTATION_RESEAU)
   const [suiviObligations, setSuiviObligations] = useState(DEFAULT_SUIVI_OBLIGATIONS)
+  const [suiviPortefeuilleMutualise, setSuiviPortefeuilleMutualise] = useState(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
@@ -385,7 +394,7 @@ function AssistantMissionPage() {
   const [actionsRetenues, setActionsRetenues] = useState([])
   const [actionsEcartees, setActionsEcartees] = useState([])
   const [classementTab, setClassementTab] = useState('maintenant')
-  const [portefeuilleChoisi, setPortefeuilleChoisi] = useState('')
+  const [portefeuilleChoisi, setPortefeuilleChoisi] = useState(NOM_PORTEFEUILLE_MUTUALISE)
   const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
@@ -398,6 +407,18 @@ function AssistantMissionPage() {
     () => compterAlertesActionnables(suiviObligations),
     [suiviObligations],
   )
+  const nombreAlertesPortefeuille = useMemo(
+    () => compterAlertesPortefeuilleMutualise(suiviPortefeuilleMutualise),
+    [suiviPortefeuilleMutualise],
+  )
+  const resumeAlertesEnregistrement = useMemo(() => {
+    const alertes = []
+    if (nombreAlertesPortefeuille > 0) alertes.push(`${nombreAlertesPortefeuille} portefeuille`)
+    if (nombreAlertesSuivi > 0) alertes.push(`${nombreAlertesSuivi} M6`)
+    return alertes.length > 0
+      ? `${alertes.join(' · ')} alerte(s) à vérifier.`
+      : 'Aucune alerte active.'
+  }, [nombreAlertesPortefeuille, nombreAlertesSuivi])
 
   const analyseInput = useMemo(() => {
     const freins = []
@@ -1343,6 +1364,11 @@ function AssistantMissionPage() {
       label: 'Alertes M6 traitées ou aucun fait signalé',
       ok: suiviObligations.fait === 'aucun' || nombreAlertesSuivi === 0,
     },
+    {
+      id: 'portefeuille-mutualise',
+      label: 'File et actions du portefeuille mutualisé traitées',
+      ok: nombreAlertesPortefeuille === 0,
+    },
     { id: 'synthese', label: 'Synthèse destinée à la personne générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
@@ -1359,6 +1385,7 @@ function AssistantMissionPage() {
     orientationReseau,
     suiviObligations.fait,
     nombreAlertesSuivi,
+    nombreAlertesPortefeuille,
     syntheseEntretien,
   ])
 
@@ -1446,6 +1473,9 @@ function AssistantMissionPage() {
     if (nombreAlertesSuivi > 0) {
       vigilances.push(`${nombreAlertesSuivi} alerte(s) M6 restent à traiter dans le suivi des obligations.`)
     }
+    if (nombreAlertesPortefeuille > 0) {
+      vigilances.push(`${nombreAlertesPortefeuille} action(s) ou alerte(s) restent à traiter dans le portefeuille mutualisé.`)
+    }
 
     if (identifiantDemandeur.trim()) confirmations.push('Identité du dossier renseignée')
     if (actionsRetenues.length > 0) confirmations.push(`${actionsRetenues.length} action(s) retenue(s) et suivie(s)`)
@@ -1493,6 +1523,7 @@ function AssistantMissionPage() {
     decisions.demandeAffectation,
     syntheseEntretien,
     nombreAlertesSuivi,
+    nombreAlertesPortefeuille,
   ])
 
   const dossierCoherentEtComplet = dossierPretACloturer && controleDecision.bloquants === 0
@@ -1556,6 +1587,7 @@ function AssistantMissionPage() {
     setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
+    setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
@@ -1567,7 +1599,7 @@ function AssistantMissionPage() {
     )
     setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
     setClassementTab(dossier.classementTab || 'maintenant')
-    setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
+    setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
     setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
     setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
@@ -1731,6 +1763,8 @@ function AssistantMissionPage() {
     orientationReseau,
     suiviObligations,
     alertesSuiviObligations,
+    suiviPortefeuilleMutualise,
+    alertesPortefeuilleMutualise: nombreAlertesPortefeuille,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1788,6 +1822,7 @@ function AssistantMissionPage() {
         setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
         setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
         setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
+        setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
         setAssistantAnswers(dossier.assistantAnswers || {})
         setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1796,7 +1831,7 @@ function AssistantMissionPage() {
         setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
         setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
         setClassementTab(dossier.classementTab || 'maintenant')
-        setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
+        setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
         setWorkspaceTab(dossier.workspaceTab || 'entretien')
         setAssistantPhase(dossier.assistantPhase || 'exploration')
         setModeApprofondi(Boolean(dossier.modeApprofondi))
@@ -1850,6 +1885,7 @@ function AssistantMissionPage() {
     contratEngagementDetails,
     orientationReseau,
     suiviObligations,
+    suiviPortefeuilleMutualise,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1874,9 +1910,7 @@ function AssistantMissionPage() {
     const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
     setStorageStatus(
       result.ok
-        ? nombreAlertesSuivi > 0
-          ? `Analyse enregistrée pour ${identifiantDemandeur}. ${nombreAlertesSuivi} alerte(s) M6 à vérifier.`
-          : `Analyse enregistrée pour ${identifiantDemandeur}. Aucune alerte M6 active.`
+        ? `Analyse enregistrée pour ${identifiantDemandeur}. ${resumeAlertesEnregistrement}`
         : result.message || 'Erreur enregistrement.',
     )
   }
@@ -1892,6 +1926,8 @@ function AssistantMissionPage() {
           typeEntretien: normaliserTypeEntretien(dossier.typeEntretien),
           chronoSecondes: Number(dossier.chronoSecondes) || 0,
           alertesSuivi: compterAlertesActionnables(dossier.suiviObligations),
+          alertesPortefeuille: compterAlertesPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise),
+          filePortefeuille: getFilePortefeuilleMutualise(dossier.suiviPortefeuilleMutualise?.file).label,
         }
       })
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
@@ -1929,6 +1965,7 @@ function AssistantMissionPage() {
     setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
+    setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1937,7 +1974,7 @@ function AssistantMissionPage() {
     setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
     setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
     setClassementTab(dossier.classementTab || 'maintenant')
-    setPortefeuilleChoisi(dossier.portefeuilleChoisi || '')
+    setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
     setAssistantPhase(dossier.assistantPhase || 'exploration')
     setModeApprofondi(Boolean(dossier.modeApprofondi))
     setRecommandationTab(dossier.recommandationTab || 'orientation')
@@ -2002,6 +2039,7 @@ function AssistantMissionPage() {
     setContratEngagementDetails(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
     setOrientationReseau(DEFAULT_ORIENTATION_RESEAU)
     setSuiviObligations(DEFAULT_SUIVI_OBLIGATIONS)
+    setSuiviPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)
     setAssistantAnswers({})
     setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -2009,7 +2047,7 @@ function AssistantMissionPage() {
     setActionsRetenues([])
     setActionsEcartees([])
     setClassementTab('maintenant')
-    setPortefeuilleChoisi('')
+    setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
     setHistoriqueEntretiens([])
     setDecisionConseillerStatut('Modifiee')
     setDecisionConseillerCommentaire('')
@@ -2069,17 +2107,13 @@ function AssistantMissionPage() {
     const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
     if (!suivant) {
       setStorageStatus(
-        nombreAlertesSuivi > 0
-          ? `Dossier enregistré avec ${nombreAlertesSuivi} alerte(s) M6. Aucun autre dossier à ouvrir.`
-          : 'Dossier enregistré. Aucune alerte M6 active et aucun autre dossier à ouvrir.',
+        `Dossier enregistré. ${resumeAlertesEnregistrement} Aucun autre dossier à ouvrir.`,
       )
       navigate('/tableau-de-bord')
       return
     }
     setStorageStatus(
-      nombreAlertesSuivi > 0
-        ? `Dossier ${identifiantDemandeur} enregistré avec ${nombreAlertesSuivi} alerte(s) M6. Ouverture de ${suivant.identifiant}.`
-        : `Dossier ${identifiantDemandeur} enregistré. Aucune alerte M6 active. Ouverture de ${suivant.identifiant}.`,
+      `Dossier ${identifiantDemandeur} enregistré. ${resumeAlertesEnregistrement} Ouverture de ${suivant.identifiant}.`,
     )
     navigate(`/assistant?dossier=${encodeURIComponent(suivant.identifiant)}`)
   }
@@ -2323,6 +2357,12 @@ function AssistantMissionPage() {
           <Tab value="prescriptions" label="Offre de services" />
           <Tab value="synthese" label="Synthèse d’entretien" />
           <Tab
+            value="portefeuille-mutualise"
+            label={nombreAlertesPortefeuille > 0
+              ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})`
+              : 'Portefeuille mutualisé'}
+          />
+          <Tab
             value="suivi-obligations"
             label={nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'}
           />
@@ -2337,6 +2377,16 @@ function AssistantMissionPage() {
               <Chip size="small" variant="outlined" color={controleDecision.couleur === 'rouge' ? 'error' : controleDecision.couleur === 'orange' ? 'warning' : 'success'} label={controleDecision.statut} />
               <Chip size="small" variant="outlined" label={`Freins ${Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])).length}`} />
               <Chip size="small" variant="outlined" label={`Actions ${actionsRetenues.length}`} />
+              <Chip
+                clickable
+                size="small"
+                color={nombreAlertesPortefeuille > 0 ? 'error' : 'success'}
+                variant={nombreAlertesPortefeuille > 0 ? 'filled' : 'outlined'}
+                label={nombreAlertesPortefeuille > 0
+                  ? `Portefeuille ${nombreAlertesPortefeuille}`
+                  : 'Portefeuille à jour'}
+                onClick={() => setWorkspaceTab('portefeuille-mutualise')}
+              />
               <Chip
                 clickable
                 size="small"
@@ -2377,6 +2427,12 @@ function AssistantMissionPage() {
                           {item.identifiant}
                         </Typography>
                         <Chip size="small" color={item.statut === 'termine' ? 'success' : 'warning'} label={item.statut === 'termine' ? 'Terminé' : 'Brouillon'} />
+                        <Chip size="small" variant="outlined" label={item.filePortefeuille} />
+                        {item.alertesPortefeuille > 0 ? (
+                          <Chip size="small" color="error" label={`${item.alertesPortefeuille} alerte(s) portefeuille`} />
+                        ) : (
+                          <Chip size="small" color="success" variant="outlined" label="Portefeuille à jour" />
+                        )}
                         {item.alertesSuivi > 0 ? (
                           <Chip size="small" color="error" label={`${item.alertesSuivi} alerte(s) M6`} />
                         ) : (
@@ -2415,6 +2471,14 @@ function AssistantMissionPage() {
 
         {workspaceTab === 'suivi-obligations' ? (
           <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
+        ) : null}
+
+        {workspaceTab === 'portefeuille-mutualise' ? (
+          <PortefeuilleMutualiseCard
+            value={suiviPortefeuilleMutualise}
+            onChange={setSuiviPortefeuilleMutualise}
+            onOpenSuiviM6={() => setWorkspaceTab('suivi-obligations')}
+          />
         ) : null}
 
         {workspaceTab === 'entretien' ? (
@@ -3322,7 +3386,9 @@ function AssistantMissionPage() {
                     onChange={(event) => setPortefeuilleChoisi(event.target.value)}
                   >
                     {portefeuillesCorse.map((item) => (
-                      <MenuItem key={item} value={item}>{item}</MenuItem>
+                      <MenuItem key={item} value={item}>
+                        {item === NOM_PORTEFEUILLE_MUTUALISE ? 'Portefeuille mutualisé' : item}
+                      </MenuItem>
                     ))}
                   </TextField>
                 </Grid>
