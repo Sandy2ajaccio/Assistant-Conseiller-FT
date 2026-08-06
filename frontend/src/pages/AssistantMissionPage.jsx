@@ -41,6 +41,7 @@ import OrientationReseauCard from '../components/OrientationReseauCard'
 import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
+import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { listPortfolioRecords } from '../services/portfolioImportService'
@@ -81,6 +82,12 @@ import {
   formatCodeSituationOp2,
   normaliserCodeSituationOp2,
 } from '../data/codesSituationOp2'
+import {
+  DEFAULT_SUIVI_REMOBILISATION,
+  compterAlertesRemobilisation,
+  genererAlertesRemobilisation,
+  normaliserSuiviRemobilisation,
+} from '../data/suiviRemobilisation'
 
 const DECISION_LABELS = {
   poursuiteAccompagnement: "Poursuite de l'accompagnement",
@@ -365,6 +372,7 @@ function AssistantMissionPage() {
   const [orientationReseau, setOrientationReseau] = useState(DEFAULT_ORIENTATION_RESEAU)
   const [suiviObligations, setSuiviObligations] = useState(DEFAULT_SUIVI_OBLIGATIONS)
   const [suiviPortefeuilleMutualise, setSuiviPortefeuilleMutualise] = useState(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)
+  const [suiviRemobilisation, setSuiviRemobilisation] = useState(DEFAULT_SUIVI_REMOBILISATION)
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
@@ -416,14 +424,23 @@ function AssistantMissionPage() {
     () => compterAlertesPortefeuilleMutualise(suiviPortefeuilleMutualise) + (codeSituationOp2 ? 0 : 1),
     [suiviPortefeuilleMutualise, codeSituationOp2],
   )
+  const alertesRemobilisation = useMemo(
+    () => genererAlertesRemobilisation(suiviRemobilisation),
+    [suiviRemobilisation],
+  )
+  const nombreAlertesRemobilisation = useMemo(
+    () => compterAlertesRemobilisation(suiviRemobilisation),
+    [suiviRemobilisation],
+  )
   const resumeAlertesEnregistrement = useMemo(() => {
     const alertes = []
     if (nombreAlertesPortefeuille > 0) alertes.push(`${nombreAlertesPortefeuille} portefeuille`)
     if (nombreAlertesSuivi > 0) alertes.push(`${nombreAlertesSuivi} M6`)
+    if (nombreAlertesRemobilisation > 0) alertes.push(`${nombreAlertesRemobilisation} CRE`)
     return alertes.length > 0
       ? `${alertes.join(' · ')} alerte(s) à vérifier.`
       : 'Aucune alerte active.'
-  }, [nombreAlertesPortefeuille, nombreAlertesSuivi])
+  }, [nombreAlertesPortefeuille, nombreAlertesSuivi, nombreAlertesRemobilisation])
 
   const analyseInput = useMemo(() => {
     const freins = []
@@ -1352,6 +1369,11 @@ function AssistantMissionPage() {
       label: 'File et actions du portefeuille mutualisé traitées',
       ok: nombreAlertesPortefeuille === 0,
     },
+    {
+      id: 'remobilisation',
+      label: 'Faisceau CRE et action de remobilisation documentés si un examen est ouvert',
+      ok: !suiviRemobilisation.actif || nombreAlertesRemobilisation === 0,
+    },
     { id: 'synthese', label: 'Synthèse destinée à la personne générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
@@ -1369,6 +1391,8 @@ function AssistantMissionPage() {
     suiviObligations.fait,
     nombreAlertesSuivi,
     nombreAlertesPortefeuille,
+    suiviRemobilisation.actif,
+    nombreAlertesRemobilisation,
     syntheseEntretien,
   ])
 
@@ -1566,6 +1590,7 @@ function AssistantMissionPage() {
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
     setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
+    setSuiviRemobilisation(normaliserSuiviRemobilisation(dossier.suiviRemobilisation))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
@@ -1744,6 +1769,8 @@ function AssistantMissionPage() {
     alertesSuiviObligations,
     suiviPortefeuilleMutualise,
     alertesPortefeuilleMutualise: nombreAlertesPortefeuille,
+    suiviRemobilisation,
+    alertesRemobilisation,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1803,6 +1830,7 @@ function AssistantMissionPage() {
         setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
         setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
         setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
+        setSuiviRemobilisation(normaliserSuiviRemobilisation(dossier.suiviRemobilisation))
         setAssistantAnswers(dossier.assistantAnswers || {})
         setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1867,6 +1895,7 @@ function AssistantMissionPage() {
     orientationReseau,
     suiviObligations,
     suiviPortefeuilleMutualise,
+    suiviRemobilisation,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1910,6 +1939,7 @@ function AssistantMissionPage() {
           alertesSuivi: compterAlertesActionnables(dossier.suiviObligations),
           alertesPortefeuille: compterAlertesPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise)
             + (normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi) ? 0 : 1),
+          alertesRemobilisation: compterAlertesRemobilisation(dossier.suiviRemobilisation),
           filePortefeuille: getFilePortefeuilleMutualise(dossier.suiviPortefeuilleMutualise?.file).label,
           codeSituationOp2: normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi),
         }
@@ -1950,6 +1980,7 @@ function AssistantMissionPage() {
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
     setSuiviPortefeuilleMutualise(normaliserSuiviPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise))
+    setSuiviRemobilisation(normaliserSuiviRemobilisation(dossier.suiviRemobilisation))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -2025,6 +2056,7 @@ function AssistantMissionPage() {
     setOrientationReseau(DEFAULT_ORIENTATION_RESEAU)
     setSuiviObligations(DEFAULT_SUIVI_OBLIGATIONS)
     setSuiviPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)
+    setSuiviRemobilisation(DEFAULT_SUIVI_REMOBILISATION)
     setAssistantAnswers({})
     setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -2352,6 +2384,12 @@ function AssistantMissionPage() {
             value="suivi-obligations"
             label={nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'}
           />
+          <Tab
+            value="remobilisation"
+            label={nombreAlertesRemobilisation > 0
+              ? `Faisceau CRE (${nombreAlertesRemobilisation})`
+              : 'Faisceau CRE'}
+          />
           <Tab value="sauvegardes" label="Sauvegardes automatiques" />
         </Tabs>
 
@@ -2380,6 +2418,16 @@ function AssistantMissionPage() {
                 variant={nombreAlertesSuivi > 0 ? 'filled' : 'outlined'}
                 label={nombreAlertesSuivi > 0 ? `Alertes M6 ${nombreAlertesSuivi}` : 'Suivi M6 à jour'}
                 onClick={() => setWorkspaceTab('suivi-obligations')}
+              />
+              <Chip
+                clickable
+                size="small"
+                color={nombreAlertesRemobilisation > 0 ? 'error' : 'success'}
+                variant={nombreAlertesRemobilisation > 0 ? 'filled' : 'outlined'}
+                label={nombreAlertesRemobilisation > 0
+                  ? `Alertes CRE ${nombreAlertesRemobilisation}`
+                  : 'Faisceau CRE à jour'}
+                onClick={() => setWorkspaceTab('remobilisation')}
               />
               <Typography variant="caption" sx={{ ml: { md: 'auto' }, fontWeight: 800, color: '#244d78' }}>
                 Priorité : {orientationPrioritaire}
@@ -2430,6 +2478,11 @@ function AssistantMissionPage() {
                         ) : (
                           <Chip size="small" color="success" variant="outlined" label="Aucune alerte M6" />
                         )}
+                        {item.alertesRemobilisation > 0 ? (
+                          <Chip size="small" color="error" label={`${item.alertesRemobilisation} alerte(s) CRE`} />
+                        ) : (
+                          <Chip size="small" color="success" variant="outlined" label="Faisceau CRE à jour" />
+                        )}
                         {item.identifiant === identifiantDemandeur.trim() ? (
                           <Chip size="small" color="primary" variant="outlined" label="Ouvert actuellement" />
                         ) : null}
@@ -2463,6 +2516,10 @@ function AssistantMissionPage() {
 
         {workspaceTab === 'suivi-obligations' ? (
           <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
+        ) : null}
+
+        {workspaceTab === 'remobilisation' ? (
+          <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
         ) : null}
 
         {workspaceTab === 'portefeuille-mutualise' ? (

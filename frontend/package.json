@@ -15,6 +15,7 @@
     "check:lpe": "node scripts/check-lpe-workflow.mjs",
     "check:sanctions": "node scripts/check-sanctions-followup.mjs",
     "check:mutualise": "node scripts/check-portefeuille-mutualise.mjs",
+    "check:remobilisation": "node scripts/check-remobilisation.mjs",
     "check:excel": "node scripts/check-excel-roundtrip.mjs",
     "check:auth": "node scripts/check-auth-flow.mjs"
   },
