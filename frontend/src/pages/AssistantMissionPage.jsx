@@ -2655,6 +2655,58 @@ function AssistantMissionPage() {
           </Paper>
         ) : null}
 
+        {workspaceTab === 'entretien' && (!modeApprofondi || assistantPhase !== 'exploration') ? (
+          <CockpitBlockCard
+            title="Listes du diagnostic — sélection multiple"
+            subtitle="Ouvrez chaque menu puis cochez autant d’éléments que nécessaire. Vos choix alimentent immédiatement le diagnostic et les recommandations."
+            sx={{ borderTop: '6px solid #ed6c02', bgcolor: '#fffdf8' }}
+            detailsSx={{ p: { xs: 1.25, md: 2 } }}
+          >
+            <Grid container spacing={1.25}>
+              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                <SituationMultiSelect
+                  label="Situation administrative"
+                  value={situationAdministrative}
+                  onChange={setSituationAdministrative}
+                  options={SITUATION_ADMINISTRATIVE_OPTIONS}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                <SituationMultiSelect
+                  label="Situation personnelle"
+                  value={situationPersonnelle}
+                  onChange={setSituationPersonnelle}
+                  options={SITUATION_PERSONNELLE_OPTIONS}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                <SituationMultiSelect
+                  label="Parcours professionnel"
+                  value={parcoursProfessionnel}
+                  onChange={setParcoursProfessionnel}
+                  options={PARCOURS_PROFESSIONNEL_OPTIONS}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <CockpitBadgeGroup
+                  title="Freins à prendre en compte"
+                  options={FREINS_OPTIONS}
+                  selected={freinsSelectionnes}
+                  onToggle={onToggleFrein}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <CockpitBadgeGroup
+                  title="Ressources et points d’appui"
+                  options={RESSOURCES_OPTIONS}
+                  selected={ressourcesSelectionnees}
+                  onToggle={onToggleBadge(setRessourcesSelectionnees)}
+                />
+              </Grid>
+            </Grid>
+          </CockpitBlockCard>
+        ) : null}
+
         {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
           <OrientationReseauCard
             value={orientationReseau}
