@@ -26,6 +26,7 @@ import {
   getFilePortefeuilleMutualise,
   normaliserSuiviPortefeuilleMutualise,
 } from '../data/portefeuilleMutualise'
+import { CODES_SITUATION_OP2, normaliserCodeSituationOp2 } from '../data/codesSituationOp2'
 
 const CONSIGNES_COLLECTIVES = [
   'Informer l’ensemble du portefeuille de la possibilité de prendre les RDVL en ligne.',
@@ -37,11 +38,20 @@ const CONSIGNES_COLLECTIVES = [
   'Pour toute information sur le PRDVL, préciser le contact Ajaccio EM et la possibilité de passer par le site.',
 ]
 
-function PortefeuilleMutualiseCard({ value, onChange, onOpenSuiviM6 }) {
+function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSituationOp2Change, onOpenSuiviM6 }) {
   const suivi = normaliserSuiviPortefeuilleMutualise(value)
   const file = getFilePortefeuilleMutualise(suivi.file)
-  const alertes = genererAlertesPortefeuilleMutualise(suivi)
-  const nombreAlertes = compterAlertesPortefeuilleMutualise(suivi)
+  const codeOp2 = normaliserCodeSituationOp2(codeSituationOp2)
+  const alertes = [
+    ...genererAlertesPortefeuilleMutualise(suivi),
+    ...(!codeOp2 ? [{
+      id: 'code-op2',
+      niveau: 'warning',
+      titre: 'Code situation OP2 à renseigner',
+      message: 'Le code OP2 décrit la situation de la personne ; il ne correspond pas au portefeuille.',
+    }] : []),
+  ]
+  const nombreAlertes = compterAlertesPortefeuilleMutualise(suivi) + (codeOp2 ? 0 : 1)
   const update = (field) => (event) => {
     const nextValue = field === 'procedureInterneConfirmee'
       ? event.target.checked
@@ -83,7 +93,7 @@ function PortefeuilleMutualiseCard({ value, onChange, onOpenSuiviM6 }) {
           </Stack>
 
           <Grid container spacing={1.25}>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 select
                 fullWidth
@@ -97,7 +107,22 @@ function PortefeuilleMutualiseCard({ value, onChange, onOpenSuiviM6 }) {
                 ))}
               </TextField>
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Code situation OP2"
+                value={codeOp2}
+                onChange={(event) => onCodeSituationOp2Change(normaliserCodeSituationOp2(event.target.value))}
+              >
+                <MenuItem value="">À renseigner</MenuItem>
+                {CODES_SITUATION_OP2.map((item) => (
+                  <MenuItem key={item.code} value={item.code}>{item.code} — {item.label}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Alert severity="info" sx={{ py: 0.25 }}>
                 {file.description}
               </Alert>

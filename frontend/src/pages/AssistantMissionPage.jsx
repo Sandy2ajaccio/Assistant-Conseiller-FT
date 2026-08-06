@@ -42,7 +42,6 @@ import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
-import { portefeuillesCorse } from '../data/configurationCorse'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { listPortfolioRecords } from '../services/portfolioImportService'
 import {
@@ -77,6 +76,11 @@ import {
   getFilePortefeuilleMutualise,
   normaliserSuiviPortefeuilleMutualise,
 } from '../data/portefeuilleMutualise'
+import {
+  CODES_SITUATION_OP2,
+  formatCodeSituationOp2,
+  normaliserCodeSituationOp2,
+} from '../data/codesSituationOp2'
 
 const DECISION_LABELS = {
   poursuiteAccompagnement: "Poursuite de l'accompagnement",
@@ -395,6 +399,7 @@ function AssistantMissionPage() {
   const [actionsEcartees, setActionsEcartees] = useState([])
   const [classementTab, setClassementTab] = useState('maintenant')
   const [portefeuilleChoisi, setPortefeuilleChoisi] = useState(NOM_PORTEFEUILLE_MUTUALISE)
+  const [codeSituationOp2, setCodeSituationOp2] = useState('')
   const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
@@ -408,8 +413,8 @@ function AssistantMissionPage() {
     [suiviObligations],
   )
   const nombreAlertesPortefeuille = useMemo(
-    () => compterAlertesPortefeuilleMutualise(suiviPortefeuilleMutualise),
-    [suiviPortefeuilleMutualise],
+    () => compterAlertesPortefeuilleMutualise(suiviPortefeuilleMutualise) + (codeSituationOp2 ? 0 : 1),
+    [suiviPortefeuilleMutualise, codeSituationOp2],
   )
   const resumeAlertesEnregistrement = useMemo(() => {
     const alertes = []
@@ -776,14 +781,6 @@ function AssistantMissionPage() {
           : 'Aucune formation disponible',
       },
       {
-        key: 'portefeuille',
-        title: 'Portefeuille',
-        justification: recommandationsMoteur.portefeuille || 'Portefeuille a preciser.',
-        preconisation: recommandationsMoteur.portefeuille
-          ? `Positionner le portefeuille ${recommandationsMoteur.portefeuille}`
-          : 'Aucun portefeuille propose',
-      },
-      {
         key: 'map',
         title: 'MAP',
         justification: (recommandationsMoteur.map || []).join(', ') || 'Aucune MAP proposee.',
@@ -1027,24 +1024,6 @@ function AssistantMissionPage() {
       })
   }, [actionsDecisionPriorisees, recommandationsMoteur.partenaires])
 
-  const portefeuillePropose = useMemo(() => {
-    const proposition = `${recommandationsMoteur.portefeuille || ''}`.toLowerCase()
-    if (!proposition) return ''
-    const direct = portefeuillesCorse.find((item) => item.toLowerCase() === proposition.trim())
-    if (direct) return direct
-    const correspondances = [
-      ['Mutualisé', ['mutual']],
-      ['Intensif', ['intensif']],
-      ['EM', ['retour rapide', 'emploi']],
-      ['SP', ['socio-professionnel', 'socio professionnel']],
-      ['GLO', ['global']],
-      ['TH', ['travailleur handicape', 'travailleur handicapé', 'handicap']],
-      ['PP', ['pre-orientation', 'pré-orientation', 'parcours professionnalise', 'parcours professionnalisé']],
-      ['CEJ', ['cej', 'engagement jeune']],
-    ]
-    return correspondances.find(([, termes]) => termes.some((terme) => proposition.includes(terme)))?.[0] || ''
-  }, [recommandationsMoteur.portefeuille])
-
   const orientationPrioritaire = useMemo(() => {
     if (analyseDemandeAutomatique.freins.includes('Projet professionnel')) return 'Projet à clarifier'
     if (analyseDemandeAutomatique.freins.includes('Santé / RQTH')) return 'Handicap / compensation à sécuriser'
@@ -1220,10 +1199,13 @@ function AssistantMissionPage() {
     const actions = Array.isArray(recommandationsMoteur.map) ? recommandationsMoteur.map : []
 
     return {
-      objectifs: [objectifPrincipal, recommandationsMoteur.portefeuille ? `Portefeuille: ${recommandationsMoteur.portefeuille}` : 'Portefeuille a preciser'].filter(Boolean),
+      objectifs: [
+        objectifPrincipal,
+        codeSituationOp2 ? `Code situation OP2 : ${formatCodeSituationOp2(codeSituationOp2)}` : 'Code situation OP2 à renseigner',
+      ],
       etapes: actions.length > 0 ? actions : ['Definir les priorites de mise en oeuvre'],
     }
-  }, [recommandationsMoteur])
+  }, [recommandationsMoteur, codeSituationOp2])
 
   const actionsImmediatesActives = useMemo(
     () => recommandationsMoteur.actions || [],
@@ -1342,7 +1324,8 @@ function AssistantMissionPage() {
     { id: 'demande', label: 'Demande ou objectif de l’entretien renseigné', ok: Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) },
     { id: 'diagnostic', label: 'Diagnostic et capacité à agir calculés', ok: Boolean(diagnosticAutonome?.conclusion && capaciteAAgir?.statut) },
     { id: 'prescriptions', label: 'Au moins une action ou prescription retenue', ok: actionsRetenues.length > 0 || actionsImmediatesValidees.length > 0 },
-    { id: 'portefeuille', label: 'Portefeuille retenu ou affectation demandée', ok: Boolean(portefeuilleChoisi || decisions.demandeAffectation) },
+    { id: 'portefeuille', label: 'Portefeuille mutualisé confirmé', ok: portefeuilleChoisi === NOM_PORTEFEUILLE_MUTUALISE },
+    { id: 'code-op2', label: 'Code situation OP2 renseigné', ok: Boolean(codeSituationOp2) },
     {
       id: 'suivi',
       label: 'Responsable, échéance, état et résultat de chaque prescription renseignés',
@@ -1379,7 +1362,7 @@ function AssistantMissionPage() {
     actionsRetenues,
     actionsImmediatesValidees,
     portefeuilleChoisi,
-    decisions.demandeAffectation,
+    codeSituationOp2,
     formalitesCompletes,
     typeEntretien,
     orientationReseau,
@@ -1416,9 +1399,7 @@ function AssistantMissionPage() {
     if (actionsRetenues.length === 0 && actionsImmediatesValidees.length === 0) {
       manquants.push('Au moins une action ou prescription à retenir')
     }
-    if (!portefeuilleChoisi && !decisions.demandeAffectation) {
-      manquants.push('Portefeuille à retenir ou affectation à demander')
-    }
+    if (!codeSituationOp2) manquants.push('Code situation OP2 à renseigner')
     if (freins.includes('Santé / RQTH') && !actionCorrespond(/cap emploi|handicap|rqth/i)) {
       vigilances.push('RQTH détectée mais aucun appui handicap ou Cap emploi n’est encore retenu.')
     }
@@ -1459,9 +1440,6 @@ function AssistantMissionPage() {
         vigilances.push(`L’échéance de « ${item.nom} » dépasse un an : confirmer qu’elle est réaliste.`)
       }
     })
-    if (portefeuilleChoisi && portefeuillePropose && portefeuilleChoisi !== portefeuillePropose) {
-      vigilances.push(`Le portefeuille retenu (${portefeuilleChoisi}) diffère de la proposition du logiciel (${portefeuillePropose}) : justifier ce choix.`)
-    }
     actionsRetenues.forEach((item) => {
       if (!syntheseEntretien.toLowerCase().includes(item.nom.toLowerCase()) && !/pix emploi/i.test(item.nom)) {
         contradictions.push(`La synthèse ne mentionne pas l’action retenue « ${item.nom} ».`)
@@ -1479,7 +1457,8 @@ function AssistantMissionPage() {
 
     if (identifiantDemandeur.trim()) confirmations.push('Identité du dossier renseignée')
     if (actionsRetenues.length > 0) confirmations.push(`${actionsRetenues.length} action(s) retenue(s) et suivie(s)`)
-    if (portefeuilleChoisi || decisions.demandeAffectation) confirmations.push('Orientation ou demande d’affectation renseignée')
+    if (portefeuilleChoisi === NOM_PORTEFEUILLE_MUTUALISE) confirmations.push('Portefeuille mutualisé confirmé')
+    if (codeSituationOp2) confirmations.push(`Code situation OP2 : ${formatCodeSituationOp2(codeSituationOp2)}`)
     if (syntheseEntretien.trim()) confirmations.push('Synthèse générée à partir des décisions retenues')
 
     const bloquants = contradictions.length + manquants.filter((item) => !item.includes('point d’appui')).length
@@ -1519,8 +1498,7 @@ function AssistantMissionPage() {
     actionsRetenues,
     actionsImmediatesValidees,
     portefeuilleChoisi,
-    portefeuillePropose,
-    decisions.demandeAffectation,
+    codeSituationOp2,
     syntheseEntretien,
     nombreAlertesSuivi,
     nombreAlertesPortefeuille,
@@ -1599,7 +1577,8 @@ function AssistantMissionPage() {
     )
     setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
     setClassementTab(dossier.classementTab || 'maintenant')
-    setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
+    setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
+    setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
     setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
     setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
@@ -1780,6 +1759,7 @@ function AssistantMissionPage() {
     actionsEcartees,
     classementTab,
     portefeuilleChoisi,
+    codeSituationOp2,
     workspaceTab,
     assistantPhase,
     modeApprofondi,
@@ -1831,7 +1811,8 @@ function AssistantMissionPage() {
         setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
         setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
         setClassementTab(dossier.classementTab || 'maintenant')
-        setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
+        setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
+        setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
         setWorkspaceTab(dossier.workspaceTab || 'entretien')
         setAssistantPhase(dossier.assistantPhase || 'exploration')
         setModeApprofondi(Boolean(dossier.modeApprofondi))
@@ -1895,6 +1876,7 @@ function AssistantMissionPage() {
     actionsEcartees,
     classementTab,
     portefeuilleChoisi,
+    codeSituationOp2,
     workspaceTab,
     assistantPhase,
     modeApprofondi,
@@ -1926,8 +1908,10 @@ function AssistantMissionPage() {
           typeEntretien: normaliserTypeEntretien(dossier.typeEntretien),
           chronoSecondes: Number(dossier.chronoSecondes) || 0,
           alertesSuivi: compterAlertesActionnables(dossier.suiviObligations),
-          alertesPortefeuille: compterAlertesPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise),
+          alertesPortefeuille: compterAlertesPortefeuilleMutualise(dossier.suiviPortefeuilleMutualise)
+            + (normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi) ? 0 : 1),
           filePortefeuille: getFilePortefeuilleMutualise(dossier.suiviPortefeuilleMutualise?.file).label,
+          codeSituationOp2: normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi),
         }
       })
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
@@ -1974,7 +1958,8 @@ function AssistantMissionPage() {
     setActionsRetenues(Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues.map(normaliserSuiviAction) : [])
     setActionsEcartees(Array.isArray(dossier.actionsEcartees) ? dossier.actionsEcartees : [])
     setClassementTab(dossier.classementTab || 'maintenant')
-    setPortefeuilleChoisi(dossier.portefeuilleChoisi || NOM_PORTEFEUILLE_MUTUALISE)
+    setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
+    setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
     setAssistantPhase(dossier.assistantPhase || 'exploration')
     setModeApprofondi(Boolean(dossier.modeApprofondi))
     setRecommandationTab(dossier.recommandationTab || 'orientation')
@@ -2048,6 +2033,7 @@ function AssistantMissionPage() {
     setActionsEcartees([])
     setClassementTab('maintenant')
     setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
+    setCodeSituationOp2('')
     setHistoriqueEntretiens([])
     setDecisionConseillerStatut('Modifiee')
     setDecisionConseillerCommentaire('')
@@ -2428,6 +2414,12 @@ function AssistantMissionPage() {
                         </Typography>
                         <Chip size="small" color={item.statut === 'termine' ? 'success' : 'warning'} label={item.statut === 'termine' ? 'Terminé' : 'Brouillon'} />
                         <Chip size="small" variant="outlined" label={item.filePortefeuille} />
+                        <Chip
+                          size="small"
+                          color={item.codeSituationOp2 ? 'primary' : 'warning'}
+                          variant={item.codeSituationOp2 ? 'outlined' : 'filled'}
+                          label={item.codeSituationOp2 ? `OP2 ${item.codeSituationOp2}` : 'OP2 non renseigné'}
+                        />
                         {item.alertesPortefeuille > 0 ? (
                           <Chip size="small" color="error" label={`${item.alertesPortefeuille} alerte(s) portefeuille`} />
                         ) : (
@@ -2477,6 +2469,8 @@ function AssistantMissionPage() {
           <PortefeuilleMutualiseCard
             value={suiviPortefeuilleMutualise}
             onChange={setSuiviPortefeuilleMutualise}
+            codeSituationOp2={codeSituationOp2}
+            onCodeSituationOp2Change={setCodeSituationOp2}
             onOpenSuiviM6={() => setWorkspaceTab('suivi-obligations')}
           />
         ) : null}
@@ -3169,7 +3163,7 @@ function AssistantMissionPage() {
                 ) : null}
               </Box>
               <Grid container spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
-                <Grid size={{ xs: 12, lg: 7 }}>
+                <Grid size={{ xs: 12, lg: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 800 }}>
                     Prescriptions à retenir — sélection multiple, offre interne prioritaire
                   </Typography>
@@ -3363,31 +3357,30 @@ function AssistantMissionPage() {
                     </Stack>
                   ) : null}
                 </Grid>
-                <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                  {portefeuillePropose ? (
-                    <Alert
-                      severity="info"
-                      action={portefeuilleChoisi !== portefeuillePropose ? (
-                        <Button size="small" onClick={() => setPortefeuilleChoisi(portefeuillePropose)}>
-                          Retenir
-                        </Button>
-                      ) : null}
-                      sx={{ mb: 0.75, py: 0 }}
-                    >
-                      Proposition : <strong>{portefeuillePropose}</strong>
-                    </Alert>
-                  ) : null}
+                <Grid size={{ xs: 12, md: 6, lg: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Portefeuille"
+                    value="Portefeuille mutualisé"
+                    slotProps={{ input: { readOnly: true } }}
+                    helperText="Organisation de travail"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6, lg: 2 }}>
                   <TextField
                     select
                     fullWidth
                     size="small"
-                    label="Portefeuille retenu"
-                    value={portefeuilleChoisi}
-                    onChange={(event) => setPortefeuilleChoisi(event.target.value)}
+                    label="Code situation OP2"
+                    value={codeSituationOp2}
+                    onChange={(event) => setCodeSituationOp2(normaliserCodeSituationOp2(event.target.value))}
+                    helperText="Situation de la personne"
                   >
-                    {portefeuillesCorse.map((item) => (
-                      <MenuItem key={item} value={item}>
-                        {item === NOM_PORTEFEUILLE_MUTUALISE ? 'Portefeuille mutualisé' : item}
+                    <MenuItem value="">À renseigner</MenuItem>
+                    {CODES_SITUATION_OP2.map((item) => (
+                      <MenuItem key={item.code} value={item.code}>
+                        {item.code} — {item.label}
                       </MenuItem>
                     ))}
                   </TextField>

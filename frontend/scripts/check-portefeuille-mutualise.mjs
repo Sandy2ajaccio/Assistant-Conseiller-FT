@@ -9,8 +9,16 @@ import {
   getFilePortefeuilleMutualise,
   normaliserSuiviPortefeuilleMutualise,
 } from '../src/data/portefeuilleMutualise.js'
+import {
+  CODES_SITUATION_OP2,
+  formatCodeSituationOp2,
+  normaliserCodeSituationOp2,
+} from '../src/data/codesSituationOp2.js'
 
 assert.equal(NOM_PORTEFEUILLE_MUTUALISE, 'Mutualisé')
+assert.deepEqual(CODES_SITUATION_OP2.map((item) => item.code), ['EM', 'SP', 'PP', 'RE', 'CE', 'SA', 'IA', 'RT', 'DS'])
+assert.equal(normaliserCodeSituationOp2('em'), 'EM')
+assert.equal(formatCodeSituationOp2('DS'), 'DS — Suivi délégué (AEJ, CEJ, STF)')
 assert.equal(compterAlertesPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE), 1)
 assert.equal(genererAlertesPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)[0].id, 'file-a-definir')
 
@@ -45,10 +53,14 @@ assert.match(pageSource, /<PortefeuilleMutualiseCard/)
 assert.match(pageSource, /NOM_PORTEFEUILLE_MUTUALISE/)
 assert.match(pageSource, /nombreAlertesPortefeuille/)
 assert.match(pageSource, /Portefeuille mutualisé/)
+assert.match(pageSource, /Code situation OP2/)
+assert.doesNotMatch(pageSource, /portefeuillePropose/)
+assert.doesNotMatch(pageSource, /portefeuillesCorse/)
 
 const componentSource = await readFile(new URL('../src/components/PortefeuilleMutualiseCard.jsx', import.meta.url), 'utf8')
 assert.match(componentSource, /Aucune sanction automatique/i)
 assert.match(componentSource, /10 à 15 jours/i)
 assert.match(componentSource, /Ouvrir le suivi M6/i)
+assert.match(componentSource, /ne correspond pas au portefeuille/i)
 
 console.log('Portefeuille mutualisé vérifié : files, convocations, actions et alertes sans sanction automatique.')
