@@ -520,6 +520,20 @@ export const analyserSituation360 = (
       ?.actionsPrioritaires || []),
   ])
 
+  const prescriptions = analyserPrescriptions({
+    ...situation,
+    age: getAge(situation),
+    projetConfirme: projet.projetConfirme,
+    creationEntreprise: projet.creationEntreprise,
+    reconversion: projet.reconversion,
+    formation: projet.formation,
+    rqth: handicap.rqth,
+    rsa: indemnisation.rsa,
+    sante: freins.some((frein) => normalizeText(frein).includes('sante')),
+    numerique: freins.some((frein) => normalizeText(frein).includes('numerique')),
+    freins,
+  })
+
   return {
     diagnosticDisponible: true,
 
@@ -593,6 +607,8 @@ export const analyserSituation360 = (
 
       recommandations,
     },
+
+    prescriptions,
 
     principesDecision:
       categorieAnalyse.principesDecision ||

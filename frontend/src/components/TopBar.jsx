@@ -2,11 +2,9 @@ import SearchBar from './SearchBar'
 import { useLocation } from 'react-router-dom'
 
 const TITLES = {
-  '/': 'Quelle mission souhaitez-vous réaliser ?',
+  '/': 'Assistant de mission',
   '/analyse': 'Analyse de situation',
   '/dashboard': 'Tableau de bord',
-  '/tableau-de-bord': 'Tableau de bord',
-  '/prescriptions': 'Tableau de bord',
   '/assistant': 'Assistant de mission',
   '/connaissances': 'Centre de connaissances',
   '/formations': 'Formations à venir',

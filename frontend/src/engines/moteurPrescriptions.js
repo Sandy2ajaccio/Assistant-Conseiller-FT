@@ -18,6 +18,8 @@ export const analyserPrescriptions = (demandeur = {}) => {
     besoinAccompagnementIntensif:
       demandeur.besoinAccompagnementIntensif,
   })
+    .filter((prestation) => prestation.motifs.length > 0)
+    .slice(0, 8)
 
   return {
     nombreRecommandations: recommandations.length,

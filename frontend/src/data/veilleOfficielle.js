@@ -1,4 +1,4 @@
-export const VEILLE_DERNIERE_VERIFICATION = '29 juillet 2026'
+export const VEILLE_DERNIERE_VERIFICATION = '6 août 2026'
 
 export const sourcesOfficielles = [
   { nom: 'Légifrance', role: 'Lois, décrets et dates d’entrée en vigueur', url: 'https://www.legifrance.gouv.fr/' },
@@ -14,16 +14,24 @@ export const veilleOfficielle = [
     titre: 'Loi n° 2023-1196 du 18 décembre 2023 pour le plein emploi',
     resume: 'Le texte consolidé demeure la référence juridique centrale pour l’inscription, l’accompagnement et le contrat d’engagement.',
     impact: 'Avant de modifier une règle du logiciel, vérifier le texte consolidé et sa date d’entrée en vigueur.',
-    dateSource: 'Texte consolidé consulté le 29 juillet 2026', source: 'Légifrance',
+    dateSource: 'Texte consolidé consulté le 6 août 2026', source: 'Légifrance',
     url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000048581935',
   },
   {
     id: 'sanctions-contrat-engagement', niveau: 'Vigilance', categorie: 'Contrat d’engagement',
     titre: 'Sanctions en cas de non-respect du contrat d’engagement',
-    resume: 'Service-Public présente le régime de sanctions lié au non-respect des obligations prévues par le contrat d’engagement.',
+    resume: 'Le décret fixe le régime de sanctions applicable notamment en cas de manquement à l’élaboration ou à l’actualisation du contrat d’engagement, à l’assiduité, à la participation aux actions prévues et aux actes positifs de recherche d’emploi.',
     impact: 'Expliquer les obligations et tracer l’information donnée. Toute décision reste soumise aux procédures France Travail en vigueur.',
-    dateSource: 'Information vérifiée le 29 juillet 2026', source: 'Service-Public.fr',
-    url: 'https://www.service-public.fr/particuliers/actualites/A18302',
+    dateSource: 'Décret du 30 mai 2025, publié le 31 mai 2025 ; entrée en vigueur le 1er juin 2025', source: 'Légifrance',
+    url: 'https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000051672648',
+  },
+  {
+    id: 'suspension-conservatoire-fraude-2026', niveau: 'Vigilance', categorie: 'Allocations et contrôle',
+    titre: 'Suspension conservatoire des allocations en cas d’indices sérieux de fraude',
+    resume: 'France Travail peut suspendre à titre conservatoire le paiement d’une allocation lorsqu’il existe plusieurs indices sérieux de fraude, de manquement délibéré ou d’infraction. La décision doit être motivée et notifiée, ne peut pas priver le ménage de ses ressources nécessaires, ouvre un débat contradictoire à demander sous deux semaines et ne peut excéder trois mois.',
+    impact: 'Ne pas présenter cette mesure conservatoire comme une sanction du contrat d’engagement et ne jamais l’anticiper au niveau du conseil. En cas de notification, orienter vers les voies de recours indiquées et confirmer les modalités du décret d’application ainsi que les procédures internes France Travail avant toute information opérationnelle.',
+    dateSource: 'Loi du 25 juin 2026, publiée le 26 juin 2026 ; article L. 5312-18 du code du travail en vigueur depuis le 27 juin 2026 ; modalités réglementaires à confirmer au 6 août 2026', source: 'Légifrance',
+    url: 'https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000054315141',
   },
   {
     id: 'effets-statistiques-2025', niveau: 'Information', categorie: 'Inscription',
@@ -62,7 +70,7 @@ export const veilleOfficielle = [
     titre: 'AIF : financement conditionnel lié au projet professionnel',
     resume: 'L’AIF peut financer ou cofinancer les frais pédagogiques lorsque la formation est cohérente avec le projet de retour à l’emploi et qu’aucun financement plus approprié ne couvre le besoin. La décision intervient après étude du projet et du devis ; elle n’est pas automatique.',
     impact: 'Ne proposer l’AIF qu’après avoir défini le métier visé et le besoin de compétences, recherché le CPF, le PRF, l’AFC, la POEI, l’AFPR, la POEC et les cofinancements, puis vérifié le devis et le dépôt avant l’entrée en formation. Inscrire l’action dans le plan du contrat d’engagement. Confirmer les délais et circuits régionaux dans les procédures internes France Travail.',
-    dateSource: 'Page France Travail vérifiée le 29 juillet 2026 ; instruction BO du 10 janvier 2017 ; contrat d’engagement en vigueur depuis le 1er janvier 2025',
+    dateSource: 'Page France Travail vérifiée le 6 août 2026 ; instruction BO du 10 janvier 2017 ; contrat d’engagement en vigueur depuis le 1er janvier 2025',
     source: 'France Travail / Bulletin officiel France Travail / Légifrance',
     url: 'https://www.francetravail.fr/candidat/en-formation/mes-aides-financieres/laide-individuelle-a-la-formatio.html',
   },

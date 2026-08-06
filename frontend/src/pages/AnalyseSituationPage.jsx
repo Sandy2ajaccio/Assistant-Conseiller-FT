@@ -1,23 +1,8 @@
 import { useRef, useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import DecisionNotice from '../components/DecisionNotice'
-import { analyserSituation } from '../services/moteurExpert'
+import { analyserSituation360 } from '../engines/moteurDiagnostic360'
 import { portefeuillesCorse } from '../data/configurationCorse'
-
-const RESULT_KEYS = [
-  ['Score métier', 'score'],
-  ['Priorité', 'priorite'],
-  ['Pourquoi ?', 'pourquoi'],
-  ['Alertes', 'alertes'],
-  ['Contrôles à effectuer', 'verifications'],
-  ['Portefeuille conseillé', 'portefeuilleConseille'],
-  ['Ateliers conseillés', 'ateliers'],
-  ['Prestations conseillées', 'prestations'],
-  ['Partenaires conseillés', 'partenaires'],
-  ['Questions à poser', 'questions'],
-  ['Actions proposées', 'actions'],
-  ['Synthèse prête à copier', 'synthese'],
-]
 
 function AnalyseSituationPage() {
   const formRef = useRef(null)
@@ -89,12 +74,24 @@ function AnalyseSituationPage() {
       formations: toList(formData.get('formations')),
     }
 
-    setResultat(analyserSituation(situation))
+    setResultat(analyserSituation360(situation))
   }
 
   const onCopySynthese = async () => {
     if (!resultat?.synthese) return
-    await navigator.clipboard.writeText(resultat.synthese)
+    const orientation = resultat.orientation?.portefeuillePrincipal?.libelle || 'À confirmer'
+    const lignes = [
+      `Catégorie : ${resultat.categorie?.libelle || 'À confirmer'}`,
+      `Priorité : ${resultat.priorite?.niveau || 'À confirmer'} (${resultat.priorite?.score ?? 0}/100)`,
+      `Orientation proposée : ${orientation}`,
+      `Objectif principal : ${resultat.synthese.objectifPrincipal || 'À préciser'}`,
+      `Accompagnement principal : ${resultat.synthese.accompagnementPrincipal || 'À préciser'}`,
+      `Alertes : ${(resultat.synthese.alertes || []).join(' ; ') || 'Aucune'}`,
+      `Actions : ${(resultat.synthese.actions || []).join(' ; ') || 'À définir'}`,
+      `Prescriptions : ${(resultat.prescriptions?.recommandations || []).map((item) => item.nom).join(' ; ') || 'Aucune proposition automatique'}`,
+      'Décision humaine requise : confirmer l’orientation et les prescriptions selon la situation et les procédures internes France Travail.',
+    ]
+    await navigator.clipboard.writeText(lignes.join('\n'))
   }
 
   const onNewAnalysis = () => {
@@ -329,25 +326,64 @@ function AnalyseSituationPage() {
       </form>
 
       {resultat && (
-        <SectionCard title="3. Résultat" description="Résultat de l'analyse métier pour le conseiller.">
-          <div className="assistant-list">
-            {RESULT_KEYS.map(([label, key]) => (
-              <div key={key}>
-                <strong>{label}</strong>
-                {renderValue(resultat[key])}
-              </div>
-            ))}
-          </div>
+        <>
+          <SectionCard title="3. Diagnostic 360" description="Analyse multidimensionnelle et recommandations à confirmer par le conseiller.">
+            <div className="assistant-list">
+              <div><strong>Catégorie</strong>{renderValue(resultat.categorie?.libelle)}</div>
+              <div><strong>Description</strong>{renderValue(resultat.categorie?.description)}</div>
+              <div><strong>Priorité</strong>{renderValue(`${resultat.priorite?.niveau || 'À confirmer'} · ${resultat.priorite?.score ?? 0}/100`)}</div>
+              <div><strong>Motifs de priorité</strong>{renderValue(resultat.priorite?.motifs)}</div>
+              <div><strong>Orientation proposée</strong>{renderValue(resultat.orientation?.portefeuillePrincipal?.libelle)}</div>
+              <div><strong>Motifs d’orientation</strong>{renderValue(resultat.orientation?.portefeuillePrincipal?.motifs)}</div>
+              <div><strong>Alternatives</strong>{renderValue((resultat.orientation?.alternatives || []).map((item) => `${item.libelle} (${item.score})`))}</div>
+              <div><strong>Droits déclarés</strong>{renderValue(resultat.situationAdministrative?.droits)}</div>
+              <div><strong>Projet</strong>{renderValue(resultat.projet?.projet)}</div>
+              <div><strong>Projet confirmé</strong>{renderValue(resultat.projet?.projetConfirme ? 'Oui' : 'À confirmer')}</div>
+              <div><strong>Disponibilité immédiate</strong>{renderValue(resultat.disponibilite?.disponibleImmediatement === true ? 'Oui' : resultat.disponibilite?.disponibleImmediatement === false ? 'Non' : 'À vérifier')}</div>
+              <div><strong>Freins</strong>{renderValue(resultat.freins)}</div>
+              <div><strong>Alertes</strong>{renderValue(resultat.synthese?.alertes)}</div>
+              <div><strong>Questions à poser</strong>{renderValue(resultat.synthese?.questions)}</div>
+              <div><strong>Actions conseiller</strong>{renderValue(resultat.synthese?.actions)}</div>
+              <div><strong>Recommandations</strong>{renderValue(resultat.synthese?.recommandations)}</div>
+              <div><strong>Objectif principal</strong>{renderValue(resultat.synthese?.objectifPrincipal)}</div>
+              <div><strong>Accompagnement principal</strong>{renderValue(resultat.synthese?.accompagnementPrincipal)}</div>
+            </div>
 
-          <div className="action-buttons">
-            <button type="button" className="copy-button" onClick={onCopySynthese}>
-              Copier la synthèse
-            </button>
-            <button type="button" className="copy-button" onClick={onNewAnalysis}>
-              Nouvelle analyse
-            </button>
-          </div>
-        </SectionCard>
+            <div className="action-buttons">
+              <button type="button" className="copy-button" onClick={onCopySynthese}>
+                Copier la synthèse
+              </button>
+              <button type="button" className="copy-button" onClick={onNewAnalysis}>
+                Nouvelle analyse
+              </button>
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="4. Prescriptions recommandées"
+            description="Suggestions à valider selon l’éligibilité, la disponibilité et les procédures internes France Travail."
+          >
+            <div className="assistant-list">
+              {resultat.prescriptions?.recommandations?.length ? (
+                resultat.prescriptions.recommandations.map((prescription) => (
+                  <div key={prescription.id || prescription.nom}>
+                    <strong>{prescription.nom}</strong>
+                    <p>{[prescription.type, prescription.categorie].filter(Boolean).join(' · ')}</p>
+                    {prescription.objectif ? <p>{prescription.objectif}</p> : null}
+                    <p className="assistant-reason"><strong>Score :</strong> {prescription.score}</p>
+                    <div><strong>Motifs</strong>{renderValue(prescription.motifs)}</div>
+                    {prescription.publicCible ? <p><strong>Public :</strong> {prescription.publicCible}</p> : null}
+                    {prescription.conditionsAcces?.length ? <div><strong>Conditions d’accès</strong>{renderValue(prescription.conditionsAcces)}</div> : null}
+                    {prescription.vigilances?.length ? <div><strong>Vigilances</strong>{renderValue(prescription.vigilances)}</div> : null}
+                    <p className="assistant-reason"><strong>Validation conseiller requise avant prescription.</strong></p>
+                  </div>
+                ))
+              ) : (
+                <p>Aucune prescription recommandée avec les informations saisies.</p>
+              )}
+            </div>
+          </SectionCard>
+        </>
       )}
     </section>
   )

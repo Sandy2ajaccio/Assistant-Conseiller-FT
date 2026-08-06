@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
-  { label: '📊 Tableau de bord', to: '/tableau-de-bord' },
   { label: '🚀 Assistant de mission', to: '/assistant' },
   { label: '📚 Centre de connaissances', to: '/connaissances' },
   { label: '🎓 Formations', to: '/formations' },

@@ -8,12 +8,10 @@ import AnalyseSituationPage from './pages/AnalyseSituationPage'
 import AssistantMissionPage from './pages/AssistantMissionPage'
 import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
 import DashboardPage from './pages/DashboardPage'
-import DemandeurPage from './pages/DemandeurPage'
 import FormationsPage from './pages/FormationsPage'
 import MissionWorkflowPage from './pages/MissionWorkflowPage'
 import ParametresPage from './pages/ParametresPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
-import PrescriptionsPage from './pages/PrescriptionsPage'
 import VeilleOfficiellePage from './pages/VeilleOfficiellePage'
 
 export default function App() {
@@ -67,7 +65,7 @@ export default function App() {
           <Routes>
             <Route
               path="/"
-              element={<Navigate to="/tableau-de-bord" replace />}
+              element={<Navigate to="/assistant" replace />}
             />
 
             <Route
@@ -97,12 +95,12 @@ export default function App() {
 
             <Route
               path="/tableau-de-bord"
-              element={<PrescriptionsPage />}
+              element={<Navigate to="/assistant" replace />}
             />
 
             <Route
               path="/prescriptions"
-              element={<Navigate to="/tableau-de-bord" replace />}
+              element={<Navigate to="/assistant" replace />}
             />
 
             <Route
@@ -127,17 +125,17 @@ export default function App() {
 
             <Route
               path="/demandeurs"
-              element={<DemandeurPage />}
+              element={<Navigate to="/assistant" replace />}
             />
 
             <Route
               path="/demandeurs/:id"
-              element={<DemandeurPage />}
+              element={<Navigate to="/assistant" replace />}
             />
 
             <Route
               path="*"
-              element={<Navigate to="/tableau-de-bord" replace />}
+              element={<Navigate to="/assistant" replace />}
             />
           </Routes>
         </Layout>
