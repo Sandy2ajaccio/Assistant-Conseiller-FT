@@ -37,6 +37,7 @@ import {
 import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
+import OrientationReseauCard from '../components/OrientationReseauCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { portefeuillesCorse } from '../data/configurationCorse'
@@ -48,12 +49,19 @@ import {
   formalitesEntretienCompletes,
   normalizeFormalitesEntretien,
 } from '../services/syntheseFormalitesService'
-
-const ENTRETIEN_TYPES = [
-  { value: 'premier-physique', label: 'Premier entretien (60 min)', duree: '60 min', secondes: 60 * 60 },
-  { value: 'suivi-physique', label: 'Entretien de suivi (30 min)', duree: '30 min', secondes: 30 * 60 },
-  { value: 'telephonique', label: 'Entretien téléphonique (15 à 20 min)', duree: '15-20 min', secondes: 20 * 60 },
-]
+import {
+  DEFAULT_CONTRAT_ENGAGEMENT_DETAILS,
+  DEFAULT_ORIENTATION_RESEAU,
+  DEFAULT_TYPE_ENTRETIEN,
+  ENTRETIEN_TYPES,
+  estEntretienOrientation,
+  estPremierEntretienAccompagnement,
+  getTypeEntretien,
+  normaliserContratEngagementDetails,
+  normaliserOrientationReseau,
+  normaliserTypeEntretien,
+  orientationReseauComplete,
+} from '../data/contratOrientation'
 
 const DECISION_LABELS = {
   poursuiteAccompagnement: "Poursuite de l'accompagnement",
@@ -241,9 +249,9 @@ const STATUTS_PRESCRIPTION = [
 ]
 
 const RESPONSABLES_ACTION = [
-  'Demandeur d’emploi',
+  'Personne accompagnée',
   'Conseiller',
-  'Conseiller et demandeur d’emploi',
+  'Conseiller et personne accompagnée',
   'Partenaire',
 ]
 
@@ -253,7 +261,7 @@ const normaliserSuiviAction = (action = {}) => ({
   responsableAction: action.responsableAction || (
     action.categorieDecision === 'Partenaire' || action.type === 'Partenaire'
       ? 'Conseiller'
-      : 'Conseiller et demandeur d’emploi'
+      : 'Conseiller et personne accompagnée'
   ),
   resultatAttendu: action.resultatAttendu || action.objectif || `Mettre en œuvre l’action « ${action.nom || 'retenue'} ».`,
   echeanceAction: action.echeanceAction || '',
@@ -311,7 +319,7 @@ function AssistantMissionPage() {
   const chronoBaseSecondesRef = useRef(0)
 
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
-  const [typeEntretien, setTypeEntretien] = useState('premier-physique')
+  const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
   const [situationAdministrative, setSituationAdministrative] = useState('')
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
@@ -334,6 +342,8 @@ function AssistantMissionPage() {
     demandeAffectation: false,
   })
   const [formalitesEntretien, setFormalitesEntretien] = useState(DEFAULT_FORMALITES_ENTRETIEN)
+  const [contratEngagementDetails, setContratEngagementDetails] = useState(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
+  const [orientationReseau, setOrientationReseau] = useState(DEFAULT_ORIENTATION_RESEAU)
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
@@ -579,7 +589,7 @@ function AssistantMissionPage() {
     if (freins.includes('Compétences numériques')) {
       alertes.push({
         severity: 'warning',
-        texte: 'Difficultés numériques : proposer l’atelier PIX Emploi à réaliser à domicile afin d’identifier les connaissances informatiques de base du DE.',
+        texte: 'Difficultés numériques : proposer l’atelier PIX Emploi à réaliser à domicile afin d’identifier les connaissances informatiques de base de la personne accompagnée.',
       })
     }
     if (analyseDemandeAutomatique.objectifs.includes('Vérifier l’orientation RSA')) {
@@ -779,10 +789,10 @@ function AssistantMissionPage() {
     const financementFormation = /\baif\b|financement.*formation|formation.*financement|cpf insuffisant|reste a charge|devis.*formation/.test(contexte)
     const pisteIAEPertinente = Boolean(recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
 
-    if (typeEntretien === 'premier-physique' || /contrat|engagement|droit|obligation/.test(contexte)) {
+    if (estPremierEntretienAccompagnement(typeEntretien) || /contrat|engagement|droit|obligation/.test(contexte)) {
       ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
     }
-    if (typeEntretien === 'premier-physique' || /offre de service|nouvellement inscrit/.test(contexte)) {
+    if (estPremierEntretienAccompagnement(typeEntretien) || /offre de service|nouvellement inscrit/.test(contexte)) {
       ateliersInternes.push({ nom: 'Offre de service France Travail', type: 'Atelier' })
     }
     if (/formation|reconversion|financement/.test(contexte)) {
@@ -951,7 +961,7 @@ function AssistantMissionPage() {
         interne,
         suggeree: suggerees.has(`${item.type}|${item.nom}`),
         suiviStatut: 'À prescrire',
-        responsableAction: 'Conseiller et demandeur d’emploi',
+        responsableAction: 'Conseiller et personne accompagnée',
         resultatAttendu: item.objectif || '',
         echeanceAction: '',
       }
@@ -1056,7 +1066,7 @@ function AssistantMissionPage() {
       ajouter(
         'Proposer l’atelier PIX Emploi à réaliser à domicile',
         ['Le récit mentionne un manque d’aisance avec l’informatique.'],
-        'PIX Emploi permet d’identifier les connaissances informatiques de base du demandeur d’emploi.',
+        'PIX Emploi permet d’identifier les connaissances informatiques de base de la personne accompagnée.',
         'Vérifier que la personne peut accéder à son espace personnel et démarrer l’atelier depuis son domicile.',
         'Un accompagnement au démarrage pourra être ajouté si la personne ne peut pas réaliser seule l’atelier à la maison.',
       )
@@ -1307,7 +1317,12 @@ function AssistantMissionPage() {
       )),
     },
     { id: 'formalites', label: 'Présence, PIX et contrat d’engagement confirmés', ok: formalitesCompletes },
-    { id: 'synthese', label: 'Synthèse destinée au DE générée', ok: Boolean(syntheseEntretien.trim()) },
+    {
+      id: 'orientation-reseau',
+      label: 'Orientation réseau validée par le conseiller pour l’EDO',
+      ok: !estEntretienOrientation(typeEntretien) || orientationReseauComplete(orientationReseau),
+    },
+    { id: 'synthese', label: 'Synthèse destinée à la personne générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
     ceQueDitLaPersonne,
@@ -1319,6 +1334,8 @@ function AssistantMissionPage() {
     portefeuilleChoisi,
     decisions.demandeAffectation,
     formalitesCompletes,
+    typeEntretien,
+    orientationReseau,
     syntheseEntretien,
   ])
 
@@ -1453,15 +1470,13 @@ function AssistantMissionPage() {
 
   const dossierCoherentEtComplet = dossierPretACloturer && controleDecision.bloquants === 0
 
-  const rendezVousConfig = useMemo(
-    () => ENTRETIEN_TYPES.find((item) => item.value === typeEntretien) || ENTRETIEN_TYPES[0],
-    [typeEntretien],
-  )
+  const rendezVousConfig = useMemo(() => getTypeEntretien(typeEntretien), [typeEntretien])
   const dureeRendezVous = rendezVousConfig.duree
   const dureeRendezVousSecondes = rendezVousConfig.secondes
   const chronoRestantSecondes = Math.max(0, dureeRendezVousSecondes - chronoSecondes)
   const chronoDureeAtteinte = chronoRestantSecondes === 0
-  const minimumTelephoniqueAtteint = typeEntretien === 'telephonique' && chronoSecondes >= 15 * 60
+  const minimumTelephoniqueAtteint = Boolean(rendezVousConfig.minimumRepereMinutes)
+    && chronoSecondes >= rendezVousConfig.minimumRepereMinutes * 60
 
   useEffect(() => {
     if (!chronoActif) return undefined
@@ -1497,7 +1512,7 @@ function AssistantMissionPage() {
 
     const dossier = result.dossier || {}
     setIdentifiantDemandeur(entryId)
-    setTypeEntretien(dossier.typeEntretien || 'premier-physique')
+    setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
@@ -1511,6 +1526,8 @@ function AssistantMissionPage() {
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
     setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
+    setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
+    setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
@@ -1544,7 +1561,7 @@ function AssistantMissionPage() {
   }
 
   const changerTypeEntretien = (event) => {
-    setTypeEntretien(event.target.value)
+    setTypeEntretien(normaliserTypeEntretien(event.target.value))
     chronoDepartRef.current = null
     chronoBaseSecondesRef.current = 0
     setChronoSecondes(0)
@@ -1682,6 +1699,8 @@ function AssistantMissionPage() {
     freinsEngine,
     decisions,
     formalitesEntretien,
+    contratEngagementDetails,
+    orientationReseau,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1722,7 +1741,7 @@ function AssistantMissionPage() {
       if (brut) {
         const dossier = JSON.parse(brut)
         setIdentifiantDemandeur(dossier.identifiant || '')
-        setTypeEntretien(dossier.typeEntretien || 'premier-physique')
+        setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
         setSituationAdministrative(dossier.situationAdministrative || '')
         setSituationPersonnelle(dossier.situationPersonnelle || '')
         setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
@@ -1736,6 +1755,8 @@ function AssistantMissionPage() {
         setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
         setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
         setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
+        setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
+        setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
         setAssistantAnswers(dossier.assistantAnswers || {})
         setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1795,6 +1816,8 @@ function AssistantMissionPage() {
     freinsEngine,
     decisions,
     formalitesEntretien,
+    contratEngagementDetails,
+    orientationReseau,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1832,7 +1855,7 @@ function AssistantMissionPage() {
           identifiant: item.identifiant,
           updatedAt: dossier.versionnement?.updatedAt || item.payload?.updatedAt || '',
           statut: dossier.dossierStatut || 'brouillon',
-          typeEntretien: dossier.typeEntretien || 'premier-physique',
+          typeEntretien: normaliserTypeEntretien(dossier.typeEntretien),
           chronoSecondes: Number(dossier.chronoSecondes) || 0,
         }
       })
@@ -1854,7 +1877,7 @@ function AssistantMissionPage() {
 
     const dossier = result.dossier || {}
     setIdentifiantDemandeur(id)
-    setTypeEntretien(dossier.typeEntretien || 'premier-physique')
+    setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
@@ -1868,6 +1891,8 @@ function AssistantMissionPage() {
     setFreinsEngine(dossier.freinsEngine || { mobilite: false, sante: false, numerique: false })
     setDecisions((prev) => ({ ...prev, ...(dossier.decisions || {}) }))
     setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
+    setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
+    setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1917,7 +1942,7 @@ function AssistantMissionPage() {
       suppressionCloudSynced = suppression.cloudSynced !== false
     }
     setIdentifiantDemandeur('')
-    setTypeEntretien('premier-physique')
+    setTypeEntretien(DEFAULT_TYPE_ENTRETIEN)
     setSituationAdministrative('')
     setSituationPersonnelle('')
     setParcoursProfessionnel('')
@@ -1938,6 +1963,8 @@ function AssistantMissionPage() {
       demandeAffectation: false,
     })
     setFormalitesEntretien(DEFAULT_FORMALITES_ENTRETIEN)
+    setContratEngagementDetails(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
+    setOrientationReseau(DEFAULT_ORIENTATION_RESEAU)
     setAssistantAnswers({})
     setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -2004,7 +2031,7 @@ function AssistantMissionPage() {
     const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
     const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
     if (!suivant) {
-      setStorageStatus('Dossier enregistré. Aucun autre DE à ouvrir.')
+      setStorageStatus('Dossier enregistré. Aucun autre dossier à ouvrir.')
       navigate('/tableau-de-bord')
       return
     }
@@ -2441,6 +2468,14 @@ function AssistantMissionPage() {
         ) : null}
 
         {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
+          <OrientationReseauCard
+            value={orientationReseau}
+            onChange={setOrientationReseau}
+            obligatoire={estEntretienOrientation(typeEntretien)}
+          />
+        ) : null}
+
+        {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
         <CockpitBlockCard
           title="Aide à la décision et prescriptions adaptées"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
@@ -2552,7 +2587,7 @@ function AssistantMissionPage() {
 
         {workspaceTab === 'synthese' ? (
           <CockpitBlockCard
-            title="Synthèse automatique à destination du demandeur d’emploi"
+            title="Synthèse automatique à destination de la personne accompagnée"
             subtitle="Le texte se met à jour automatiquement à partir des informations saisies pendant l’entretien."
             sx={{ minHeight: 520 }}
             detailsSx={{ px: { xs: 1.5, md: 3 }, pb: 3 }}
@@ -2627,6 +2662,67 @@ function AssistantMissionPage() {
                     <MenuItem value="deja-signe">Déjà signé</MenuItem>
                     <MenuItem value="signature-a-finaliser">Signature à finaliser</MenuItem>
                   </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Organisme référent du contrat"
+                    value={contratEngagementDetails.organismeReferent}
+                    onChange={(event) => setContratEngagementDetails((prev) => ({
+                      ...prev,
+                      organismeReferent: event.target.value,
+                    }))}
+                    placeholder="France Travail, Cap emploi, Mission locale…"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label="Intensité hebdo"
+                    value={contratEngagementDetails.intensiteHebdomadaire}
+                    onChange={(event) => setContratEngagementDetails((prev) => ({
+                      ...prev,
+                      intensiteHebdomadaire: event.target.value,
+                    }))}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    helperText="Heures convenues"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    label="Date de signature"
+                    value={contratEngagementDetails.dateSignature}
+                    onChange={(event) => setContratEngagementDetails((prev) => ({
+                      ...prev,
+                      dateSignature: event.target.value,
+                    }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    label="Dernière actualisation"
+                    value={contratEngagementDetails.dateActualisation}
+                    onChange={(event) => setContratEngagementDetails((prev) => ({
+                      ...prev,
+                      dateActualisation: event.target.value,
+                    }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="info" sx={{ py: 0 }}>
+                    L’intensité saisie est un élément du contrat. Elle ne déclenche ici ni qualification automatique, ni sanction ; confirmez les règles applicables dans les procédures internes.
+                  </Alert>
                 </Grid>
               </Grid>
             </Paper>
@@ -3080,7 +3176,7 @@ function AssistantMissionPage() {
                                   fullWidth
                                   size="small"
                                   label="Responsable"
-                                  value={action.responsableAction || 'Conseiller et demandeur d’emploi'}
+                                  value={action.responsableAction || 'Conseiller et personne accompagnée'}
                                   onChange={(event) => setActionsRetenues((prev) => prev.map((item, itemIndex) => (
                                     itemIndex === index ? { ...item, responsableAction: event.target.value } : item
                                   )))}
@@ -3216,7 +3312,7 @@ function AssistantMissionPage() {
                       Enregistrer le brouillon
                     </Button>
                     <Button variant="contained" fullWidth onClick={enregistrerEtPasserAuSuivant} disabled={!identifiantDemandeur.trim()}>
-                      Enregistrer et DE suivant
+                      Enregistrer et dossier suivant
                     </Button>
                     <Button
                       variant="contained"
@@ -3225,7 +3321,7 @@ function AssistantMissionPage() {
                       disabled={!dossierCoherentEtComplet}
                       onClick={cloturerEtPasserAuSuivant}
                     >
-                      Clôturer et DE suivant
+                      Clôturer et dossier suivant
                     </Button>
                   </Stack>
                 </Stack>

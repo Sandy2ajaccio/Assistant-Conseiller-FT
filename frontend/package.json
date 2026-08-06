@@ -12,6 +12,7 @@
     "check:diagnostic": "node scripts/check-diagnostic-equity.mjs",
     "check:persistence": "node scripts/check-persistence-security.mjs",
     "check:synthese": "node scripts/check-synthese-formalites.mjs",
+    "check:lpe": "node scripts/check-lpe-workflow.mjs",
     "check:excel": "node scripts/check-excel-roundtrip.mjs",
     "check:auth": "node scripts/check-auth-flow.mjs"
   },
