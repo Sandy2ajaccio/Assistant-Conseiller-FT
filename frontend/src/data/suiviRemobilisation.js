@@ -121,6 +121,7 @@ export const DEFAULT_SUIVI_REMOBILISATION = {
   justificatifsParIndice: {},
   conclusionHumaine: 'a-instruire',
   analyseGlobale: '',
+  actionsCategories: [],
   actionCategorie: '',
   actionRetenue: '',
   dateEcheance: '',
@@ -145,6 +146,14 @@ export const normaliserSuiviRemobilisation = (value = {}) => {
   const justificatifsParIndice = Object.fromEntries(
     indicesSelectionnes.map((id) => [id, String(justificatifsSource[id] || '').trim()]),
   )
+  const actionsCategories = Array.from(new Set(
+    (Array.isArray(value?.actionsCategories)
+      ? value.actionsCategories
+      : value?.actionCategorie
+        ? [value.actionCategorie]
+        : []
+    ).filter(actionExiste),
+  ))
 
   return {
     ...DEFAULT_SUIVI_REMOBILISATION,
@@ -156,7 +165,8 @@ export const normaliserSuiviRemobilisation = (value = {}) => {
       ? value.conclusionHumaine
       : DEFAULT_SUIVI_REMOBILISATION.conclusionHumaine,
     analyseGlobale: String(value?.analyseGlobale || '').trim(),
-    actionCategorie: actionExiste(value?.actionCategorie) ? value.actionCategorie : '',
+    actionsCategories,
+    actionCategorie: actionsCategories[0] || '',
     actionRetenue: String(value?.actionRetenue || '').trim(),
     dateEcheance: String(value?.dateEcheance || '').trim(),
     preuveAttendue: String(value?.preuveAttendue || '').trim(),
@@ -216,7 +226,7 @@ export const genererAlertesRemobilisation = (value = {}) => {
   }
 
   if (['redynamisation', 'dynamique-faible'].includes(suivi.conclusionHumaine)) {
-    if (!suivi.actionCategorie || !suivi.actionRetenue) {
+    if (suivi.actionsCategories.length === 0 || !suivi.actionRetenue) {
       alertes.push({
         id: 'action-remobilisation',
         niveau: 'warning',

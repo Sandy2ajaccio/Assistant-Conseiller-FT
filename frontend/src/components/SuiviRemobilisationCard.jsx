@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Checkbox,
   Chip,
@@ -20,7 +21,6 @@ import {
   VERSION_GRILLE_REMOBILISATION,
   compterAlertesRemobilisation,
   genererAlertesRemobilisation,
-  getActionRemobilisation,
   normaliserSuiviRemobilisation,
 } from '../data/suiviRemobilisation'
 
@@ -28,20 +28,26 @@ function SuiviRemobilisationCard({ value, onChange }) {
   const suivi = normaliserSuiviRemobilisation(value)
   const alertes = genererAlertesRemobilisation(suivi)
   const nombreAlertes = compterAlertesRemobilisation(suivi)
-  const action = getActionRemobilisation(suivi.actionCategorie)
+  const indicesChoisis = INDICES_CRE.filter((item) => suivi.indicesSelectionnes.includes(item.id))
+  const actionsChoisies = ACTIONS_REMOBILISATION.filter((item) => suivi.actionsCategories.includes(item.id))
 
   const update = (field) => (event) => {
     const booleens = ['actif', 'actionRealisee', 'contexteSuspension', 'procedureInterneConfirmee']
     onChange({ ...suivi, [field]: booleens.includes(field) ? event.target.checked : event.target.value })
   }
 
-  const toggleIndice = (id) => (event) => {
-    const indicesSelectionnes = event.target.checked
-      ? [...suivi.indicesSelectionnes, id]
-      : suivi.indicesSelectionnes.filter((item) => item !== id)
+  const onIndicesChange = (_, nextValues) => {
+    const indicesSelectionnes = nextValues.map((item) => item.id)
     const justificatifsParIndice = { ...suivi.justificatifsParIndice }
-    if (!event.target.checked) delete justificatifsParIndice[id]
+    Object.keys(justificatifsParIndice).forEach((id) => {
+      if (!indicesSelectionnes.includes(id)) delete justificatifsParIndice[id]
+    })
     onChange({ ...suivi, indicesSelectionnes, justificatifsParIndice })
+  }
+
+  const onActionsChange = (_, nextValues) => {
+    const actionsCategories = nextValues.map((item) => item.id)
+    onChange({ ...suivi, actionsCategories, actionCategorie: actionsCategories[0] || '' })
   }
 
   const updateJustificatif = (id) => (event) => {
@@ -99,40 +105,53 @@ function SuiviRemobilisationCard({ value, onChange }) {
                 <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.75 }}>
                   1. Indices observés et éléments probants
                 </Typography>
+                <Autocomplete
+                  multiple
+                  disableCloseOnSelect
+                  options={INDICES_CRE}
+                  value={indicesChoisis}
+                  onChange={onIndicesChange}
+                  groupBy={(item) => item.domaineLabel}
+                  getOptionLabel={(item) => item.label}
+                  isOptionEqualToValue={(option, selected) => option.id === selected.id}
+                  limitTags={3}
+                  renderOption={(props, indice, { selected }) => (
+                    <li {...props} key={indice.id}>
+                      <Checkbox checked={selected} sx={{ mr: 1, py: 0.25 }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{indice.label}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {indice.domaineLabel} · importance {indice.importance.toLowerCase()}
+                        </Typography>
+                      </Box>
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      label="Indices à retenir"
+                      placeholder={indicesChoisis.length > 0 ? '' : 'Ouvrir puis cocher plusieurs indices…'}
+                      helperText={`${indicesChoisis.length} indice(s) · ${domaines.length} domaine(s)`}
+                    />
+                  )}
+                />
                 <Grid container spacing={1}>
-                  {INDICES_CRE.map((indice) => {
-                    const selected = suivi.indicesSelectionnes.includes(indice.id)
-                    return (
-                      <Grid key={indice.id} size={{ xs: 12, md: 6 }}>
-                        <Paper variant="outlined" sx={{ p: 1, bgcolor: selected ? '#f7f2fb' : '#fff' }}>
-                          <FormControlLabel
-                            control={<Checkbox checked={selected} onChange={toggleIndice(indice.id)} />}
-                            label={(
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 800 }}>{indice.label}</Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {indice.domaineLabel} · importance {indice.importance.toLowerCase()}
-                                </Typography>
-                              </Box>
-                            )}
-                          />
-                          {selected ? (
-                            <TextField
-                              fullWidth
-                              multiline
-                              minRows={2}
-                              size="small"
-                              label="Constat factuel et pièce associée"
-                              value={suivi.justificatifsParIndice[indice.id] || ''}
-                              onChange={updateJustificatif(indice.id)}
-                              placeholder="Fait daté, échange, pièce ou trace vérifiable…"
-                              sx={{ mt: 0.75 }}
-                            />
-                          ) : null}
-                        </Paper>
-                      </Grid>
-                    )
-                  })}
+                  {indicesChoisis.map((indice) => (
+                    <Grid key={indice.id} size={{ xs: 12, md: 6 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        size="small"
+                        label={`Preuve · ${indice.label}`}
+                        value={suivi.justificatifsParIndice[indice.id] || ''}
+                        onChange={updateJustificatif(indice.id)}
+                        placeholder="Fait daté, échange, pièce ou trace vérifiable…"
+                        sx={{ mt: 1 }}
+                      />
+                    </Grid>
+                  ))}
                 </Grid>
               </Box>
 
@@ -176,19 +195,30 @@ function SuiviRemobilisationCard({ value, onChange }) {
                 </Typography>
                 <Grid container spacing={1}>
                   <Grid size={{ xs: 12, md: 5 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Famille d’action"
-                      value={suivi.actionCategorie}
-                      onChange={update('actionCategorie')}
-                    >
-                      <MenuItem value="">À définir si nécessaire</MenuItem>
-                      {ACTIONS_REMOBILISATION.map((item) => (
-                        <MenuItem key={item.id} value={item.id}>{item.label}</MenuItem>
-                      ))}
-                    </TextField>
+                    <Autocomplete
+                      multiple
+                      disableCloseOnSelect
+                      options={ACTIONS_REMOBILISATION}
+                      value={actionsChoisies}
+                      onChange={onActionsChange}
+                      getOptionLabel={(item) => item.label}
+                      isOptionEqualToValue={(option, selected) => option.id === selected.id}
+                      limitTags={2}
+                      renderOption={(props, item, { selected }) => (
+                        <li {...props} key={item.id}>
+                          <Checkbox checked={selected} sx={{ mr: 1, py: 0.25 }} />
+                          {item.label}
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          label="Familles d’action"
+                          placeholder={actionsChoisies.length > 0 ? '' : 'Cocher une ou plusieurs familles…'}
+                        />
+                      )}
+                    />
                   </Grid>
                   <Grid size={{ xs: 12, md: 7 }}>
                     <TextField
@@ -199,12 +229,17 @@ function SuiviRemobilisationCard({ value, onChange }) {
                       onChange={update('actionRetenue')}
                     />
                   </Grid>
-                  {action ? (
+                  {actionsChoisies.length > 0 ? (
                     <Grid size={{ xs: 12 }}>
-                      <Alert severity="info" sx={{ py: 0.5 }}>
-                        <strong>Exemples non exhaustifs :</strong> {action.exemples}<br />
-                        <strong>Traces possibles :</strong> {action.preuves}
-                      </Alert>
+                      <Stack spacing={0.5}>
+                        {actionsChoisies.map((action) => (
+                          <Alert key={action.id} severity="info" sx={{ py: 0.5 }}>
+                            <strong>{action.label}</strong><br />
+                            Exemples non exhaustifs : {action.exemples}<br />
+                            Traces possibles : {action.preuves}
+                          </Alert>
+                        ))}
+                      </Stack>
                     </Grid>
                   ) : null}
                   <Grid size={{ xs: 12, md: 4 }}>

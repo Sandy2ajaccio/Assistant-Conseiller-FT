@@ -208,10 +208,17 @@ const SituationMultiSelect = ({ label, value, onChange, options }) => (
   <Autocomplete
     multiple
     freeSolo
+    disableCloseOnSelect
     options={options}
     value={parseSituationValues(value)}
     onChange={(_, nextValue) => onChange(nextValue.join(' · '))}
-    filterSelectedOptions
+    limitTags={2}
+    renderOption={(props, option, { selected }) => (
+      <li {...props} key={option}>
+        <Checkbox checked={selected} sx={{ mr: 1, py: 0.25 }} />
+        {option}
+      </li>
+    )}
     renderTags={(items, getTagProps) => items.map((item, index) => (
       <Chip
         {...getTagProps({ index })}

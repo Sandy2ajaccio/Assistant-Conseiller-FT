@@ -3,6 +3,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -58,13 +59,13 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
       : event.target.value
     onChange({ ...suivi, [field]: nextValue })
   }
-  const toggleAction = (actionId) => (event) => {
+  const actionsDisponibles = file.actions.map((id) => ({ id, label: ACTIONS_MUTUALISEES[id] }))
+  const actionsSelectionnees = actionsDisponibles.filter((item) => suivi.actionsRealisees[item.id] === true)
+  const onActionsChange = (_, nextValues) => {
+    const nextIds = new Set(nextValues.map((item) => item.id))
     onChange({
       ...suivi,
-      actionsRealisees: {
-        ...suivi.actionsRealisees,
-        [actionId]: event.target.checked,
-      },
+      actionsRealisees: Object.fromEntries(file.actions.map((id) => [id, nextIds.has(id)])),
     })
   }
 
@@ -221,24 +222,31 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
 
           {file.actions.length > 0 ? (
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.5 }}>
-                Actions à réaliser pour cette file
-              </Typography>
-              <Grid container spacing={0.5}>
-                {file.actions.map((actionId) => (
-                  <Grid key={actionId} size={{ xs: 12, md: 6 }}>
-                    <FormControlLabel
-                      control={(
-                        <Checkbox
-                          checked={suivi.actionsRealisees[actionId] === true}
-                          onChange={toggleAction(actionId)}
-                        />
-                      )}
-                      label={ACTIONS_MUTUALISEES[actionId]}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+              <Autocomplete
+                multiple
+                disableCloseOnSelect
+                options={actionsDisponibles}
+                value={actionsSelectionnees}
+                onChange={onActionsChange}
+                getOptionLabel={(item) => item.label}
+                isOptionEqualToValue={(option, selected) => option.id === selected.id}
+                limitTags={2}
+                renderOption={(props, item, { selected }) => (
+                  <li {...props} key={item.id}>
+                    <Checkbox checked={selected} sx={{ mr: 1, py: 0.25 }} />
+                    {item.label}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    label="Actions réalisées pour cette file"
+                    placeholder={actionsSelectionnees.length > 0 ? '' : 'Ouvrir puis cocher les actions réalisées…'}
+                    helperText={`${actionsSelectionnees.length}/${actionsDisponibles.length} action(s) réalisée(s)`}
+                  />
+                )}
+              />
             </Box>
           ) : null}
 

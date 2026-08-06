@@ -1,34 +1,37 @@
-import { Chip, Stack, Typography } from '@mui/material'
+import { Autocomplete, Checkbox, TextField } from '@mui/material'
 
 function CockpitBadgeGroup({ title, options, selected, onToggle }) {
+  const onChange = (_, nextValues) => {
+    const next = Array.isArray(nextValues) ? nextValues : []
+    options.forEach((option) => {
+      if (selected.includes(option) !== next.includes(option)) onToggle(option)
+    })
+  }
+
   return (
-    <Stack spacing={0.75}>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        {title}
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={0.5}
-        useFlexGap
-        flexWrap="wrap"
-        sx={{ maxHeight: 52, overflowY: 'auto', pr: 0.25 }}
-      >
-        {options.map((option) => {
-          const active = selected.includes(option)
-          return (
-            <Chip
-              key={option}
-              size="small"
-              label={option}
-              color={active ? 'primary' : 'default'}
-              variant={active ? 'filled' : 'outlined'}
-              sx={{ height: 20, '& .MuiChip-label': { px: 0.75, fontSize: '0.68rem', lineHeight: 1.1 } }}
-              onClick={() => onToggle(option)}
-            />
-          )
-        })}
-      </Stack>
-    </Stack>
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      options={options}
+      value={selected}
+      onChange={onChange}
+      limitTags={2}
+      renderOption={(props, option, { selected: optionSelected }) => (
+        <li {...props} key={option}>
+          <Checkbox checked={optionSelected} sx={{ mr: 1, py: 0.25 }} />
+          {option}
+        </li>
+      )}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={title}
+          placeholder={selected.length > 0 ? '' : 'Ouvrir et cocher plusieurs choix…'}
+          helperText={`${selected.length} choix sélectionné(s)`}
+          size="small"
+        />
+      )}
+    />
   )
 }
 
