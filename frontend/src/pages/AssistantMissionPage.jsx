@@ -39,6 +39,7 @@ import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
+import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { portefeuillesCorse } from '../data/configurationCorse'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
@@ -62,6 +63,12 @@ import {
   normaliserTypeEntretien,
   orientationReseauComplete,
 } from '../data/contratOrientation'
+import {
+  DEFAULT_SUIVI_OBLIGATIONS,
+  compterAlertesActionnables,
+  genererAlertesSuivi,
+  normaliserSuiviObligations,
+} from '../data/suiviObligations'
 
 const DECISION_LABELS = {
   poursuiteAccompagnement: "Poursuite de l'accompagnement",
@@ -344,6 +351,7 @@ function AssistantMissionPage() {
   const [formalitesEntretien, setFormalitesEntretien] = useState(DEFAULT_FORMALITES_ENTRETIEN)
   const [contratEngagementDetails, setContratEngagementDetails] = useState(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
   const [orientationReseau, setOrientationReseau] = useState(DEFAULT_ORIENTATION_RESEAU)
+  const [suiviObligations, setSuiviObligations] = useState(DEFAULT_SUIVI_OBLIGATIONS)
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [assistantAnswers, setAssistantAnswers] = useState({})
@@ -382,6 +390,14 @@ function AssistantMissionPage() {
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
+  const alertesSuiviObligations = useMemo(
+    () => genererAlertesSuivi(suiviObligations),
+    [suiviObligations],
+  )
+  const nombreAlertesSuivi = useMemo(
+    () => compterAlertesActionnables(suiviObligations),
+    [suiviObligations],
+  )
 
   const analyseInput = useMemo(() => {
     const freins = []
@@ -1322,6 +1338,11 @@ function AssistantMissionPage() {
       label: 'Orientation réseau validée par le conseiller pour l’EDO',
       ok: !estEntretienOrientation(typeEntretien) || orientationReseauComplete(orientationReseau),
     },
+    {
+      id: 'suivi-obligations',
+      label: 'Alertes M6 traitées ou aucun fait signalé',
+      ok: suiviObligations.fait === 'aucun' || nombreAlertesSuivi === 0,
+    },
     { id: 'synthese', label: 'Synthèse destinée à la personne générée', ok: Boolean(syntheseEntretien.trim()) },
   ], [
     identifiantDemandeur,
@@ -1336,6 +1357,8 @@ function AssistantMissionPage() {
     formalitesCompletes,
     typeEntretien,
     orientationReseau,
+    suiviObligations.fait,
+    nombreAlertesSuivi,
     syntheseEntretien,
   ])
 
@@ -1420,6 +1443,9 @@ function AssistantMissionPage() {
     if (actionsRetenues.length > 4) {
       vigilances.push('Plus de quatre actions sont retenues : vérifier que le plan reste priorisé et réalisable.')
     }
+    if (nombreAlertesSuivi > 0) {
+      vigilances.push(`${nombreAlertesSuivi} alerte(s) M6 restent à traiter dans le suivi des obligations.`)
+    }
 
     if (identifiantDemandeur.trim()) confirmations.push('Identité du dossier renseignée')
     if (actionsRetenues.length > 0) confirmations.push(`${actionsRetenues.length} action(s) retenue(s) et suivie(s)`)
@@ -1466,6 +1492,7 @@ function AssistantMissionPage() {
     portefeuillePropose,
     decisions.demandeAffectation,
     syntheseEntretien,
+    nombreAlertesSuivi,
   ])
 
   const dossierCoherentEtComplet = dossierPretACloturer && controleDecision.bloquants === 0
@@ -1528,6 +1555,7 @@ function AssistantMissionPage() {
     setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
     setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
+    setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setActionsRetenues(
@@ -1701,6 +1729,8 @@ function AssistantMissionPage() {
     formalitesEntretien,
     contratEngagementDetails,
     orientationReseau,
+    suiviObligations,
+    alertesSuiviObligations,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1757,6 +1787,7 @@ function AssistantMissionPage() {
         setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
         setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
         setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
+        setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
         setAssistantAnswers(dossier.assistantAnswers || {})
         setQuestionPrecisions(dossier.questionPrecisions || {})
         setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1818,6 +1849,7 @@ function AssistantMissionPage() {
     formalitesEntretien,
     contratEngagementDetails,
     orientationReseau,
+    suiviObligations,
     assistantAnswers,
     questionPrecisions,
     advpNotes,
@@ -1842,7 +1874,9 @@ function AssistantMissionPage() {
     const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
     setStorageStatus(
       result.ok
-        ? `Analyse enregistree pour ${identifiantDemandeur}.`
+        ? nombreAlertesSuivi > 0
+          ? `Analyse enregistrée pour ${identifiantDemandeur}. ${nombreAlertesSuivi} alerte(s) M6 à vérifier.`
+          : `Analyse enregistrée pour ${identifiantDemandeur}. Aucune alerte M6 active.`
         : result.message || 'Erreur enregistrement.',
     )
   }
@@ -1857,6 +1891,7 @@ function AssistantMissionPage() {
           statut: dossier.dossierStatut || 'brouillon',
           typeEntretien: normaliserTypeEntretien(dossier.typeEntretien),
           chronoSecondes: Number(dossier.chronoSecondes) || 0,
+          alertesSuivi: compterAlertesActionnables(dossier.suiviObligations),
         }
       })
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
@@ -1893,6 +1928,7 @@ function AssistantMissionPage() {
     setFormalitesEntretien(normalizeFormalitesEntretien(dossier.formalitesEntretien))
     setContratEngagementDetails(normaliserContratEngagementDetails(dossier.contratEngagementDetails))
     setOrientationReseau(normaliserOrientationReseau(dossier.orientationReseau))
+    setSuiviObligations(normaliserSuiviObligations(dossier.suiviObligations))
     setAssistantAnswers(dossier.assistantAnswers || {})
     setQuestionPrecisions(dossier.questionPrecisions || {})
     setAdvpNotes(dossier.advpNotes || ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -1965,6 +2001,7 @@ function AssistantMissionPage() {
     setFormalitesEntretien(DEFAULT_FORMALITES_ENTRETIEN)
     setContratEngagementDetails(DEFAULT_CONTRAT_ENGAGEMENT_DETAILS)
     setOrientationReseau(DEFAULT_ORIENTATION_RESEAU)
+    setSuiviObligations(DEFAULT_SUIVI_OBLIGATIONS)
     setAssistantAnswers({})
     setQuestionPrecisions({})
     setAdvpNotes(ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}))
@@ -2031,11 +2068,19 @@ function AssistantMissionPage() {
     const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
     const suivant = indexActuel >= 0 ? dossiers[indexActuel + 1] : dossiers[0]
     if (!suivant) {
-      setStorageStatus('Dossier enregistré. Aucun autre dossier à ouvrir.')
+      setStorageStatus(
+        nombreAlertesSuivi > 0
+          ? `Dossier enregistré avec ${nombreAlertesSuivi} alerte(s) M6. Aucun autre dossier à ouvrir.`
+          : 'Dossier enregistré. Aucune alerte M6 active et aucun autre dossier à ouvrir.',
+      )
       navigate('/tableau-de-bord')
       return
     }
-    setStorageStatus(`Dossier ${identifiantDemandeur} enregistré. Ouverture de ${suivant.identifiant}.`)
+    setStorageStatus(
+      nombreAlertesSuivi > 0
+        ? `Dossier ${identifiantDemandeur} enregistré avec ${nombreAlertesSuivi} alerte(s) M6. Ouverture de ${suivant.identifiant}.`
+        : `Dossier ${identifiantDemandeur} enregistré. Aucune alerte M6 active. Ouverture de ${suivant.identifiant}.`,
+    )
     navigate(`/assistant?dossier=${encodeURIComponent(suivant.identifiant)}`)
   }
 
@@ -2277,6 +2322,10 @@ function AssistantMissionPage() {
           <Tab value="entretien" label="Conduite de l’entretien" />
           <Tab value="prescriptions" label="Offre de services" />
           <Tab value="synthese" label="Synthèse d’entretien" />
+          <Tab
+            value="suivi-obligations"
+            label={nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'}
+          />
           <Tab value="sauvegardes" label="Sauvegardes automatiques" />
         </Tabs>
 
@@ -2288,6 +2337,14 @@ function AssistantMissionPage() {
               <Chip size="small" variant="outlined" color={controleDecision.couleur === 'rouge' ? 'error' : controleDecision.couleur === 'orange' ? 'warning' : 'success'} label={controleDecision.statut} />
               <Chip size="small" variant="outlined" label={`Freins ${Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])).length}`} />
               <Chip size="small" variant="outlined" label={`Actions ${actionsRetenues.length}`} />
+              <Chip
+                clickable
+                size="small"
+                color={nombreAlertesSuivi > 0 ? 'error' : 'success'}
+                variant={nombreAlertesSuivi > 0 ? 'filled' : 'outlined'}
+                label={nombreAlertesSuivi > 0 ? `Alertes M6 ${nombreAlertesSuivi}` : 'Suivi M6 à jour'}
+                onClick={() => setWorkspaceTab('suivi-obligations')}
+              />
               <Typography variant="caption" sx={{ ml: { md: 'auto' }, fontWeight: 800, color: '#244d78' }}>
                 Priorité : {orientationPrioritaire}
               </Typography>
@@ -2320,6 +2377,11 @@ function AssistantMissionPage() {
                           {item.identifiant}
                         </Typography>
                         <Chip size="small" color={item.statut === 'termine' ? 'success' : 'warning'} label={item.statut === 'termine' ? 'Terminé' : 'Brouillon'} />
+                        {item.alertesSuivi > 0 ? (
+                          <Chip size="small" color="error" label={`${item.alertesSuivi} alerte(s) M6`} />
+                        ) : (
+                          <Chip size="small" color="success" variant="outlined" label="Aucune alerte M6" />
+                        )}
                         {item.identifiant === identifiantDemandeur.trim() ? (
                           <Chip size="small" color="primary" variant="outlined" label="Ouvert actuellement" />
                         ) : null}
@@ -2349,6 +2411,10 @@ function AssistantMissionPage() {
               )}
             </Stack>
           </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab === 'suivi-obligations' ? (
+          <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
         ) : null}
 
         {workspaceTab === 'entretien' ? (
