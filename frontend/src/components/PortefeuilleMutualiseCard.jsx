@@ -39,7 +39,7 @@ const CONSIGNES_COLLECTIVES = [
   'Pour toute information sur le PRDVL, préciser le contact Ajaccio EM et la possibilité de passer par le site.',
 ]
 
-function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSituationOp2Change, onOpenSuiviM6 }) {
+function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSituationOp2Change, onOpenSuiviM6, suggestionCommentaire }) {
   const suivi = normaliserSuiviPortefeuilleMutualise(value)
   const file = getFilePortefeuilleMutualise(suivi.file)
   const codeOp2 = normaliserCodeSituationOp2(codeSituationOp2)
@@ -248,6 +248,30 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
                 )}
               />
             </Box>
+          ) : null}
+
+          {suggestionCommentaire ? (
+            <Alert
+              severity="info"
+              action={(
+                <Button
+                  size="small"
+                  onClick={() => onChange({
+                    ...suivi,
+                    commentaire: suivi.commentaire.trim()
+                      ? `${suivi.commentaire.trim()}\n${suggestionCommentaire}`
+                      : suggestionCommentaire,
+                  })}
+                >
+                  Insérer
+                </Button>
+              )}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25 }}>
+                Suggestion à partir du diagnostic
+              </Typography>
+              {suggestionCommentaire}
+            </Alert>
           ) : null}
 
           <TextField

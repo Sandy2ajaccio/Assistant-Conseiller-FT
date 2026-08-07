@@ -1328,6 +1328,10 @@ function AssistantMissionPage() {
       paragraphes.push(`Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`)
     }
 
+    if (suiviPortefeuilleMutualise.commentaire?.trim()) {
+      paragraphes.push(`Suivi et prochaine action convenus : ${suiviPortefeuilleMutualise.commentaire.trim()}`)
+    }
+
     const texteFormalites = buildFormalitesSynthese(formalitesEntretien)
     if (texteFormalites) paragraphes.push(texteFormalites)
 
@@ -1345,9 +1349,38 @@ function AssistantMissionPage() {
     analyseDemandeAutomatique.freins,
     actionsRetenues,
     formalitesEntretien,
+    suiviPortefeuilleMutualise.commentaire,
   ])
 
   const formalitesCompletes = formalitesEntretienCompletes(formalitesEntretien)
+
+  const suggestionSuiviPortefeuille = useMemo(() => {
+    const phrases = []
+    const actionsActives = actionsRetenues.filter((item) => !['Réalisé', 'Abandonné'].includes(item.suiviStatut))
+
+    if (actionsActives.length > 0) {
+      const libellesActions = actionsActives.slice(0, 3).map((item) => {
+        const echeance = item.echeanceAction
+          ? ` (échéance ${new Date(`${item.echeanceAction}T12:00:00`).toLocaleDateString('fr-FR')})`
+          : ''
+        return `${item.nom}${echeance}`
+      })
+      phrases.push(`Prochaine action : ${formatListeCourte(libellesActions)}.`)
+    } else {
+      phrases.push('Prochaine action : à définir avec la personne lors du prochain contact.')
+    }
+
+    if (capaciteAAgir.consequence) {
+      phrases.push(capaciteAAgir.consequence.replace(/^./, (c) => c.toUpperCase()))
+    }
+
+    if (freinsSelectionnes.length > 0 || analyseDemandeAutomatique.freins.length > 0) {
+      const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+      phrases.push(`Freins à surveiller : ${formatListeCourte(freinsSynthese)}.`)
+    }
+
+    return phrases.join(' ')
+  }, [actionsRetenues, capaciteAAgir.consequence, freinsSelectionnes, analyseDemandeAutomatique.freins])
 
   const controleCloture = useMemo(() => [
     { id: 'identifiant', label: 'Identifiant France Travail renseigné', ok: Boolean(identifiantDemandeur.trim()) },
@@ -2387,7 +2420,15 @@ function AssistantMissionPage() {
 
         <Paper
           variant="outlined"
-          sx={{ bgcolor: '#fff', borderRadius: 2, p: 1 }}
+          sx={{
+            position: 'sticky',
+            top: 8,
+            zIndex: 6,
+            bgcolor: 'rgba(255,255,255,0.97)',
+            borderRadius: 2,
+            p: 1,
+            boxShadow: '0 4px 16px rgba(15,35,65,0.12)',
+          }}
         >
           <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
             <Typography variant="caption" sx={{ fontWeight: 900, color: '#244d78', mr: 0.5 }}>
@@ -3105,6 +3146,7 @@ function AssistantMissionPage() {
             onChange={setSuiviPortefeuilleMutualise}
             codeSituationOp2={codeSituationOp2}
             onCodeSituationOp2Change={setCodeSituationOp2}
+            suggestionCommentaire={suggestionSuiviPortefeuille}
             onOpenSuiviM6={() => {
               const target = document.getElementById('section-suivi-obligations')
               if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
