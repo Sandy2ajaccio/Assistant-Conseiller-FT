@@ -345,6 +345,30 @@ const reformulerRecitPourDemandeur = (texteSource) => {
   }).join(', et ')
 }
 
+function SectionRepliable({ id, title, expanded, onChange, children }) {
+  return (
+    <Accordion
+      id={id}
+      disableGutters
+      expanded={expanded}
+      onChange={onChange}
+      sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, '&::before': { display: 'none' } }}
+    >
+      <AccordionSummary
+        expandIcon={<Typography sx={{ fontWeight: 900 }}>⌄</Typography>}
+        sx={{ minHeight: 46, px: 1.5, '& .MuiAccordionSummary-content': { my: 0.75 } }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78' }}>
+          {title}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ p: { xs: 1, md: 1.5 } }}>
+        {children}
+      </AccordionDetails>
+    </Accordion>
+  )
+}
+
 function AssistantMissionPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -358,6 +382,20 @@ function AssistantMissionPage() {
   const [portfolioImportStatus, setPortfolioImportStatus] = useState('')
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
+  const [sectionsOuvertes, setSectionsOuvertes] = useState({
+    explorationGuidee: true,
+    listesDiagnostic: true,
+    orientationReseau: true,
+    offreServices: true,
+    synthese: true,
+    portefeuilleMutualise: true,
+    suiviObligations: true,
+    faisceauCre: true,
+  })
+
+  const basculerSection = (sectionId) => (_, expanded) => {
+    setSectionsOuvertes((previous) => ({ ...previous, [sectionId]: expanded }))
+  }
   const [situationAdministrative, setSituationAdministrative] = useState('')
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
@@ -2725,9 +2763,11 @@ function AssistantMissionPage() {
         ) : null}
 
         {workspaceTab !== 'sauvegardes' && questionCourante ? (
-          <Paper
-            variant="outlined"
-            sx={{ p: 1.25, borderLeft: '6px solid #6a1b9a', bgcolor: '#fbf7ff' }}
+          <SectionRepliable
+            id="explorationGuidee"
+            title="Exploration guidée"
+            expanded={sectionsOuvertes.explorationGuidee}
+            onChange={basculerSection('explorationGuidee')}
           >
             <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }}>
               <Box sx={{ flex: 1 }}>
@@ -2785,12 +2825,18 @@ function AssistantMissionPage() {
                 {questionCouranteOuverte ? 'Enregistrer et continuer' : 'Suivante'}
               </Button>
             </Stack>
-          </Paper>
+          </SectionRepliable>
         ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
-          <CockpitBlockCard
+          <SectionRepliable
+            id="listesDiagnostic"
             title="Listes du diagnostic — sélection multiple"
+            expanded={sectionsOuvertes.listesDiagnostic}
+            onChange={basculerSection('listesDiagnostic')}
+          >
+            <CockpitBlockCard
+              title="Listes du diagnostic — sélection multiple"
             subtitle="Ouvrez chaque menu puis cochez autant d’éléments que nécessaire. Vos choix alimentent immédiatement le diagnostic et les recommandations."
             sx={{ borderTop: '6px solid #ed6c02', bgcolor: '#fffdf8' }}
             detailsSx={{ p: { xs: 1.25, md: 2 } }}
@@ -2837,15 +2883,23 @@ function AssistantMissionPage() {
                 />
               </Grid>
             </Grid>
-          </CockpitBlockCard>
+            </CockpitBlockCard>
+          </SectionRepliable>
         ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
-          <OrientationReseauCard
+          <SectionRepliable
+            id="orientationReseau"
+            title="Orientation réseau pour l’emploi"
+            expanded={sectionsOuvertes.orientationReseau}
+            onChange={basculerSection('orientationReseau')}
+          >
+            <OrientationReseauCard
             value={orientationReseau}
             onChange={setOrientationReseau}
-            obligatoire={estEntretienOrientation(typeEntretien)}
-          />
+              obligatoire={estEntretienOrientation(typeEntretien)}
+            />
+          </SectionRepliable>
         ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
@@ -2939,10 +2993,13 @@ function AssistantMissionPage() {
 
         {workspaceTab === 'sauvegardes' ? null : (<>
         <Box id="section-prescriptions" sx={{ scrollMarginTop: '90px' }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
-            Offre de services
-          </Typography>
-          <CockpitBlockCard
+          <SectionRepliable
+            id="offreServices"
+            title="Offre de services"
+            expanded={sectionsOuvertes.offreServices}
+            onChange={basculerSection('offreServices')}
+          >
+            <CockpitBlockCard
             title="Tableau de bord de l’offre de services"
             subtitle="Toute l'offre de service, les alertes et les conditions de prescription visibles sur un seul écran."
             detailsSx={{ p: { xs: 1, md: 1.5 } }}
@@ -2959,14 +3016,18 @@ function AssistantMissionPage() {
                 ))
               }}
             />
-          </CockpitBlockCard>
+            </CockpitBlockCard>
+          </SectionRepliable>
         </Box>
 
         <Box id="section-synthese" sx={{ scrollMarginTop: '90px' }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
-            Synthèse d’entretien
-          </Typography>
-          <CockpitBlockCard
+          <SectionRepliable
+            id="synthese"
+            title="Synthèse d’entretien"
+            expanded={sectionsOuvertes.synthese}
+            onChange={basculerSection('synthese')}
+          >
+            <CockpitBlockCard
             title="Synthèse automatique à destination de la personne accompagnée"
             subtitle="Le texte se met à jour automatiquement à partir des informations saisies pendant l’entretien."
             sx={{ minHeight: 520 }}
@@ -3134,14 +3195,18 @@ function AssistantMissionPage() {
                 </Typography>
               ) : null}
             </Stack>
-          </CockpitBlockCard>
+            </CockpitBlockCard>
+          </SectionRepliable>
         </Box>
 
         <Box id="section-portefeuille-mutualise" sx={{ scrollMarginTop: '90px' }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
-            Portefeuille mutualisé
-          </Typography>
-          <PortefeuilleMutualiseCard
+          <SectionRepliable
+            id="portefeuilleMutualise"
+            title="Portefeuille mutualisé"
+            expanded={sectionsOuvertes.portefeuilleMutualise}
+            onChange={basculerSection('portefeuilleMutualise')}
+          >
+            <PortefeuilleMutualiseCard
             value={suiviPortefeuilleMutualise}
             onChange={setSuiviPortefeuilleMutualise}
             codeSituationOp2={codeSituationOp2}
@@ -3151,21 +3216,30 @@ function AssistantMissionPage() {
               const target = document.getElementById('section-suivi-obligations')
               if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
-          />
+            />
+          </SectionRepliable>
         </Box>
 
         <Box id="section-suivi-obligations" sx={{ scrollMarginTop: '90px' }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
-            Suivi obligations
-          </Typography>
-          <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
+          <SectionRepliable
+            id="suiviObligations"
+            title="Suivi obligations"
+            expanded={sectionsOuvertes.suiviObligations}
+            onChange={basculerSection('suiviObligations')}
+          >
+            <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
+          </SectionRepliable>
         </Box>
 
         <Box id="section-remobilisation" sx={{ scrollMarginTop: '90px' }}>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
-            Faisceau CRE
-          </Typography>
-          <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
+          <SectionRepliable
+            id="faisceauCre"
+            title="Faisceau CRE"
+            expanded={sectionsOuvertes.faisceauCre}
+            onChange={basculerSection('faisceauCre')}
+          >
+            <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
+          </SectionRepliable>
         </Box>
 
         <Box id="section-gestion-de" sx={{ scrollMarginTop: '90px' }}>
