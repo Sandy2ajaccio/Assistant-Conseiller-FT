@@ -19,13 +19,26 @@ export const SOURCES_SANCTIONS = [
   },
 ]
 
+// Référentiel interne (support visuel du barème Corse), conservé dans le dépôt
+// à titre indicatif pour le conseiller — ne pilote aucun calcul automatique.
+export const REFERENTIEL_BAREME_CORSE = {
+  label: 'Barème de sanction Corse — applicable au 1er juin 2025 (hors RSA et RSA)',
+  chemin: 'docs/referentiels/Bareme_sanctions_Corse_2025-06-01.jpg',
+}
+
 export const SITUATIONS_DROITS = [
   { value: 'a-confirmer', label: 'Situation à confirmer' },
   { value: 'droit-ouvert', label: 'Revenu de remplacement ou allocation ouvert' },
-  { value: 'rsa-droits-devoirs', label: 'RSA soumis aux droits et devoirs' },
+  { value: 'rsa-isole-droits-devoirs', label: 'RSA isolé, soumis aux droits et devoirs' },
+  { value: 'rsa-plus-un-droits-devoirs', label: 'RSA avec plus d’un enfant/personne à charge, soumis aux droits et devoirs' },
   { value: 'rsa-hors-droits-devoirs', label: 'RSA non soumis aux droits et devoirs' },
   { value: 'sans-droit', label: 'Sans revenu de remplacement, allocation ni RSA' },
 ]
+
+// Conservée pour compatibilité ascendante : certains enregistrements existants
+// portent encore la valeur générique 'rsa-droits-devoirs' avant la distinction
+// isolé / plus d'un enfant introduite avec le barème Corse.
+const SITUATION_DROITS_HERITEE = 'rsa-droits-devoirs'
 
 export const FAITS_SUIVI = [
   { value: 'aucun', label: 'Aucun fait à signaler', codeInterne: '' },
@@ -84,7 +97,9 @@ export const DEFAULT_SUIVI_OBLIGATIONS = {
 }
 
 const faitExiste = (value) => FAITS_SUIVI.some((item) => item.value === value)
-const situationExiste = (value) => SITUATIONS_DROITS.some((item) => item.value === value)
+const situationExiste = (value) => (
+  SITUATIONS_DROITS.some((item) => item.value === value) || value === SITUATION_DROITS_HERITEE
+)
 const recurrenceExiste = (value) => RECURRENCES.some((item) => item.value === value)
 const motifExiste = (value) => MOTIFS_LEGITIMES.some((item) => item.value === value)
 
@@ -168,6 +183,47 @@ export const genererAlertesSuivi = (value = {}) => {
       niveau: 'error',
       titre: 'Ne pas appliquer le circuit de sanctions RSA du contrat',
       message: 'L’article R. 262-68-7 exclut ce régime pour une personne RSA non soumise aux droits et devoirs. Confirmer tout autre traitement avec la procédure interne.',
+    })
+  }
+
+  if (suivi.situationDroits === SITUATION_DROITS_HERITEE) {
+    alertes.push({
+      id: 'rsa-composition-a-preciser',
+      niveau: 'warning',
+      titre: 'Composition du foyer RSA à préciser',
+      message: 'Le barème Corse distingue le taux et la durée proposés selon que la personne est RSA isolé ou RSA avec plus d’un enfant/personne à charge. Mettre à jour la situation de droits avant de poursuivre.',
+    })
+  }
+
+  if (
+    (suivi.situationDroits === 'rsa-isole-droits-devoirs' || suivi.situationDroits === 'rsa-plus-un-droits-devoirs')
+    && (suivi.fait === 'obligations-contrat' || suivi.fait === 'refus-contrat')
+  ) {
+    alertes.push({
+      id: 'rsa-colonne-bareme',
+      niveau: 'info',
+      titre: suivi.situationDroits === 'rsa-isole-droits-devoirs'
+        ? 'Colonne « RSA isolé » du barème Corse'
+        : 'Colonne « RSA plus d’un enfant/personne à charge » du barème Corse',
+      message: 'Le taux et la durée proposés à la CDC diffèrent selon la composition du foyer (RSA isolé ou non). Vérifier la colonne correspondante du barème applicable au 1er juin 2025 avant toute proposition ; ce module ne calcule pas la valeur.',
+    })
+  }
+
+  if (suivi.situationDroits === 'sans-droit') {
+    alertes.push({
+      id: 'de-sans-droit-ouvert',
+      niveau: 'info',
+      titre: 'Colonne « DE sans droit ouvert » du barème Corse',
+      message: 'Pour un demandeur d’emploi sans revenu de remplacement, allocation ni RSA, le barème prévoit un traitement distinct (avertissement puis radiation selon le fait et le rang). Vérifier la colonne dédiée avant toute décision.',
+    })
+  }
+
+  if (suivi.fait === 'second-refus-ore' && (suivi.situationDroits === 'rsa-isole-droits-devoirs' || suivi.situationDroits === 'rsa-plus-un-droits-devoirs' || suivi.situationDroits === SITUATION_DROITS_HERITEE)) {
+    alertes.push({
+      id: 'second-refus-ore-brsa',
+      niveau: 'info',
+      titre: 'BRSA : traitement aligné sur le manquement aux obligations du contrat',
+      message: 'Pour un bénéficiaire du RSA soumis aux droits et devoirs, le barème Corse renvoie au même traitement que le manquement aux obligations du contrat d’engagement plutôt qu’à un régime spécifique au second refus d’ORE.',
     })
   }
 

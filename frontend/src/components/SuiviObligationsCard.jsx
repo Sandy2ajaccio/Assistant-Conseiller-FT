@@ -17,6 +17,7 @@ import {
   FAITS_SUIVI,
   MOTIFS_LEGITIMES,
   RECURRENCES,
+  REFERENTIEL_BAREME_CORSE,
   SITUATIONS_DROITS,
   SOURCES_SANCTIONS,
   compterAlertesActionnables,
@@ -193,6 +194,10 @@ function SuiviObligationsCard({ value, onChange }) {
               </Link>
             ))}
           </Stack>
+
+          <Typography variant="caption" color="text.secondary">
+            Référentiel interne : {REFERENTIEL_BAREME_CORSE.label} ({REFERENTIEL_BAREME_CORSE.chemin}).
+          </Typography>
         </Stack>
       </Paper>
     </Stack>
