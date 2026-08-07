@@ -39,12 +39,13 @@ import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
 import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
+import PortfolioManagementPanel from '../components/PortfolioManagementPanel'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
-import { listPortfolioRecords } from '../services/portfolioImportService'
+import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
 import {
   buildFormalitesSynthese,
   DEFAULT_FORMALITES_ENTRETIEN,
@@ -351,7 +352,10 @@ function AssistantMissionPage() {
   const ignorerProchaineSauvegardeRef = useRef(false)
   const chronoDepartRef = useRef(null)
   const chronoBaseSecondesRef = useRef(0)
+  const portfolioFileInputRef = useRef(null)
 
+  const [portfolioVersion, setPortfolioVersion] = useState(0)
+  const [portfolioImportStatus, setPortfolioImportStatus] = useState('')
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
   const [situationAdministrative, setSituationAdministrative] = useState('')
@@ -2018,6 +2022,25 @@ function AssistantMissionPage() {
     nouveauDossier()
   }
 
+  const handlePortfolioImport = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPortfolioImportStatus('Import en cours…')
+    try {
+      const result = await importPortfolioWorkbook(file)
+      setPortfolioVersion((value) => value + 1)
+      setPortfolioImportStatus(
+        `${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
+        + `${result.unchanged} inchangée(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
+        + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
+      )
+    } catch (error) {
+      setPortfolioImportStatus(error.message || 'Import impossible.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
   const dupliquerAnalyse = () => {
     const duplicatedId = `${identifiantDemandeur || 'dossier'}-copie`
     const result = saveStoredDossier(duplicatedId, buildSnapshot())
@@ -2377,6 +2400,7 @@ function AssistantMissionPage() {
               ['section-portefeuille-mutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})` : 'Portefeuille mutualisé'],
               ['section-suivi-obligations', nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'],
               ['section-remobilisation', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
+              ['section-gestion-de', 'Gestion des demandeurs'],
             ].map(([anchorId, label]) => (
               <Chip
                 key={anchorId}
@@ -2388,14 +2412,21 @@ function AssistantMissionPage() {
                 sx={{ fontWeight: 700 }}
               />
             ))}
+            <input
+              ref={portfolioFileInputRef}
+              hidden
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handlePortfolioImport}
+            />
             <Button
               size="small"
               variant="outlined"
               color="success"
-              onClick={() => navigate('/prescriptions')}
+              onClick={() => portfolioFileInputRef.current?.click()}
               sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap' }}
             >
-              Import / export Excel
+              Importer un fichier Excel
             </Button>
             <Button
               size="small"
@@ -2411,6 +2442,11 @@ function AssistantMissionPage() {
               {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes automatiques'}
             </Button>
           </Stack>
+          {portfolioImportStatus ? (
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#173f67', fontWeight: 700 }}>
+              {portfolioImportStatus}
+            </Typography>
+          ) : null}
         </Paper>
 
         {workspaceTab !== 'sauvegardes' ? (
@@ -3088,6 +3124,16 @@ function AssistantMissionPage() {
             Faisceau CRE
           </Typography>
           <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
+        </Box>
+
+        <Box id="section-gestion-de" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Gestion des demandeurs
+          </Typography>
+          <PortfolioManagementPanel
+            portfolioVersion={portfolioVersion}
+            onPortfolioChanged={() => setPortfolioVersion((value) => value + 1)}
+          />
         </Box>
         </>)}
 
