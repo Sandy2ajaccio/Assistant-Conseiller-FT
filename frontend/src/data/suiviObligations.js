@@ -1,3 +1,5 @@
+import { REGION_NON_DEFINIE, getRegionBareme } from './regionsBareme.js'
+
 export const DATE_ENTREE_VIGUEUR_SANCTIONS = '2025-06-01'
 
 export const SOURCES_SANCTIONS = [
@@ -18,13 +20,6 @@ export const SOURCES_SANCTIONS = [
     url: 'https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000051678839',
   },
 ]
-
-// Référentiel interne (support visuel du barème Corse), conservé dans le dépôt
-// à titre indicatif pour le conseiller — ne pilote aucun calcul automatique.
-export const REFERENTIEL_BAREME_CORSE = {
-  label: 'Barème de sanction Corse — applicable au 1er juin 2025 (hors RSA et RSA)',
-  chemin: 'docs/referentiels/Bareme_sanctions_Corse_2025-06-01.jpg',
-}
 
 export const SITUATIONS_DROITS = [
   { value: 'a-confirmer', label: 'Situation à confirmer' },
@@ -152,9 +147,13 @@ const reperesJuridiques = {
   },
 }
 
-export const genererAlertesSuivi = (value = {}) => {
+export const genererAlertesSuivi = (value = {}, regionValue = REGION_NON_DEFINIE) => {
   const suivi = normaliserSuiviObligations(value)
   if (suivi.fait === 'aucun') return []
+
+  const region = getRegionBareme(regionValue)
+  const bareme = region.disponible ? region.referentiel : null
+  const nomBareme = bareme ? `barème ${region.label}` : null
 
   const alertes = []
   const repere = reperesJuridiques[suivi.fait]
@@ -165,6 +164,15 @@ export const genererAlertesSuivi = (value = {}) => {
       niveau: 'info',
       titre: `Repère juridique — ${repere.references}`,
       message: repere.texte,
+    })
+  }
+
+  if (!region.disponible) {
+    alertes.push({
+      id: 'region-bareme-non-definie',
+      niveau: 'warning',
+      titre: 'Région du barème non définie ou non disponible',
+      message: 'Sélectionner la région applicable dans les Paramètres pour afficher le référentiel de barème correspondant. Sans cette information, seuls les repères juridiques nationaux sont proposés.',
     })
   }
 
@@ -191,7 +199,9 @@ export const genererAlertesSuivi = (value = {}) => {
       id: 'rsa-composition-a-preciser',
       niveau: 'warning',
       titre: 'Composition du foyer RSA à préciser',
-      message: 'Le barème Corse distingue le taux et la durée proposés selon que la personne est RSA isolé ou RSA avec plus d’un enfant/personne à charge. Mettre à jour la situation de droits avant de poursuivre.',
+      message: nomBareme
+        ? `Le ${nomBareme} distingue le taux et la durée proposés selon que la personne est RSA isolé ou RSA avec plus d’un enfant/personne à charge. Mettre à jour la situation de droits avant de poursuivre.`
+        : 'Certains barèmes régionaux distinguent le taux et la durée proposés selon que la personne est RSA isolé ou RSA avec plus d’un enfant/personne à charge. Mettre à jour la situation de droits avant de poursuivre.',
     })
   }
 
@@ -199,13 +209,14 @@ export const genererAlertesSuivi = (value = {}) => {
     (suivi.situationDroits === 'rsa-isole-droits-devoirs' || suivi.situationDroits === 'rsa-plus-un-droits-devoirs')
     && (suivi.fait === 'obligations-contrat' || suivi.fait === 'refus-contrat')
   ) {
+    const colonne = suivi.situationDroits === 'rsa-isole-droits-devoirs' ? 'RSA isolé' : 'RSA plus d’un enfant/personne à charge'
     alertes.push({
       id: 'rsa-colonne-bareme',
       niveau: 'info',
-      titre: suivi.situationDroits === 'rsa-isole-droits-devoirs'
-        ? 'Colonne « RSA isolé » du barème Corse'
-        : 'Colonne « RSA plus d’un enfant/personne à charge » du barème Corse',
-      message: 'Le taux et la durée proposés à la CDC diffèrent selon la composition du foyer (RSA isolé ou non). Vérifier la colonne correspondante du barème applicable au 1er juin 2025 avant toute proposition ; ce module ne calcule pas la valeur.',
+      titre: nomBareme ? `Colonne « ${colonne} » du ${nomBareme}` : `Colonne « ${colonne} » du barème régional`,
+      message: nomBareme
+        ? `Le taux et la durée proposés à la CDC diffèrent selon la composition du foyer (RSA isolé ou non). Vérifier la colonne correspondante du ${nomBareme} (${region.referentiel.chemin}) avant toute proposition ; ce module ne calcule pas la valeur.`
+        : 'Le taux et la durée proposés à la CDC diffèrent selon la composition du foyer (RSA isolé ou non). Sélectionner la région applicable dans les Paramètres pour retrouver le référentiel correspondant ; ce module ne calcule pas la valeur.',
     })
   }
 
@@ -213,8 +224,10 @@ export const genererAlertesSuivi = (value = {}) => {
     alertes.push({
       id: 'de-sans-droit-ouvert',
       niveau: 'info',
-      titre: 'Colonne « DE sans droit ouvert » du barème Corse',
-      message: 'Pour un demandeur d’emploi sans revenu de remplacement, allocation ni RSA, le barème prévoit un traitement distinct (avertissement puis radiation selon le fait et le rang). Vérifier la colonne dédiée avant toute décision.',
+      titre: nomBareme ? `Colonne « DE sans droit ouvert » du ${nomBareme}` : 'Colonne « DE sans droit ouvert » du barème régional',
+      message: nomBareme
+        ? `Pour un demandeur d’emploi sans revenu de remplacement, allocation ni RSA, le ${nomBareme} prévoit un traitement distinct (avertissement puis radiation selon le fait et le rang). Vérifier la colonne dédiée (${region.referentiel.chemin}) avant toute décision.`
+        : 'Pour un demandeur d’emploi sans revenu de remplacement, allocation ni RSA, le traitement diffère selon le barème régional. Sélectionner la région applicable dans les Paramètres avant toute décision.',
     })
   }
 
@@ -223,7 +236,9 @@ export const genererAlertesSuivi = (value = {}) => {
       id: 'second-refus-ore-brsa',
       niveau: 'info',
       titre: 'BRSA : traitement aligné sur le manquement aux obligations du contrat',
-      message: 'Pour un bénéficiaire du RSA soumis aux droits et devoirs, le barème Corse renvoie au même traitement que le manquement aux obligations du contrat d’engagement plutôt qu’à un régime spécifique au second refus d’ORE.',
+      message: nomBareme
+        ? `Pour un bénéficiaire du RSA soumis aux droits et devoirs, le ${nomBareme} renvoie au même traitement que le manquement aux obligations du contrat d’engagement plutôt qu’à un régime spécifique au second refus d’ORE.`
+        : 'Pour un bénéficiaire du RSA soumis aux droits et devoirs, certains barèmes régionaux renvoient au même traitement que le manquement aux obligations du contrat d’engagement plutôt qu’à un régime spécifique au second refus d’ORE. Vérifier le barème de la région applicable.',
     })
   }
 
@@ -268,13 +283,15 @@ export const genererAlertesSuivi = (value = {}) => {
       id: 'procedure-interne',
       niveau: 'error',
       titre: 'Procédure interne France Travail non confirmée',
-      message: 'Consulter la procédure M6 en vigueur et le barème Corse actualisé avant toute action. Le support fourni est daté du 1er juin 2025.',
+      message: nomBareme
+        ? `Consulter la procédure M6 en vigueur et le ${nomBareme} avant toute action. Le support fourni est daté du ${region.referentiel.dateApplication}.`
+        : 'Consulter la procédure M6 en vigueur et le barème régional applicable avant toute action.',
     })
   }
 
   return alertes
 }
 
-export const compterAlertesActionnables = (value = {}) => (
-  genererAlertesSuivi(value).filter((alerte) => alerte.niveau !== 'info').length
+export const compterAlertesActionnables = (value = {}, regionValue = REGION_NON_DEFINIE) => (
+  genererAlertesSuivi(value, regionValue).filter((alerte) => alerte.niveau !== 'info').length
 )

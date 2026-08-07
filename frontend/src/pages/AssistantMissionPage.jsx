@@ -70,6 +70,7 @@ import {
   genererAlertesSuivi,
   normaliserSuiviObligations,
 } from '../data/suiviObligations'
+import { lireRegionBaremePreferee } from '../data/regionsBareme'
 import {
   DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE,
   NOM_PORTEFEUILLE_MUTUALISE,
@@ -419,13 +420,14 @@ function AssistantMissionPage() {
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
+  const regionBaremePreferee = useMemo(() => lireRegionBaremePreferee(), [])
   const alertesSuiviObligations = useMemo(
-    () => genererAlertesSuivi(suiviObligations),
-    [suiviObligations],
+    () => genererAlertesSuivi(suiviObligations, regionBaremePreferee),
+    [suiviObligations, regionBaremePreferee],
   )
   const nombreAlertesSuivi = useMemo(
-    () => compterAlertesActionnables(suiviObligations),
-    [suiviObligations],
+    () => compterAlertesActionnables(suiviObligations, regionBaremePreferee),
+    [suiviObligations, regionBaremePreferee],
   )
   const nombreAlertesPortefeuille = useMemo(
     () => compterAlertesPortefeuilleMutualise(suiviPortefeuilleMutualise) + (codeSituationOp2 ? 0 : 1),

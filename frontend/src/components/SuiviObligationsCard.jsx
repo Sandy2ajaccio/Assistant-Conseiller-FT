@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Alert,
   Box,
@@ -17,7 +18,6 @@ import {
   FAITS_SUIVI,
   MOTIFS_LEGITIMES,
   RECURRENCES,
-  REFERENTIEL_BAREME_CORSE,
   SITUATIONS_DROITS,
   SOURCES_SANCTIONS,
   compterAlertesActionnables,
@@ -25,17 +25,32 @@ import {
   getFaitSuivi,
   normaliserSuiviObligations,
 } from '../data/suiviObligations'
+import {
+  REGISTRE_BAREMES_REGIONAUX,
+  ecrireRegionBaremePreferee,
+  getRegionBareme,
+  lireRegionBaremePreferee,
+} from '../data/regionsBareme'
 
 function SuiviObligationsCard({ value, onChange }) {
+  const [regionValue, setRegionValue] = useState(() => lireRegionBaremePreferee())
+  const region = getRegionBareme(regionValue)
+
   const suivi = normaliserSuiviObligations(value)
   const fait = getFaitSuivi(suivi.fait)
-  const alertes = genererAlertesSuivi(suivi)
-  const alertesActionnables = compterAlertesActionnables(suivi)
+  const alertes = genererAlertesSuivi(suivi, regionValue)
+  const alertesActionnables = compterAlertesActionnables(suivi, regionValue)
   const update = (field) => (event) => {
     const nextValue = field === 'procedureInterneConfirmee'
       ? event.target.checked
       : event.target.value
     onChange({ ...suivi, [field]: nextValue })
+  }
+
+  const changerRegion = (event) => {
+    const nextRegion = event.target.value
+    setRegionValue(nextRegion)
+    ecrireRegionBaremePreferee(nextRegion)
   }
 
   return (
@@ -52,7 +67,8 @@ function SuiviObligationsCard({ value, onChange }) {
                 Suivi des obligations et alertes M6
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Régime national applicable depuis le {new Date(`${DATE_ENTREE_VIGUEUR_SANCTIONS}T12:00:00`).toLocaleDateString('fr-FR')} ; barème Corse fourni daté du 1er juin 2025.
+                Régime national applicable depuis le {new Date(`${DATE_ENTREE_VIGUEUR_SANCTIONS}T12:00:00`).toLocaleDateString('fr-FR')}
+                {region.disponible ? ` ; ${region.referentiel.label}.` : ' ; aucune région de barème sélectionnée.'}
               </Typography>
             </Box>
             <Chip
@@ -65,6 +81,22 @@ function SuiviObligationsCard({ value, onChange }) {
               sx={{ fontWeight: 900, alignSelf: { md: 'flex-start' } }}
             />
           </Stack>
+
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Région du barème applicable"
+            value={regionValue}
+            onChange={changerRegion}
+            helperText="Réglage global de l’application, modifiable aussi depuis Paramètres."
+          >
+            {REGISTRE_BAREMES_REGIONAUX.map((item) => (
+              <MenuItem key={item.value} value={item.value} disabled={!item.disponible && item.value !== regionValue}>
+                {item.label}{!item.disponible ? ' (barème non disponible)' : ''}
+              </MenuItem>
+            ))}
+          </TextField>
 
           <Grid container spacing={1.25}>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -162,7 +194,7 @@ function SuiviObligationsCard({ value, onChange }) {
                     onChange={update('procedureInterneConfirmee')}
                   />
                 )}
-                label="J’ai vérifié la procédure M6 et le barème Corse actuellement en vigueur"
+                label="J’ai vérifié la procédure M6 et le barème régional actuellement en vigueur"
               />
             </Grid>
           </Grid>
@@ -196,7 +228,9 @@ function SuiviObligationsCard({ value, onChange }) {
           </Stack>
 
           <Typography variant="caption" color="text.secondary">
-            Référentiel interne : {REFERENTIEL_BAREME_CORSE.label} ({REFERENTIEL_BAREME_CORSE.chemin}).
+            {region.disponible
+              ? `Référentiel interne : ${region.referentiel.label} (${region.referentiel.chemin}).`
+              : 'Aucun référentiel régional sélectionné : choisir la région applicable ci-dessus ou dans Paramètres.'}
           </Typography>
         </Stack>
       </Paper>
