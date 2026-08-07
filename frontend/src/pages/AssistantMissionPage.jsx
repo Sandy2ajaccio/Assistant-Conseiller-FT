@@ -2406,6 +2406,35 @@ function AssistantMissionPage() {
         </Paper>
 
         {workspaceTab !== 'sauvegardes' ? (
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              borderRadius: 2,
+              bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6',
+              border: '1px solid',
+              borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d',
+            }}
+          >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} justifyContent="space-between">
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 900, color: dossierCoherentEtComplet ? '#1f6b36' : '#9a5100', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  {dossierCoherentEtComplet ? '✓ Dossier prêt' : 'À faire maintenant'}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {dossierCoherentEtComplet
+                    ? 'Dossier complet, cohérent et prêt à être clôturé.'
+                    : (controleDecision.bloquants > 0 ? controleDecision.prochaineAction : controleCloture.find((item) => !item.ok)?.label) || 'Compléter la demande exprimée pour démarrer.'}
+                </Typography>
+              </Box>
+              <Button size="small" variant="outlined" component="a" href="#section-cloture" sx={{ whiteSpace: 'nowrap' }}>
+                Voir le détail et clôturer ↓
+              </Button>
+            </Stack>
+          </Box>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' ? (
           <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd' }} id="section-entretien">
             <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
               <Chip size="small" color={missionCompletion >= 70 ? 'success' : missionCompletion >= 40 ? 'warning' : 'default'} label={`Complétude ${missionCompletion}%`} />
@@ -3566,7 +3595,7 @@ function AssistantMissionPage() {
                   </Button>
                 </Grid>
               </Grid>
-              <Box sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d' }}>
+              <Box id="section-cloture" sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d' }}>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }} justifyContent="space-between">
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierCoherentEtComplet ? '#1f6b36' : '#9a5100' }}>
