@@ -243,7 +243,8 @@ const PrescriptionsPage = () => {
                 value={dossiers.find((item) => item.identifiant === selectedDossierId) || null}
                 onChange={(_, value) => setSelectedDossierId(value?.identifiant || '')}
                 getOptionLabel={(item) => {
-                  const identity = [item.portfolioRecord?.nom, item.portfolioRecord?.prenom].filter(Boolean).join(' ')
+                  const identity = [item.portfolioRecord?.civilite, item.portfolioRecord?.nom, item.portfolioRecord?.prenom]
+                    .filter(Boolean).join(' ')
                   const age = item.portfolioRecord?.age ? ` · ${item.portfolioRecord.age} ans` : ''
                   return `${identity ? `${identity} — ` : ''}${item.identifiant}${age}`
                 }}

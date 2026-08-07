@@ -135,8 +135,17 @@ const readProfiles = (row) => {
   return [...profiles]
 }
 
+const normaliserCivilite = (value) => {
+  const raw = text(value).toLowerCase()
+  if (!raw) return ''
+  if (raw.startsWith('mme') || raw.startsWith('mad')) return 'Mme'
+  if (raw.startsWith('mr') || raw.startsWith('m.') || raw.startsWith('mons')) return 'Mr'
+  return ''
+}
+
 const mapRow = (row) => ({
   priorite: readValue(row, 'Priorité'),
+  civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
   nom: readValue(row, 'Nom'),
   prenom: readValue(row, 'Prénom'),
   identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
@@ -207,18 +216,19 @@ export const listPortfolioRecords = () => {
     byId.set(record.identifiant, record)
   })
   return [...byId.values()].sort((a, b) =>
-    `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'),
+    text(a.identifiant).localeCompare(text(b.identifiant), 'fr'),
   )
 }
 
 export const savePortfolioRecord = async (record) => {
   const identifiant = normalizeIdentifier(record?.identifiant)
+  const civilite = text(record?.civilite)
   const nom = text(record?.nom)
   const prenom = text(record?.prenom)
   const age = numberOrEmpty(record?.age)
 
-  if (!identifiant) throw new Error('L’identifiant France Travail est obligatoire.')
-  if (!nom || !prenom) throw new Error('Le nom et le prénom sont obligatoires.')
+  if (!identifiant) throw new Error('Le numéro France Travail est obligatoire.')
+  if (!civilite) throw new Error('La civilité (Mr ou Mme) est obligatoire.')
   if (age === '' || age < 16 || age > 100) throw new Error('Indiquez un âge compris entre 16 et 100 ans.')
 
   const previous = deduplicateRecords(readImportedRecords())
@@ -227,6 +237,7 @@ export const savePortfolioRecord = async (record) => {
   const savedRecord = mergeNonEmptyFields(existing, {
     ...record,
     identifiant,
+    civilite,
     nom,
     prenom,
     age,
@@ -330,6 +341,15 @@ const recordMatchesExportFilters = (record, filters = {}) => {
   return true
 }
 
+export const getRetirementAlertLevel = (record) => {
+  const months = monthsUntil(record?.dateRetraitePrevisionnelle)
+  if (months === null) return null
+  if (months < 0) return 'depassee'
+  if (months <= 12 && months >= 6) return 'proche'
+  if (months < 6) return 'imminente'
+  return null
+}
+
 export const countPortfolioRecordsForExport = (filters = {}) =>
   listPortfolioRecords().filter((record) => recordMatchesExportFilters(record, filters)).length
 
@@ -339,6 +359,7 @@ export const exportPortfolioWorkbook = (filters = {}) => {
 
   const rows = records.map((record) => ({
     Identifiant: record.identifiant,
+    Civilité: record.civilite,
     Nom: record.nom,
     Prénom: record.prenom,
     Âge: record.age,
@@ -380,9 +401,9 @@ export const importPortfolioWorkbook = async (file) => {
   if (!sheet) throw new Error('Le classeur ne contient aucune feuille exploitable.')
 
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
-  const mapped = rows.map(mapRow).filter((record) => record.identifiant && (record.nom || record.prenom))
+  const mapped = rows.map(mapRow).filter((record) => record.identifiant)
   if (mapped.length === 0) {
-    throw new Error('Aucun demandeur reconnu. Vérifiez les colonnes Nom, Prénom et Identifiant.')
+    throw new Error('Aucun demandeur reconnu. Vérifiez la colonne Identifiant (numéro France Travail).')
   }
 
   const previous = deduplicateRecords(readImportedRecords())

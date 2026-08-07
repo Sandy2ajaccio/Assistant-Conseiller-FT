@@ -2390,6 +2390,15 @@ function AssistantMissionPage() {
             ))}
             <Button
               size="small"
+              variant="outlined"
+              color="success"
+              onClick={() => navigate('/prescriptions')}
+              sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap' }}
+            >
+              Import / export Excel
+            </Button>
+            <Button
+              size="small"
               variant={workspaceTab === 'sauvegardes' ? 'contained' : 'outlined'}
               onClick={() => {
                 if (workspaceTab === 'sauvegardes') {
@@ -2398,7 +2407,6 @@ function AssistantMissionPage() {
                   ouvrirListeAnalyses()
                 }
               }}
-              sx={{ ml: { md: 'auto' } }}
             >
               {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes automatiques'}
             </Button>

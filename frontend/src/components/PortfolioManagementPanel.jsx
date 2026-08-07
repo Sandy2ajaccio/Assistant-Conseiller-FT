@@ -5,22 +5,37 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   FormControlLabel,
   MenuItem,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
 import {
   countPortfolioRecordsForExport,
   exportPortfolioWorkbook,
+  getRetirementAlertLevel,
+  listPortfolioRecords,
   PORTFOLIO_PROFILE_OPTIONS,
   savePortfolioRecord,
 } from '../services/portfolioImportService'
 
+const RETIREMENT_ALERT_STYLES = {
+  imminente: { label: 'Retraite < 6 mois', color: 'error' },
+  proche: { label: 'Retraite 6-12 mois', color: 'warning' },
+  depassee: { label: 'Date dépassée', color: 'default' },
+}
+
 const emptyRecord = {
   identifiant: '',
+  civilite: '',
   nom: '',
   prenom: '',
   age: '',
@@ -46,6 +61,11 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
   const exportCount = useMemo(
     () => countPortfolioRecordsForExport(filters),
     [filters, portfolioVersion],
+  )
+
+  const allRecords = useMemo(
+    () => listPortfolioRecords(),
+    [portfolioVersion],
   )
 
   const updateRecord = (field) => (event) => {
@@ -102,9 +122,11 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               alignItems: 'start',
             }}
           >
-            <TextField fullWidth required size="small" label="Identifiant France Travail" value={record.identifiant} onChange={updateRecord('identifiant')} />
-            <TextField fullWidth required size="small" label="Nom" value={record.nom} onChange={updateRecord('nom')} />
-            <TextField fullWidth required size="small" label="Prénom" value={record.prenom} onChange={updateRecord('prenom')} />
+            <TextField fullWidth required size="small" label="Numéro France Travail" value={record.identifiant} onChange={updateRecord('identifiant')} />
+            <TextField fullWidth required select size="small" label="Civilité" value={record.civilite} onChange={updateRecord('civilite')}>
+              <MenuItem value="Mr">Mr</MenuItem>
+              <MenuItem value="Mme">Mme</MenuItem>
+            </TextField>
             <TextField fullWidth required size="small" type="number" label="Âge" value={record.age} onChange={updateRecord('age')} inputProps={{ min: 16, max: 100 }} />
             <Box>
               <Typography variant="caption" sx={{ display: 'block', mb: 0.25, color: 'text.secondary', fontWeight: 700 }}>
@@ -223,6 +245,50 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
           {exportStatus ? <Alert severity={exportCount ? 'success' : 'warning'} sx={{ mt: 1 }}>{exportStatus}</Alert> : null}
         </Box>
       </Stack>
+
+      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #d7e0e8' }}>
+        <Typography variant="h6" sx={{ fontWeight: 900, color: '#173f67' }}>
+          Demandeurs enregistrés ({allRecords.length})
+        </Typography>
+        {allRecords.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Aucun demandeur enregistré pour le moment.
+          </Typography>
+        ) : (
+          <Box sx={{ overflowX: 'auto', mt: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 800 }}>N° France Travail</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Civilité</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Âge</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Retraite prévisionnelle</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Alerte</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {allRecords.map((item) => {
+                  const alertLevel = getRetirementAlertLevel(item)
+                  const alertStyle = alertLevel ? RETIREMENT_ALERT_STYLES[alertLevel] : null
+                  return (
+                    <TableRow key={item.identifiant}>
+                      <TableCell>{item.identifiant}</TableCell>
+                      <TableCell>{item.civilite || '—'}</TableCell>
+                      <TableCell>{item.age || '—'}</TableCell>
+                      <TableCell>{item.dateRetraitePrevisionnelle || '—'}</TableCell>
+                      <TableCell>
+                        {alertStyle ? (
+                          <Chip size="small" label={alertStyle.label} color={alertStyle.color} sx={{ fontWeight: 700 }} />
+                        ) : '—'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+        )}
+      </Box>
     </Paper>
   )
 }
