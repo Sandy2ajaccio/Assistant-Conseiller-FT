@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
   DEFAULT_TYPE_ENTRETIEN,
+  estDPA,
   estEntretienOrientation,
-  estPremierEntretienAccompagnement,
   getTypeEntretien,
   normaliserContratEngagementDetails,
   normaliserOrientationReseau,
@@ -11,9 +11,10 @@ import {
   orientationReseauComplete,
 } from '../src/data/contratOrientation.js'
 
-assert.equal(DEFAULT_TYPE_ENTRETIEN, 'eda')
-assert.equal(normaliserTypeEntretien('premier-physique'), 'eda')
-assert.equal(estPremierEntretienAccompagnement('eda'), true)
+assert.equal(DEFAULT_TYPE_ENTRETIEN, 'dpa')
+assert.equal(normaliserTypeEntretien('premier-physique'), 'dpa')
+assert.equal(normaliserTypeEntretien('eda'), 'dpa') // ancien libellé conservé pour compatibilité des dossiers existants
+assert.equal(estDPA('dpa'), true)
 assert.equal(estEntretienOrientation('edo'), true)
 assert.equal(getTypeEntretien('edo').confirmationInterne.length > 0, true)
 
@@ -56,4 +57,4 @@ assert.match(pageSource, /L’intensité saisie est un élément du contrat/)
 assert.doesNotMatch(pageSource, /\bDE\b/)
 assert.doesNotMatch(pageSource, /demandeur d[’']emploi/i)
 
-console.log('Parcours LPE vérifié : EDO/EDA, orientation humaine, contrat structuré et libellés centrés sur la personne.')
+console.log('Parcours LPE vérifié : EDO/DPA, orientation humaine, contrat structuré et libellés centrés sur la personne.')

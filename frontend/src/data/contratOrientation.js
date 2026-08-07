@@ -1,9 +1,9 @@
-export const DEFAULT_TYPE_ENTRETIEN = 'eda'
+export const DEFAULT_TYPE_ENTRETIEN = 'dpa'
 
 export const ENTRETIEN_TYPES = [
   {
-    value: 'eda',
-    label: 'Premier entretien d’accompagnement (EDA)',
+    value: 'dpa',
+    label: 'Diagnostic préalable à l’accompagnement (DPA)',
     duree: '60 min',
     secondes: 60 * 60,
     famille: 'accompagnement',
@@ -34,7 +34,8 @@ export const ENTRETIEN_TYPES = [
 ]
 
 const TYPE_ALIASES = {
-  'premier-physique': 'eda',
+  'premier-physique': 'dpa',
+  eda: 'dpa',
 }
 
 export const normaliserTypeEntretien = (value) => {
@@ -49,8 +50,11 @@ export const getTypeEntretien = (value) => {
   return ENTRETIEN_TYPES.find((item) => item.value === type) || ENTRETIEN_TYPES[0]
 }
 
-export const estPremierEntretienAccompagnement = (value) =>
-  normaliserTypeEntretien(value) === 'eda'
+export const estDPA = (value) =>
+  normaliserTypeEntretien(value) === 'dpa'
+
+// Ancien nom conservé par compatibilité (données ou code externe déjà en place).
+export const estPremierEntretienAccompagnement = estDPA
 
 export const estEntretienOrientation = (value) =>
   normaliserTypeEntretien(value) === 'edo'

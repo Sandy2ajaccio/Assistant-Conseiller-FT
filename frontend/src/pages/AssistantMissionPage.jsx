@@ -57,7 +57,7 @@ import {
   DEFAULT_TYPE_ENTRETIEN,
   ENTRETIEN_TYPES,
   estEntretienOrientation,
-  estPremierEntretienAccompagnement,
+  estDPA,
   getTypeEntretien,
   normaliserContratEngagementDetails,
   normaliserOrientationReseau,
@@ -849,10 +849,10 @@ function AssistantMissionPage() {
     const financementFormation = /\baif\b|financement.*formation|formation.*financement|cpf insuffisant|reste a charge|devis.*formation/.test(contexte)
     const pisteIAEPertinente = Boolean(recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
 
-    if (estPremierEntretienAccompagnement(typeEntretien) || /contrat|engagement|droit|obligation/.test(contexte)) {
+    if (estDPA(typeEntretien) || /contrat|engagement|droit|obligation/.test(contexte)) {
       ateliersInternes.push({ nom: 'Droits et engagements', type: 'Atelier' })
     }
-    if (estPremierEntretienAccompagnement(typeEntretien) || /offre de service|nouvellement inscrit/.test(contexte)) {
+    if (estDPA(typeEntretien) || /offre de service|nouvellement inscrit/.test(contexte)) {
       ateliersInternes.push({ nom: 'Offre de service France Travail', type: 'Atelier' })
     }
     if (/formation|reconversion|financement/.test(contexte)) {
