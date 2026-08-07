@@ -45,6 +45,7 @@ button {
   display: grid;
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .app-sidebar {
@@ -94,12 +95,10 @@ button {
 .app-content {
   padding: 1rem;
   min-width: 0;
-  overflow-x: clip;
 }
 
 .app-main {
   min-width: 0;
-  overflow-x: hidden;
 }
 
 .app-header {

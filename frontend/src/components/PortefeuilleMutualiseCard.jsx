@@ -251,27 +251,26 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
           ) : null}
 
           {suggestionCommentaire ? (
-            <Alert
-              severity="info"
-              action={(
-                <Button
-                  size="small"
-                  onClick={() => onChange({
-                    ...suivi,
-                    commentaire: suivi.commentaire.trim()
-                      ? `${suivi.commentaire.trim()}\n${suggestionCommentaire}`
-                      : suggestionCommentaire,
-                  })}
-                >
-                  Insérer
-                </Button>
-              )}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25 }}>
-                Suggestion à partir du diagnostic
+            <Paper variant="outlined" sx={{ p: 1.5, borderColor: '#0b6fb8', borderWidth: 2, bgcolor: '#eef6fd' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#0b6fb8', mb: 0.5 }}>
+                💡 Suggestion de commentaire à partir du diagnostic
               </Typography>
-              {suggestionCommentaire}
-            </Alert>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                {suggestionCommentaire}
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => onChange({
+                  ...suivi,
+                  commentaire: suivi.commentaire.trim()
+                    ? `${suivi.commentaire.trim()}\n${suggestionCommentaire}`
+                    : suggestionCommentaire,
+                })}
+              >
+                Insérer cette suggestion dans le commentaire
+              </Button>
+            </Paper>
           ) : null}
 
           <TextField
