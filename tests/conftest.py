@@ -15,13 +15,6 @@ from app.models.base import Base
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    loop = __import__("asyncio").new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
 async def engine(tmp_path_factory) -> AsyncEngine:
     database_path = tmp_path_factory.mktemp("data") / "test.db"
     database_url = f"sqlite+aiosqlite:///{database_path}"

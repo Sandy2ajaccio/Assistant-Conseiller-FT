@@ -106,14 +106,9 @@ const AuthGate = ({ children }) => {
       setMessage('')
 
       try {
-        const firebaseCredential =
-          GoogleAuthProvider.credential(credential)
+        const firebaseCredential = GoogleAuthProvider.credential(credential)
 
-        const result =
-          await signInWithCredential(
-            auth,
-            firebaseCredential,
-          )
+        const result = await signInWithCredential(auth, firebaseCredential)
 
         if (
           result.user.email?.toLowerCase() !==
