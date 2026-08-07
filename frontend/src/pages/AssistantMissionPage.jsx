@@ -2362,48 +2362,51 @@ function AssistantMissionPage() {
           </Grid>
         </Paper>
 
-        <Tabs
-          value={workspaceTab}
-          onChange={(_, value) => {
-            if (value === 'sauvegardes') ouvrirListeAnalyses()
-            else setWorkspaceTab(value)
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            bgcolor: '#fff',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            px: 0.5,
-            minHeight: 38,
-            '& .MuiTab-root': { minHeight: 38, py: 0.5, fontWeight: 800, fontSize: '0.78rem' },
-          }}
+        <Paper
+          variant="outlined"
+          sx={{ bgcolor: '#fff', borderRadius: 2, p: 1 }}
         >
-          <Tab value="entretien" label="Conduite de l’entretien" />
-          <Tab value="prescriptions" label="Offre de services" />
-          <Tab value="synthese" label="Synthèse d’entretien" />
-          <Tab
-            value="portefeuille-mutualise"
-            label={nombreAlertesPortefeuille > 0
-              ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})`
-              : 'Portefeuille mutualisé'}
-          />
-          <Tab
-            value="suivi-obligations"
-            label={nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'}
-          />
-          <Tab
-            value="remobilisation"
-            label={nombreAlertesRemobilisation > 0
-              ? `Faisceau CRE (${nombreAlertesRemobilisation})`
-              : 'Faisceau CRE'}
-          />
-          <Tab value="sauvegardes" label="Sauvegardes automatiques" />
-        </Tabs>
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
+            <Typography variant="caption" sx={{ fontWeight: 900, color: '#244d78', mr: 0.5 }}>
+              Aller à :
+            </Typography>
+            {[
+              ['section-entretien', 'Conduite de l’entretien'],
+              ['section-prescriptions', 'Offre de services'],
+              ['section-synthese', 'Synthèse d’entretien'],
+              ['section-portefeuille-mutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})` : 'Portefeuille mutualisé'],
+              ['section-suivi-obligations', nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'],
+              ['section-remobilisation', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
+            ].map(([anchorId, label]) => (
+              <Chip
+                key={anchorId}
+                clickable
+                size="small"
+                component="a"
+                href={`#${anchorId}`}
+                label={label}
+                sx={{ fontWeight: 700 }}
+              />
+            ))}
+            <Button
+              size="small"
+              variant={workspaceTab === 'sauvegardes' ? 'contained' : 'outlined'}
+              onClick={() => {
+                if (workspaceTab === 'sauvegardes') {
+                  setWorkspaceTab('entretien')
+                } else {
+                  ouvrirListeAnalyses()
+                }
+              }}
+              sx={{ ml: { md: 'auto' } }}
+            >
+              {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes automatiques'}
+            </Button>
+          </Stack>
+        </Paper>
 
-        {workspaceTab === 'entretien' ? (
-          <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd' }}>
+        {workspaceTab !== 'sauvegardes' ? (
+          <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd' }} id="section-entretien">
             <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
               <Chip size="small" color={missionCompletion >= 70 ? 'success' : missionCompletion >= 40 ? 'warning' : 'default'} label={`Complétude ${missionCompletion}%`} />
               <Chip size="small" variant="outlined" label={`Confiance ${niveauConfianceAffiche}`} />
@@ -2413,30 +2416,33 @@ function AssistantMissionPage() {
               <Chip
                 clickable
                 size="small"
+                component="a"
+                href="#section-portefeuille-mutualise"
                 color={nombreAlertesPortefeuille > 0 ? 'error' : 'success'}
                 variant={nombreAlertesPortefeuille > 0 ? 'filled' : 'outlined'}
                 label={nombreAlertesPortefeuille > 0
                   ? `Portefeuille ${nombreAlertesPortefeuille}`
                   : 'Portefeuille à jour'}
-                onClick={() => setWorkspaceTab('portefeuille-mutualise')}
               />
               <Chip
                 clickable
                 size="small"
+                component="a"
+                href="#section-suivi-obligations"
                 color={nombreAlertesSuivi > 0 ? 'error' : 'success'}
                 variant={nombreAlertesSuivi > 0 ? 'filled' : 'outlined'}
                 label={nombreAlertesSuivi > 0 ? `Alertes M6 ${nombreAlertesSuivi}` : 'Suivi M6 à jour'}
-                onClick={() => setWorkspaceTab('suivi-obligations')}
               />
               <Chip
                 clickable
                 size="small"
+                component="a"
+                href="#section-remobilisation"
                 color={nombreAlertesRemobilisation > 0 ? 'error' : 'success'}
                 variant={nombreAlertesRemobilisation > 0 ? 'filled' : 'outlined'}
                 label={nombreAlertesRemobilisation > 0
                   ? `Alertes CRE ${nombreAlertesRemobilisation}`
                   : 'Faisceau CRE à jour'}
-                onClick={() => setWorkspaceTab('remobilisation')}
               />
               <Typography variant="caption" sx={{ ml: { md: 'auto' }, fontWeight: 800, color: '#244d78' }}>
                 Priorité : {orientationPrioritaire}
@@ -2523,25 +2529,8 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        {workspaceTab === 'suivi-obligations' ? (
-          <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
-        ) : null}
 
-        {workspaceTab === 'remobilisation' ? (
-          <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
-        ) : null}
-
-        {workspaceTab === 'portefeuille-mutualise' ? (
-          <PortefeuilleMutualiseCard
-            value={suiviPortefeuilleMutualise}
-            onChange={setSuiviPortefeuilleMutualise}
-            codeSituationOp2={codeSituationOp2}
-            onCodeSituationOp2Change={setCodeSituationOp2}
-            onOpenSuiviM6={() => setWorkspaceTab('suivi-obligations')}
-          />
-        ) : null}
-
-        {workspaceTab === 'entretien' ? (
+        {workspaceTab !== 'sauvegardes' ? (
           <Paper
             variant="outlined"
             sx={{
@@ -2555,45 +2544,16 @@ function AssistantMissionPage() {
             }}
           >
             <Stack direction={{ xs: 'column', lg: 'row' }} alignItems={{ lg: 'center' }} spacing={1}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: '#244d78' }}>Parcours</Typography>
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                <Chip clickable size="small" label="1 · Explorer" color={assistantPhase === 'exploration' ? 'primary' : 'default'} onClick={() => setAssistantPhase('exploration')} sx={{ fontWeight: 800 }} />
-                <Chip clickable size="small" label="2 · Diagnostiquer" color={assistantPhase === 'diagnostic' ? 'warning' : 'default'} onClick={() => setAssistantPhase('diagnostic')} sx={{ fontWeight: 800 }} />
-                <Chip clickable size="small" label="3 · Décider" color={assistantPhase === 'decision' ? 'success' : 'default'} onClick={() => setAssistantPhase('decision')} sx={{ fontWeight: 800 }} />
-                <Chip clickable size="small" label="4 · Synthèse" color={workspaceTab === 'synthese' ? 'secondary' : 'default'} onClick={() => setWorkspaceTab('synthese')} sx={{ fontWeight: 800 }} />
-              </Stack>
               <Typography variant="caption" sx={{ fontWeight: 800, minWidth: 110 }}>Dossier complété</Typography>
               <Box sx={{ flex: 1, height: 8, borderRadius: 5, bgcolor: '#e3e8ef', overflow: 'hidden' }}>
                 <Box sx={{ width: `${missionCompletion}%`, height: '100%', bgcolor: missionCompletion >= 80 ? '#2e7d32' : missionCompletion >= 40 ? '#ed6c02' : '#d32f2f' }} />
               </Box>
               <Chip size="small" color={missionCompletion >= 80 ? 'success' : missionCompletion >= 40 ? 'warning' : 'error'} label={`${missionCompletion} %`} />
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => setWorkspaceTab('synthese')}
-                sx={{ whiteSpace: 'nowrap', fontWeight: 800 }}
-              >
-                Voir la synthèse
-              </Button>
-              <Button
-                size="small"
-                variant={modeApprofondi ? 'contained' : 'outlined'}
-                color="secondary"
-                onClick={() => setModeApprofondi((value) => !value)}
-                sx={{ whiteSpace: 'nowrap' }}
-              >
-                {modeApprofondi ? 'Revenir à l’essentiel' : 'Approfondir si nécessaire'}
-              </Button>
             </Stack>
-            {!modeApprofondi ? (
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-                Vue essentielle : renseignez la demande, puis sélectionnez la situation, les freins et les ressources. Le reste est calculé automatiquement.
-              </Typography>
-            ) : null}
           </Paper>
         ) : null}
 
-        {workspaceTab === 'entretien' && assistantPhase === 'exploration' && questionCourante ? (
+        {workspaceTab !== 'sauvegardes' && questionCourante ? (
           <Paper
             variant="outlined"
             sx={{ p: 1.25, borderLeft: '6px solid #6a1b9a', bgcolor: '#fbf7ff' }}
@@ -2657,7 +2617,7 @@ function AssistantMissionPage() {
           </Paper>
         ) : null}
 
-        {workspaceTab === 'entretien' && (!modeApprofondi || assistantPhase !== 'exploration') ? (
+        {workspaceTab !== 'sauvegardes' ? (
           <CockpitBlockCard
             title="Listes du diagnostic — sélection multiple"
             subtitle="Ouvrez chaque menu puis cochez autant d’éléments que nécessaire. Vos choix alimentent immédiatement le diagnostic et les recommandations."
@@ -2709,7 +2669,7 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
+        {workspaceTab !== 'sauvegardes' ? (
           <OrientationReseauCard
             value={orientationReseau}
             onChange={setOrientationReseau}
@@ -2717,7 +2677,7 @@ function AssistantMissionPage() {
           />
         ) : null}
 
-        {workspaceTab === 'entretien' && assistantPhase === 'decision' ? (
+        {workspaceTab !== 'sauvegardes' ? (
         <CockpitBlockCard
           title="Aide à la décision et prescriptions adaptées"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
@@ -2806,7 +2766,11 @@ function AssistantMissionPage() {
         </CockpitBlockCard>
         ) : null}
 
-        {workspaceTab === 'prescriptions' ? (
+        {workspaceTab === 'sauvegardes' ? null : (<>
+        <Box id="section-prescriptions" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Offre de services
+          </Typography>
           <CockpitBlockCard
             title="Tableau de bord de l’offre de services"
             subtitle="Toute l'offre de service, les alertes et les conditions de prescription visibles sur un seul écran."
@@ -2825,9 +2789,12 @@ function AssistantMissionPage() {
               }}
             />
           </CockpitBlockCard>
-        ) : null}
+        </Box>
 
-        {workspaceTab === 'synthese' ? (
+        <Box id="section-synthese" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Synthèse d’entretien
+          </Typography>
           <CockpitBlockCard
             title="Synthèse automatique à destination de la personne accompagnée"
             subtitle="Le texte se met à jour automatiquement à partir des informations saisies pendant l’entretien."
@@ -2987,7 +2954,7 @@ function AssistantMissionPage() {
               <Button variant="contained" size="large" onClick={copierSynthese} disabled={!formalitesCompletes}>
                 Copier la synthèse
               </Button>
-              <Button variant="outlined" onClick={() => setWorkspaceTab('entretien')}>
+              <Button variant="outlined" component="a" href="#section-entretien">
                 Retour à l’entretien
               </Button>
               {copyStatus ? (
@@ -2997,17 +2964,46 @@ function AssistantMissionPage() {
               ) : null}
             </Stack>
           </CockpitBlockCard>
-        ) : null}
+        </Box>
 
-        {workspaceTab === 'entretien'
-          && ['diagnostic', 'decision'].includes(assistantPhase)
-          && (ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) ? (
+        <Box id="section-portefeuille-mutualise" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Portefeuille mutualisé
+          </Typography>
+          <PortefeuilleMutualiseCard
+            value={suiviPortefeuilleMutualise}
+            onChange={setSuiviPortefeuilleMutualise}
+            codeSituationOp2={codeSituationOp2}
+            onCodeSituationOp2Change={setCodeSituationOp2}
+            onOpenSuiviM6={() => {
+              const target = document.getElementById('section-suivi-obligations')
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          />
+        </Box>
+
+        <Box id="section-suivi-obligations" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Suivi obligations
+          </Typography>
+          <SuiviObligationsCard value={suiviObligations} onChange={setSuiviObligations} />
+        </Box>
+
+        <Box id="section-remobilisation" sx={{ scrollMarginTop: '90px' }}>
+          <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
+            Faisceau CRE
+          </Typography>
+          <SuiviRemobilisationCard value={suiviRemobilisation} onChange={setSuiviRemobilisation} />
+        </Box>
+        </>)}
+
+        {workspaceTab !== 'sauvegardes' && (ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()) ? (
           <CockpitBlockCard
             title="Diagnostic automatique et plan proposé"
-            subtitle="Résultat produit à partir du récit saisi. Vous pouvez corriger les informations avec le mode Approfondir."
+            subtitle="Résultat produit à partir du récit saisi."
             sx={{ borderTop: '6px solid #0b6fb8', boxShadow: '0 4px 16px rgba(15,35,65,0.12)' }}
           >
-            <Box sx={{ display: assistantPhase === 'diagnostic' ? 'block' : 'none' }}>
+            <Box>
             {alertesDiagnosticAutonome.length > 0 ? (
               <Alert
                 severity={alertesDiagnosticAutonome.some((item) => item.severity === 'error') ? 'error' : 'warning'}
@@ -3150,7 +3146,6 @@ function AssistantMissionPage() {
             </Box>
             <Box
               sx={{
-                display: assistantPhase === 'decision' ? 'block' : 'none',
                 p: 1.25,
                 border: '2px solid',
                 borderColor: controleDecision.statut === 'Décision à différer'
@@ -3207,7 +3202,7 @@ function AssistantMissionPage() {
                 </Accordion>
               </Stack>
             </Box>
-            <Box sx={{ display: assistantPhase === 'decision' ? 'block' : 'none', p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
+            <Box sx={{ p: 1.25, bgcolor: '#fff', border: '2px solid #1f7a3f', borderRadius: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 900, color: '#1f6b36' }}>
                 Décision à enregistrer
               </Typography>
@@ -3573,20 +3568,20 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' ? 'flex' : 'none' }}>
-          <Grid size={{ xs: 12, md: 6 }} sx={{ display: modeApprofondi ? 'block' : 'none' }}>
+        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab !== 'sauvegardes' ? 'flex' : 'none' }}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Stack
   spacing={1}
   sx={{
     display: { xs: 'flex', xl: 'grid' },
     gridTemplateColumns: {
-      xl: modeApprofondi ? '0.9fr 1.1fr' : '0.85fr 0.85fr 1.3fr',
+      xl: '0.9fr 1.1fr',
     },
     gap: { xl: 1 },
     alignItems: 'start',
   }}
 >
-              <CockpitBlockCard title="1. Analyse de la situation" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
+              <CockpitBlockCard title="1. Analyse de la situation" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
                   <Accordion disableGutters defaultExpanded={false} sx={{ boxShadow: 'none', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                     <AccordionSummary sx={{ minHeight: 30, px: 1, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Situation administrative</Typography>
@@ -3628,7 +3623,7 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="3. Freins identifiés" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
+              <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
                     options={FREINS_OPTIONS}
@@ -3637,7 +3632,7 @@ function AssistantMissionPage() {
                   />
               </CockpitBlockCard>
 
-              <CockpitBlockCard title="5. ADVP" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #7b1fa2' }}>
+              <CockpitBlockCard title="5. ADVP" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #7b1fa2' }}>
                   <Tabs
                     value={advpTab}
                     onChange={(_, value) => setAdvpTab(value)}
@@ -3680,7 +3675,7 @@ function AssistantMissionPage() {
 
               <CockpitBlockCard
                 title="7. Lecture du conseiller"
-                sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, bgcolor: '#faf7fc', borderColor: '#d5dde8', borderTop: '3px solid #7b1fa2' }}
+                sx={{ minHeight: CARD_MIN_HEIGHT, bgcolor: '#faf7fc', borderColor: '#d5dde8', borderTop: '3px solid #7b1fa2' }}
                 titleSx={{ fontSize: '1rem', fontWeight: 800 }}
               >
                   <Stack spacing={0.25}>
@@ -3701,8 +3696,8 @@ function AssistantMissionPage() {
             </Stack>
           </Grid>
 
-          <Grid size={{ xs: 12, md: modeApprofondi ? 6 : 12 }}>
-            <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: modeApprofondi ? '1fr 1fr' : '1fr 1fr 1.25fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
               <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
                   <TextField
                     label="Demande ou objectif du rendez-vous"
@@ -3718,10 +3713,9 @@ function AssistantMissionPage() {
                     multiline
                     minRows={3}
                     size="small"
-                    helperText={!modeApprofondi ? 'Une seule saisie suffit : le besoin est repris automatiquement.' : ''}
+                    helperText=""
                   />
-                  {modeApprofondi ? (
-                    <TextField
+                  <TextField
                       label="Besoin identifié par le conseiller"
                       value={besoinIdentifieConseiller}
                       onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
@@ -3730,10 +3724,9 @@ function AssistantMissionPage() {
                       minRows={2}
                       size="small"
                     />
-                  ) : null}
                 </CockpitBlockCard>
 
-              {!modeApprofondi && !ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
+              {!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
                 <CockpitBlockCard
                   title="Commencez ici"
                   subtitle="Décrivez librement la situation dans la zone de gauche. Le logiciel réalisera ensuite le diagnostic et le plan."
@@ -3760,7 +3753,7 @@ function AssistantMissionPage() {
                 </CockpitBlockCard>
               ) : null}
 
-              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ display: modeApprofondi ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
+              <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
                     options={RESSOURCES_OPTIONS}
@@ -3769,7 +3762,7 @@ function AssistantMissionPage() {
                   />
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="6. Capacité à agir" sx={{ display: modeApprofondi || ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim() ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx, borderTop: '3px solid #7b1fa2' }}>
+              <CockpitBlockCard title="6. Capacité à agir" sx={{ minHeight: CARD_MIN_HEIGHT, ...capaciteFondSx, borderTop: '3px solid #7b1fa2' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{capaciteAAgir.statut}</Typography>
                   <Stack spacing={0.25}>
                     {capaciteAAgir.observations.map((line) => (
@@ -3779,7 +3772,7 @@ function AssistantMissionPage() {
                   <Typography variant="body2">Consequence pour l accompagnement: {capaciteAAgir.consequence}</Typography>
                 </CockpitBlockCard>
 
-              <CockpitBlockCard title="8. Recommandations" sx={{ display: modeApprofondi || ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim() ? 'flex' : 'none', minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #7b1fa2' }}>
+              <CockpitBlockCard title="8. Recommandations" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #7b1fa2' }}>
                   <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
                     <Chip
                       size="small"
@@ -3868,7 +3861,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab === 'entretien' && assistantPhase === 'exploration' && modeApprofondi ? 'flex' : 'none' }}>
+        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab !== 'sauvegardes' ? 'flex' : 'none' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded sx={{ minHeight: 0, borderTop: '3px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Grid container spacing={1}>
