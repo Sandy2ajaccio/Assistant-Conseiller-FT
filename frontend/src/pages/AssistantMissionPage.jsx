@@ -2451,6 +2451,63 @@ function AssistantMissionPage() {
           </Paper>
         ) : null}
 
+        {workspaceTab !== 'sauvegardes' ? (
+          <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
+              <TextField
+                label="Demande ou objectif du rendez-vous"
+                value={ceQueDitLaPersonne}
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  setCeQueDitLaPersonne(nextValue)
+                  if (!besoinIdentifieConseiller.trim() || besoinIdentifieConseiller === ceQueDitLaPersonne) {
+                    setBesoinIdentifieConseiller(nextValue)
+                  }
+                }}
+                fullWidth
+                multiline
+                minRows={3}
+                size="small"
+                helperText=""
+              />
+              <TextField
+                  label="Besoin identifié par le conseiller"
+                  value={besoinIdentifieConseiller}
+                  onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  size="small"
+                />
+            </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' && !ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
+          <CockpitBlockCard
+            title="Commencez ici"
+            subtitle="Décrivez librement la situation ci-dessus. Le logiciel réalisera ensuite le diagnostic et le plan."
+            sx={{ minHeight: 0, borderTop: '3px solid #0b6fb8', bgcolor: '#eef6ff' }}
+          >
+            <Grid container spacing={1}>
+              {[
+                ['1', 'Parcours', 'Expérience, métier exercé, compétences ou diplôme.'],
+                ['2', 'Situation actuelle', 'Emploi, santé, mobilité, garde, finances et disponibilité.'],
+                ['3', 'Objectif', 'Métier, formation ou changement souhaité, même s’il reste imprécis.'],
+              ].map(([numero, titre, texte]) => (
+                <Grid key={numero} size={{ xs: 12, md: 4 }}>
+                  <Box sx={{ height: '100%', p: 1.25, bgcolor: '#fff', borderRadius: 1.5, border: '1px solid #bdd5eb' }}>
+                    <Chip size="small" color="primary" label={numero} sx={{ mb: 0.5, fontWeight: 900 }} />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{titre}</Typography>
+                    <Typography variant="body2" color="text.secondary">{texte}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+            <Alert severity="info" sx={{ py: 0 }}>
+              Aucun formulaire supplémentaire n’est nécessaire pour obtenir une première analyse.
+            </Alert>
+          </CockpitBlockCard>
+        ) : null}
+
         {workspaceTab === 'sauvegardes' ? (
           <CockpitBlockCard
             title="Sauvegardes automatiques des entretiens"
@@ -3698,61 +3755,6 @@ function AssistantMissionPage() {
 
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', xl: 'grid' }, gridTemplateColumns: { xl: '1fr 1fr' }, gap: { xl: 1.5 }, alignItems: 'start' }}>
-              <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
-                  <TextField
-                    label="Demande ou objectif du rendez-vous"
-                    value={ceQueDitLaPersonne}
-                    onChange={(event) => {
-                      const nextValue = event.target.value
-                      setCeQueDitLaPersonne(nextValue)
-                      if (!besoinIdentifieConseiller.trim() || besoinIdentifieConseiller === ceQueDitLaPersonne) {
-                        setBesoinIdentifieConseiller(nextValue)
-                      }
-                    }}
-                    fullWidth
-                    multiline
-                    minRows={3}
-                    size="small"
-                    helperText=""
-                  />
-                  <TextField
-                      label="Besoin identifié par le conseiller"
-                      value={besoinIdentifieConseiller}
-                      onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      size="small"
-                    />
-                </CockpitBlockCard>
-
-              {!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
-                <CockpitBlockCard
-                  title="Commencez ici"
-                  subtitle="Décrivez librement la situation dans la zone de gauche. Le logiciel réalisera ensuite le diagnostic et le plan."
-                  sx={{ minHeight: CARD_MIN_HEIGHT, gridColumn: { xl: 'span 2' }, borderTop: '3px solid #0b6fb8', bgcolor: '#eef6ff' }}
-                >
-                  <Grid container spacing={1}>
-                    {[
-                      ['1', 'Parcours', 'Expérience, métier exercé, compétences ou diplôme.'],
-                      ['2', 'Situation actuelle', 'Emploi, santé, mobilité, garde, finances et disponibilité.'],
-                      ['3', 'Objectif', 'Métier, formation ou changement souhaité, même s’il reste imprécis.'],
-                    ].map(([numero, titre, texte]) => (
-                      <Grid key={numero} size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ height: '100%', p: 1.25, bgcolor: '#fff', borderRadius: 1.5, border: '1px solid #bdd5eb' }}>
-                          <Chip size="small" color="primary" label={numero} sx={{ mb: 0.5, fontWeight: 900 }} />
-                          <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{titre}</Typography>
-                          <Typography variant="body2" color="text.secondary">{texte}</Typography>
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                  <Alert severity="info" sx={{ py: 0 }}>
-                    Aucun formulaire supplémentaire n’est nécessaire pour obtenir une première analyse.
-                  </Alert>
-                </CockpitBlockCard>
-              ) : null}
-
               <CockpitBlockCard title="4. Ressources et points d’appui" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Ressources mobilisables"
