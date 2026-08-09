@@ -392,9 +392,12 @@ function AssistantMissionPage() {
   const [portfolioImportStatus, setPortfolioImportStatus] = useState('')
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
-  const [sectionsOuvertes, setSectionsOuvertes] = useState({
-    explorationGuidee: true,
-    listesDiagnostic: true,
+
+  const sectionsOuvertesParDefaut = (type) => ({
+    // En suivi, le dossier est déjà connu : on replie les sections de découverte
+    // pour aller plus vite. En DPA (premier entretien), tout reste ouvert.
+    explorationGuidee: estDPA(type),
+    listesDiagnostic: estDPA(type),
     orientationReseau: true,
     offreServices: true,
     synthese: true,
@@ -402,6 +405,19 @@ function AssistantMissionPage() {
     suiviObligations: true,
     faisceauCre: true,
   })
+
+  const [sectionsOuvertes, setSectionsOuvertes] = useState(() =>
+    sectionsOuvertesParDefaut(DEFAULT_TYPE_ENTRETIEN)
+  )
+  const typeEntretienPrecedentRef = useRef(typeEntretien)
+
+  useEffect(() => {
+    if (typeEntretienPrecedentRef.current === typeEntretien) {
+      return
+    }
+    typeEntretienPrecedentRef.current = typeEntretien
+    setSectionsOuvertes(sectionsOuvertesParDefaut(typeEntretien))
+  }, [typeEntretien])
 
   const basculerSection = (sectionId) => (_, expanded) => {
     setSectionsOuvertes((previous) => ({ ...previous, [sectionId]: expanded }))
