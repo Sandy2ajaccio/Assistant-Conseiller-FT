@@ -4095,36 +4095,42 @@ function AssistantMissionPage() {
                       />
                     </AccordionDetails>
                   </Accordion>
-
-                  <Box sx={{ mt: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="Catégorie actuelle de la personne accompagnée"
-                      value={categorieActuelle}
-                      onChange={(event) => setCategorieActuelle(event.target.value)}
-                    >
-                      <MenuItem value="">Non renseignée</MenuItem>
-                      {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
-                        <MenuItem key={cat.numero} value={String(cat.numero)}>
-                          Catégorie {cat.numero} — {cat.libelle}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    {coherenceCategorie.alerte ? (
-                      <Alert severity="warning" sx={{ mt: 1 }}>
-                        <strong>Incohérence de catégorie détectée</strong> — catégorie {coherenceCategorie.reference?.numero} déclarée.
-                        {' '}
-                        {coherenceCategorie.alerte}
-                      </Alert>
-                    ) : categorieActuelle ? (
-                      <Alert severity="success" sx={{ mt: 1 }}>
-                        Aucune incohérence détectée entre la catégorie {coherenceCategorie.reference?.numero} déclarée et la situation décrite.
-                      </Alert>
-                    ) : null}
-                  </Box>
                 </CockpitBlockCard>
+
+              <CockpitBlockCard
+                title="Catégorie France Travail"
+                sx={{ minHeight: 'auto', borderTop: '3px solid #01696F', bgcolor: '#eefaf9' }}
+              >
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Choisissez la catégorie administrative déclarée (1 à 10) : le logiciel vérifie sa cohérence avec la situation décrite et vous alerte en cas d'écart.
+                  </Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Catégorie actuelle de la personne accompagnée"
+                    value={categorieActuelle}
+                    onChange={(event) => setCategorieActuelle(event.target.value)}
+                  >
+                    <MenuItem value="">Non renseignée</MenuItem>
+                    {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
+                      <MenuItem key={cat.numero} value={String(cat.numero)}>
+                        Catégorie {cat.numero} — {cat.libelle}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {coherenceCategorie.alerte ? (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      <strong>Incohérence de catégorie détectée</strong> — catégorie {coherenceCategorie.reference?.numero} déclarée.
+                      {' '}
+                      {coherenceCategorie.alerte}
+                    </Alert>
+                  ) : categorieActuelle ? (
+                    <Alert severity="success" sx={{ mt: 1 }}>
+                      Aucune incohérence détectée entre la catégorie {coherenceCategorie.reference?.numero} déclarée et la situation décrite.
+                    </Alert>
+                  ) : null}
+              </CockpitBlockCard>
 
               <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
