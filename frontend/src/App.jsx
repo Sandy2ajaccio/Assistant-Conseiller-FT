@@ -8,6 +8,7 @@ import AnalyseSituationPage from './pages/AnalyseSituationPage'
 import AssistantMissionPage from './pages/AssistantMissionPage'
 import CentreConnaissancesPage from './pages/CentreConnaissancesPage'
 import DashboardPage from './pages/DashboardPage'
+import DemandeursPage from './pages/DemandeursPage'
 import FormationsPage from './pages/FormationsPage'
 import MissionWorkflowPage from './pages/MissionWorkflowPage'
 import ParametresPage from './pages/ParametresPage'
@@ -125,7 +126,7 @@ export default function App() {
 
             <Route
               path="/demandeurs"
-              element={<Navigate to="/assistant" replace />}
+              element={<DemandeursPage />}
             />
 
             <Route

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Accordion,
   AccordionDetails,
@@ -39,7 +39,6 @@ import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
 import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
-import PortfolioManagementPanel from '../components/PortfolioManagementPanel'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
@@ -388,7 +387,6 @@ function AssistantMissionPage() {
   const chronoBaseSecondesRef = useRef(0)
   const portfolioFileInputRef = useRef(null)
 
-  const [portfolioVersion, setPortfolioVersion] = useState(0)
   const [portfolioImportStatus, setPortfolioImportStatus] = useState('')
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
@@ -2125,7 +2123,6 @@ function AssistantMissionPage() {
     setPortfolioImportStatus('Import en cours…')
     try {
       const result = await importPortfolioWorkbook(file)
-      setPortfolioVersion((value) => value + 1)
       setPortfolioImportStatus(
         `${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
         + `${result.unchanged} inchangée(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
@@ -2505,7 +2502,6 @@ function AssistantMissionPage() {
               ['section-portefeuille-mutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})` : 'Portefeuille mutualisé'],
               ['section-suivi-obligations', nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'],
               ['section-remobilisation', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
-              ['section-gestion-de', 'Gestion des demandeurs'],
             ].map(([anchorId, label]) => (
               <Chip
                 key={anchorId}
@@ -2517,6 +2513,14 @@ function AssistantMissionPage() {
                 sx={{ fontWeight: 700 }}
               />
             ))}
+            <Chip
+              clickable
+              size="small"
+              component={Link}
+              to="/demandeurs"
+              label="Gestion des demandeurs"
+              sx={{ fontWeight: 700 }}
+            />
             <input
               ref={portfolioFileInputRef}
               hidden
@@ -3272,10 +3276,9 @@ function AssistantMissionPage() {
           <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78', mb: 1 }}>
             Gestion des demandeurs
           </Typography>
-          <PortfolioManagementPanel
-            portfolioVersion={portfolioVersion}
-            onPortfolioChanged={() => setPortfolioVersion((value) => value + 1)}
-          />
+          <Button component={Link} to="/demandeurs" variant="contained" sx={{ fontWeight: 800 }}>
+            Voir la liste des demandeurs →
+          </Button>
         </Box>
         </>)}
 
