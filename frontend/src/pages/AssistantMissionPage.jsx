@@ -316,6 +316,34 @@ const formatDateFr = (isoLike) => {
   return d.toLocaleString('fr-FR')
 }
 
+// Transforme un verbe conjugué à la 3e personne du singulier (style « note de dossier »,
+// sans pronom : « a réalisé… », « n’a pas… », « travaille… ») en 2e personne du pluriel
+// de politesse (« vous avez réalisé… », « vous n’avez pas… », « vous travaillez… »).
+const conjuguerA3emePersonneVersVous = (segment) => {
+  let resultat = segment
+
+  // Passé composé négatif : "n'a pas fait" / "n'a pas de" -> "vous n'avez pas fait" / "vous n'avez pas de"
+  resultat = resultat.replace(/^n['’]a\s+pas\b/i, "vous n'avez pas")
+  // Présent négatif : "n'est pas" -> "vous n'êtes pas"
+  resultat = resultat.replace(/^n['’]est\s+pas\b/i, "vous n'êtes pas")
+  // Passé composé affirmatif : "a réalisé", "a travaillé", "a suivi" -> "vous avez réalisé", etc.
+  resultat = resultat.replace(/^a\s+(?=\w)/i, 'vous avez ')
+  // Présent 3e personne courant : "travaille", "cherche", "occupe", "possède", "dispose", "connaît"
+  resultat = resultat.replace(/^(travaille|cherche|occupe|possède|dispose|connaît|maîtrise|habite|vit|réside)\b/i, (m, verbe) => {
+    const verbeMinuscule = verbe.toLowerCase()
+    const radical = verbeMinuscule.slice(0, -1)
+    return `vous ${radical}ez`
+  })
+  if (/^envisage/i.test(resultat)) return resultat.replace(/^envisage/i, 'vous envisagez')
+  if (/^souhaite/i.test(resultat)) return resultat.replace(/^souhaite/i, 'vous souhaitez')
+  if (/^recherche/i.test(resultat)) return resultat.replace(/^recherche/i, 'vous recherchez')
+  if (/^ne sait plus/i.test(resultat)) return resultat.replace(/^ne sait plus/i, 'vous ne savez plus')
+  if (/^ne sait pas/i.test(resultat)) return resultat.replace(/^ne sait pas/i, 'vous ne savez pas')
+  if (/^pas de/i.test(resultat)) return resultat.replace(/^pas de/i, "vous n'avez pas de")
+
+  return resultat
+}
+
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
@@ -323,25 +351,35 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     .map((phrase) => phrase.trim())
     .filter(Boolean)
 
-  return phrases.map((phrase) => {
+  const phrasesReformulees = phrases.map((phrase) => {
     const phraseNormalisee = phrase
       .replace(/\bRégion\b/g, 'région')
       .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
       .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
       .replace(/\bau regard de son profil\b/gi, 'au regard de votre profil')
       .replace(/\bet dans cette perspective,\s*souhaite\b/gi, 'et, dans cette perspective, vous souhaitez')
-    const debutMinuscule = phraseNormalisee.charAt(0).toLowerCase() + phraseNormalisee.slice(1)
-    if (/^\d+\s*ans?\b/i.test(phraseNormalisee)) return `vous disposez de ${debutMinuscule}`
-    if (/^ne sait plus/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait plus/i, 'vous ne savez plus')
-    if (/^ne sait pas/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait pas/i, 'vous ne savez pas')
-    if (/^envisage/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^envisage/i, 'vous envisagez')
-    if (/^souhaite/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^souhaite/i, 'vous souhaitez')
-    if (/^recherche/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^recherche/i, 'vous recherchez')
-    if (/^pas de/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^pas de/i, "vous n'avez pas de")
-    if (/^sans /i.test(phraseNormalisee)) return `vous êtes ${debutMinuscule}`
-    if (/^vous\b/i.test(phraseNormalisee)) return debutMinuscule
-    return debutMinuscule
-  }).join(', et ')
+
+    // Découpe la phrase en propositions séparées par "mais" / "et" / "," afin que chaque
+    // proposition porte son propre verbe conjugué à la 2e personne (ex : "a réalisé X, souhaite Y
+    // mais n'a pas Z" -> "vous avez réalisé X, vous souhaitez Y mais vous n'avez pas Z").
+    const propositions = phraseNormalisee.split(/(\s+mais\s+|\s+et\s+|,\s+)/i)
+    const propositionsReformulees = propositions.map((partie, index) => {
+      // Les séparateurs capturés (indices impairs) sont réinjectés tels quels.
+      if (index % 2 === 1) return partie
+      const debutMinuscule = partie.charAt(0).toLowerCase() + partie.slice(1)
+      if (/^\d+\s*ans?\b/i.test(debutMinuscule)) return `vous disposez de ${debutMinuscule}`
+      if (/^sans /i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
+      if (/^vous\b/i.test(debutMinuscule)) return debutMinuscule
+      return conjuguerA3emePersonneVersVous(debutMinuscule)
+    })
+
+    return propositionsReformulees.join('')
+  })
+
+  if (phrasesReformulees.length <= 1) return phrasesReformulees.join('')
+  // Phrases distinctes du récit jointes par un point-virgule plutôt que par une seule
+  // phrase-fleuve en ", et " : plus lisible et plus proche d'une synthèse rédigée.
+  return phrasesReformulees.join(' ; ')
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
