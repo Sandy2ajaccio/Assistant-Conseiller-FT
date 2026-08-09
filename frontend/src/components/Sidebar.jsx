@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const navItems = [
   { label: '🚀 Assistant de mission', to: '/assistant' },
+  { label: '👥 Demandeurs', to: '/demandeurs' },
   { label: '📚 Centre de connaissances', to: '/connaissances' },
   { label: '🎓 Formations', to: '/formations' },
   { label: '📰 Veille officielle', to: '/veille-officielle' },
