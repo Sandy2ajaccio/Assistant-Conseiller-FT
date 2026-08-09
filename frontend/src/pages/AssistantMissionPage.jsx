@@ -355,8 +355,18 @@ function SectionRepliable({ id, title, expanded, onChange, children }) {
       sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, '&::before': { display: 'none' } }}
     >
       <AccordionSummary
-        expandIcon={<Typography sx={{ fontWeight: 900 }}>⌄</Typography>}
-        sx={{ minHeight: 46, px: 1.5, '& .MuiAccordionSummary-content': { my: 0.75 } }}
+        expandIcon={
+          <Typography sx={{ fontWeight: 900, fontSize: '1.6rem', lineHeight: 1, color: '#244d78' }}>
+            ⌄
+          </Typography>
+        }
+        sx={{
+          minHeight: 46,
+          px: 1.5,
+          bgcolor: 'rgba(36, 77, 120, 0.06)',
+          '&:hover': { bgcolor: 'rgba(36, 77, 120, 0.12)' },
+          '& .MuiAccordionSummary-content': { my: 0.75 },
+        }}
       >
         <Typography variant="h6" sx={{ fontWeight: 900, color: '#244d78' }}>
           {title}
