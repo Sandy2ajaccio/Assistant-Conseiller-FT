@@ -35,10 +35,17 @@ function CockpitBlockCard({
       }}
     >
       <AccordionSummary
+        expandIcon={
+          <Typography sx={{ fontWeight: 900, fontSize: '1.6rem', lineHeight: 1, color: '#244d78' }}>
+            ⌄
+          </Typography>
+        }
         sx={{
           minHeight: 46,
           flexShrink: 0,
           px: 2,
+          bgcolor: 'rgba(36, 77, 120, 0.06)',
+          '&:hover': { bgcolor: 'rgba(36, 77, 120, 0.12)' },
           '& .MuiAccordionSummary-content': { my: 0.75 },
           ...summarySx,
         }}
