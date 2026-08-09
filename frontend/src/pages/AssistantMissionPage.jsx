@@ -1399,17 +1399,34 @@ function AssistantMissionPage() {
         : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.",
     )
 
+    // Les champs multi-sélection (parcours, situations) sont stockés en interne comme une
+    // liste jointe par « · » pour un affichage compact côté cockpit. Pour la synthèse en
+    // prose destinée à la personne, on les remet en forme comme une liste naturelle
+    // ("A, B et C") avec formatListeCourte plutôt que de recopier les puces telles quelles.
+    const enListeNaturelle = (texteAvecPuces) =>
+      formatListeCourte(
+        String(texteAvecPuces || '')
+          .split('·')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      )
+
     const parcoursEtProjet = [
-      parcoursProfessionnel.trim() ? `Votre parcours : ${parcoursProfessionnel.trim().replace(/[.]+$/, '')}.` : '',
+      parcoursProfessionnel.trim() ? `Votre parcours : ${enListeNaturelle(parcoursProfessionnel)}.` : '',
       projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
-      contexte ? `Votre situation actuelle : ${contexte.replace(/[.]+$/, '')}.` : '',
+      contexte ? `Votre situation actuelle : ${enListeNaturelle(contexte)}.` : '',
     ].filter(Boolean).join(' ')
     if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
 
     const constats = []
     const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    // « Autres ressources » est un libellé générique de la liste de points d'appui : il n'est
+    // repris dans la synthèse que s'il accompagne au moins un point d'appui plus précis.
+    const ressourcesSyntheseUtiles = ressourcesSelectionnees.length > 1
+      ? ressourcesSelectionnees
+      : ressourcesSelectionnees.filter((item) => item !== 'Autres ressources')
     if (freinsSynthese.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSynthese)}`)
-    if (ressourcesSelectionnees.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSelectionnees)}`)
+    if (ressourcesSyntheseUtiles.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSyntheseUtiles)}`)
     if (constats.length > 0) paragraphes.push(`Nous avons identifié ${constats.join(', ainsi que ')}.`)
 
     const actions = [
