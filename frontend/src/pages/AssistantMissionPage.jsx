@@ -1391,7 +1391,7 @@ function AssistantMissionPage() {
   const syntheseEntretien = useMemo(() => {
     const paragraphes = []
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
-    const contexte = [situationAdministrative, situationPersonnelle].filter((item) => item.trim()).join(' ')
+    const contexte = [situationAdministrative, situationPersonnelle].map((item) => item.trim()).filter(Boolean).join(' · ')
 
     paragraphes.push(
       demande
@@ -1411,10 +1411,47 @@ function AssistantMissionPage() {
           .filter(Boolean),
       )
 
+    // Statuts purement administratifs ou déjà évidents pour la personne : ils sont utiles
+    // au conseiller dans le cockpit mais n'apportent rien dans une synthèse qui lui est lue.
+    // On ne garde dans "Votre situation actuelle" que les éléments concrets (mobilité,
+    // logement, garde d'enfants, santé, permis, RQTH...).
+    const LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE = new Set([
+      'Inscription France Travail active',
+      'Actualisation à jour',
+      'Contrat d’engagement signé',
+      'Contrat d’engagement à signer',
+      'Indemnisation ARE',
+      'Allocation ASS',
+      'Bénéficiaire du RSA',
+      'BRSA sans orientation enregistrée',
+      'Primo-inscrit',
+      'Réinscrit après plus de 10 ans',
+      'Catégorie 1',
+      'Catégorie 2',
+      'Catégorie 3',
+      'Orientation Collectivité / Conseil départemental',
+      'Sans indemnisation',
+      'Titre de séjour valide',
+      'Titre de séjour à renouveler',
+      'Manquement ou absence à traiter',
+      'Démarche administrative en cours',
+      'À l’aise avec le numérique',
+      'Maîtrise du français',
+      'Disponible immédiatement',
+    ])
+    const situationUtileALaSynthese = (texteAvecPuces) =>
+      String(texteAvecPuces || '')
+        .split('·')
+        .map((item) => item.trim())
+        .filter((item) => item && !LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE.has(item))
+        .join(' · ')
+
+    const contexteUtile = situationUtileALaSynthese(contexte)
+
     const parcoursEtProjet = [
       parcoursProfessionnel.trim() ? `Votre parcours : ${enListeNaturelle(parcoursProfessionnel)}.` : '',
       projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
-      contexte ? `Votre situation actuelle : ${enListeNaturelle(contexte)}.` : '',
+      contexteUtile ? `Votre situation actuelle : ${enListeNaturelle(contexteUtile)}.` : '',
     ].filter(Boolean).join(' ')
     if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
 
