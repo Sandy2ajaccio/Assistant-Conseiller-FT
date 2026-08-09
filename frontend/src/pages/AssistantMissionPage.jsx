@@ -25,6 +25,7 @@ import {
 import { analyserSituation } from '../services/moteurExpert'
 import analyseDiagnostic from '../services/diagnosticService'
 import getRecommandations from '../services/recommandationService'
+import { getReferentielSection } from '../services/referentielService'
 import genererSynthese from '../services/syntheseService'
 import genererMAP from '../services/mapService'
 import {
@@ -491,6 +492,8 @@ function AssistantMissionPage() {
   const [questionPrecisions, setQuestionPrecisions] = useState({})
   const [advpTab, setAdvpTab] = useState(ADVP_STEPS[0])
   const [recommandationTab, setRecommandationTab] = useState('orientation')
+  const [positionnementType, setPositionnementType] = useState('Atelier')
+  const [positionnementChoix, setPositionnementChoix] = useState('')
   const [advpNotes, setAdvpNotes] = useState(
     ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}),
   )
@@ -853,6 +856,37 @@ function AssistantMissionPage() {
     () => getRecommandations(diagnosticRecommandation),
     [diagnosticRecommandation],
   )
+
+  // Options du menu de positionnement : les ateliers/prestations recommandés par le moteur
+  // pour la situation de la personne apparaissent en tête de liste (repérés « conseillé »),
+  // suivis du reste du référentiel complet pour un positionnement libre si besoin.
+  const optionsPositionnement = useMemo(() => {
+    const construireOptions = (referentielKey, recommandes) => {
+      const tousLesLibelles = getReferentielSection(referentielKey).map((item) => item.libelle)
+      const recommandesUniques = (recommandes || []).filter((libelle) => tousLesLibelles.includes(libelle))
+      const autres = tousLesLibelles.filter((libelle) => !recommandesUniques.includes(libelle))
+      return [
+        ...recommandesUniques.map((libelle) => ({ libelle, conseille: true })),
+        ...autres.map((libelle) => ({ libelle, conseille: false })),
+      ]
+    }
+
+    return {
+      Atelier: construireOptions('ateliers', recommandationsMoteur.ateliers),
+      Prestation: construireOptions('prestations', recommandationsMoteur.prestations),
+    }
+  }, [recommandationsMoteur.ateliers, recommandationsMoteur.prestations])
+
+  const positionnerSurAtelierOuPrestation = () => {
+    const nom = positionnementChoix.trim()
+    if (!nom) return
+    setActionsRetenues((current) => (
+      current.some((action) => action.nom === nom && action.type === positionnementType)
+        ? current
+        : [...current, normaliserSuiviAction({ nom, type: positionnementType })]
+    ))
+    setPositionnementChoix('')
+  }
 
   const recommandationsService = useMemo(() => {
     const orientation = recommandationsMoteur.orientation?.principale || 'Orientation a preciser'
@@ -4223,6 +4257,57 @@ function AssistantMissionPage() {
                     ))}
                   </Stack>
                 )}
+              </CockpitBlockCard>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <CockpitBlockCard title="Positionnement sur atelier ou prestation" defaultExpanded sx={{ minHeight: 0, borderTop: '3px solid #7b1fa2', bgcolor: '#faf7fc' }}>
+                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                    {['Atelier', 'Prestation'].map((type) => (
+                      <Button
+                        key={type}
+                        size="small"
+                        variant={positionnementType === type ? 'contained' : 'outlined'}
+                        onClick={() => { setPositionnementType(type); setPositionnementChoix('') }}
+                      >
+                        {type === 'Atelier' ? 'Ateliers' : 'Prestations'}
+                      </Button>
+                    ))}
+                  </Stack>
+                  <TextField
+                    select
+                    label={positionnementType === 'Atelier' ? 'Choisir un atelier' : 'Choisir une prestation'}
+                    value={positionnementChoix}
+                    onChange={(event) => setPositionnementChoix(event.target.value)}
+                    fullWidth
+                    size="small"
+                  >
+                    {optionsPositionnement[positionnementType].map((option) => (
+                      <MenuItem key={option.libelle} value={option.libelle}>
+                        {option.libelle}{option.conseille ? ' — conseillé pour cette situation' : ''}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={!positionnementChoix}
+                    onClick={positionnerSurAtelierOuPrestation}
+                  >
+                    Positionner la personne
+                  </Button>
+                  {actionsRetenues.filter((action) => action.type === 'Atelier' || action.type === 'Prestation').length > 0 ? (
+                    <Stack spacing={0.25}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Déjà positionné(e) sur :</Typography>
+                      {actionsRetenues
+                        .filter((action) => action.type === 'Atelier' || action.type === 'Prestation')
+                        .map((action) => (
+                          <Typography key={`${action.type}-${action.nom}`} variant="body2">
+                            - {action.nom} ({action.type})
+                          </Typography>
+                        ))}
+                    </Stack>
+                  ) : null}
               </CockpitBlockCard>
           </Grid>
 
