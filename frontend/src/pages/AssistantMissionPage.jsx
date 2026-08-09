@@ -25,7 +25,6 @@ import {
 import { analyserSituation } from '../services/moteurExpert'
 import analyseDiagnostic from '../services/diagnosticService'
 import getRecommandations from '../services/recommandationService'
-import { getReferentielSection } from '../services/referentielService'
 import genererSynthese from '../services/syntheseService'
 import genererMAP from '../services/mapService'
 import {
@@ -44,6 +43,7 @@ import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
+import { CATEGORIES_DEMANDEURS_EMPLOI, getCategorieDemandeurEmploi } from '../data/categoriesDemandeursEmploi'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
 import {
@@ -460,6 +460,7 @@ function AssistantMissionPage() {
     setSectionsOuvertes((previous) => ({ ...previous, [sectionId]: expanded }))
   }
   const [situationAdministrative, setSituationAdministrative] = useState('')
+  const [categorieActuelle, setCategorieActuelle] = useState('')
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
   const [ceQueDitLaPersonne, setCeQueDitLaPersonne] = useState('')
@@ -492,8 +493,6 @@ function AssistantMissionPage() {
   const [questionPrecisions, setQuestionPrecisions] = useState({})
   const [advpTab, setAdvpTab] = useState(ADVP_STEPS[0])
   const [recommandationTab, setRecommandationTab] = useState('orientation')
-  const [positionnementType, setPositionnementType] = useState('Atelier')
-  const [positionnementChoix, setPositionnementChoix] = useState('')
   const [advpNotes, setAdvpNotes] = useState(
     ADVP_STEPS.reduce((acc, step) => ({ ...acc, [step]: { questions: '', reponses: '', observations: '' } }), {}),
   )
@@ -776,6 +775,90 @@ function AssistantMissionPage() {
     return alertes
   }, [analyseDemandeAutomatique.freins, analyseDemandeAutomatique.objectifs])
 
+  // Conseille un changement de catégorie France Travail (1 à 10) lorsque la situation réelle
+  // décrite dans le diagnostic ne correspond plus à la catégorie administrative déclarée.
+  // Ne calcule jamais de sanction ni de durée : se limite à signaler l'écart au conseiller,
+  // qui reste seul décisionnaire (cf. principesDecision de data/categorieRules.js).
+  const coherenceCategorie = useMemo(() => {
+    const reference = getCategorieDemandeurEmploi(categorieActuelle)
+    if (!categorieActuelle || !reference) {
+      return { alerte: null, reference: null }
+    }
+
+    const texteSituation = `${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel} ${projet} ${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.toLowerCase()
+
+    const disponibleImmediatement = texteSituation.includes('disponible immédiatement')
+    const nonDisponible = texteSituation.includes('non disponible') || texteSituation.includes('indisponib')
+    const enEmploiActuel = /\ben (emploi|poste|cdi|cdd|activité)\b|activité réduite|auto-entrepreneur|micro-entreprise/.test(texteSituation)
+    const beneficiaireRsa = texteSituation.includes('bénéficiaire du rsa') || texteSituation.includes('brsa')
+    const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    const freinsImportants = freinsComplets.length >= 2
+
+    const numero = reference.numero
+    const alertes = []
+
+    // Catégories 1-3 et 6-8 supposent une disponibilité immédiate (ou un délai court pour 6-8).
+    if ([1, 2, 3].includes(numero) && nonDisponible) {
+      alertes.push(
+        `La catégorie ${numero} déclarée suppose une disponibilité immédiate, mais la situation décrite indique une indisponibilité. Un passage en catégorie 4 (sans emploi, non immédiatement disponible) semble à envisager avec le demandeur.`,
+      )
+    }
+
+    if (numero === 4 && disponibleImmediatement) {
+      alertes.push(
+        'La catégorie 4 déclarée suppose une indisponibilité, mais la personne est décrite comme disponible immédiatement. Vérifier si un passage en catégorie 1, 2 ou 3 (selon le type de contrat recherché) est plus cohérent.',
+      )
+    }
+
+    // Catégorie 5 suppose un emploi actuel ; 1-3 supposent une absence d'emploi.
+    if ([1, 2, 3].includes(numero) && enEmploiActuel) {
+      alertes.push(
+        `La personne est catégorisée ${numero} (sans emploi) mais la situation décrite mentionne un emploi ou une activité en cours. Vérifier si une catégorie 5, 6, 7 ou 8 (personne en emploi recherchant un autre emploi) correspond mieux.`,
+      )
+    }
+
+    if (numero === 5 && !enEmploiActuel && nonDisponible === false && disponibleImmediatement) {
+      alertes.push(
+        'La catégorie 5 déclarée suppose une personne actuellement en emploi, mais aucun emploi actuel n’est mentionné et la personne semble disponible immédiatement. Vérifier si une catégorie 1, 2 ou 3 est plus adaptée.',
+      )
+    }
+
+    // Catégories 9 et 10 : freins sociaux / RSA.
+    if (![9, 10].includes(numero) && freinsImportants && !enEmploiActuel) {
+      alertes.push(
+        `Plusieurs freins importants font temporairement obstacle à la recherche d’emploi alors que la catégorie ${numero} est déclarée. Un accompagnement à vocation d’insertion sociale (catégorie 9) mérite d’être examiné avec le demandeur.`,
+      )
+    }
+
+    if (numero === 9 && !freinsImportants) {
+      alertes.push(
+        'La catégorie 9 (accompagnement à vocation d’insertion sociale) est déclarée, mais peu de freins sont actuellement identifiés dans le diagnostic. Vérifier si la situation a évolué et si un retour vers une catégorie 1 à 8 est envisageable.',
+      )
+    }
+
+    if (beneficiaireRsa && numero !== 10 && ![1, 2, 3, 9].includes(numero)) {
+      alertes.push(
+        'La personne est signalée bénéficiaire du RSA : vérifier la cohérence avec la catégorie déclarée et, si le contrat d’engagement n’est pas encore signé, l’éventuelle catégorie 10.',
+      )
+    }
+
+    return {
+      reference,
+      alerte: alertes.length > 0 ? alertes[0] : null,
+      alertesCompletes: alertes,
+    }
+  }, [
+    categorieActuelle,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    freinsSelectionnes,
+    analyseDemandeAutomatique.freins,
+  ])
+
   const capaciteAAgir = useMemo(() => {
     const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
     const nbFreins = freinsComplets.length
@@ -856,37 +939,6 @@ function AssistantMissionPage() {
     () => getRecommandations(diagnosticRecommandation),
     [diagnosticRecommandation],
   )
-
-  // Options du menu de positionnement : les ateliers/prestations recommandés par le moteur
-  // pour la situation de la personne apparaissent en tête de liste (repérés « conseillé »),
-  // suivis du reste du référentiel complet pour un positionnement libre si besoin.
-  const optionsPositionnement = useMemo(() => {
-    const construireOptions = (referentielKey, recommandes) => {
-      const tousLesLibelles = getReferentielSection(referentielKey).map((item) => item.libelle)
-      const recommandesUniques = (recommandes || []).filter((libelle) => tousLesLibelles.includes(libelle))
-      const autres = tousLesLibelles.filter((libelle) => !recommandesUniques.includes(libelle))
-      return [
-        ...recommandesUniques.map((libelle) => ({ libelle, conseille: true })),
-        ...autres.map((libelle) => ({ libelle, conseille: false })),
-      ]
-    }
-
-    return {
-      Atelier: construireOptions('ateliers', recommandationsMoteur.ateliers),
-      Prestation: construireOptions('prestations', recommandationsMoteur.prestations),
-    }
-  }, [recommandationsMoteur.ateliers, recommandationsMoteur.prestations])
-
-  const positionnerSurAtelierOuPrestation = () => {
-    const nom = positionnementChoix.trim()
-    if (!nom) return
-    setActionsRetenues((current) => (
-      current.some((action) => action.nom === nom && action.type === positionnementType)
-        ? current
-        : [...current, normaliserSuiviAction({ nom, type: positionnementType })]
-    ))
-    setPositionnementChoix('')
-  }
 
   const recommandationsService = useMemo(() => {
     const orientation = recommandationsMoteur.orientation?.principale || 'Orientation a preciser'
@@ -1371,10 +1423,17 @@ function AssistantMissionPage() {
     }
   }, [recommandationsMoteur, codeSituationOp2])
 
+  // recommandationsMoteur.actions regroupe TOUTES les recommandations (ateliers + prestations
+  // + partenaires + formations + MAP), ce qui peut dépasser 30 lignes. Pour rester une vraie
+  // liste d'actions immédiates, on ne garde que les toutes premières (les mieux classées par
+  // le moteur) ; le reste se consulte dans le Tableau de bord de l'offre de services.
+  const NOMBRE_MAX_ACTIONS_IMMEDIATES = 5
+  const toutesLesActionsMoteur = recommandationsMoteur.actions || []
   const actionsImmediatesActives = useMemo(
-    () => recommandationsMoteur.actions || [],
-    [recommandationsMoteur],
+    () => toutesLesActionsMoteur.slice(0, NOMBRE_MAX_ACTIONS_IMMEDIATES),
+    [toutesLesActionsMoteur],
   )
+  const nombreActionsSupplementaires = Math.max(0, toutesLesActionsMoteur.length - NOMBRE_MAX_ACTIONS_IMMEDIATES)
 
   const planActionConcret = useMemo(() => {
     const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
@@ -1808,6 +1867,7 @@ function AssistantMissionPage() {
     setIdentifiantDemandeur(entryId)
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -1985,6 +2045,7 @@ function AssistantMissionPage() {
     identifiant: identifiantDemandeur,
     typeEntretien,
     situationAdministrative,
+    categorieActuelle,
     situationPersonnelle,
     parcoursProfessionnel,
     ceQueDitLaPersonne,
@@ -2048,6 +2109,7 @@ function AssistantMissionPage() {
         setIdentifiantDemandeur(dossier.identifiant || '')
         setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
         setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
         setSituationPersonnelle(dossier.situationPersonnelle || '')
         setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
         setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2198,6 +2260,7 @@ function AssistantMissionPage() {
     setIdentifiantDemandeur(id)
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -4032,6 +4095,35 @@ function AssistantMissionPage() {
                       />
                     </AccordionDetails>
                   </Accordion>
+
+                  <Box sx={{ mt: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      label="Catégorie actuelle de la personne accompagnée"
+                      value={categorieActuelle}
+                      onChange={(event) => setCategorieActuelle(event.target.value)}
+                    >
+                      <MenuItem value="">Non renseignée</MenuItem>
+                      {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
+                        <MenuItem key={cat.numero} value={String(cat.numero)}>
+                          Catégorie {cat.numero} — {cat.libelle}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {coherenceCategorie.alerte ? (
+                      <Alert severity="warning" sx={{ mt: 1 }}>
+                        <strong>Incohérence de catégorie détectée</strong> — catégorie {coherenceCategorie.reference?.numero} déclarée.
+                        {' '}
+                        {coherenceCategorie.alerte}
+                      </Alert>
+                    ) : categorieActuelle ? (
+                      <Alert severity="success" sx={{ mt: 1 }}>
+                        Aucune incohérence détectée entre la catégorie {coherenceCategorie.reference?.numero} déclarée et la situation décrite.
+                      </Alert>
+                    ) : null}
+                  </Box>
                 </CockpitBlockCard>
 
               <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
@@ -4257,57 +4349,19 @@ function AssistantMissionPage() {
                     ))}
                   </Stack>
                 )}
-              </CockpitBlockCard>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 6 }}>
-            <CockpitBlockCard title="Positionnement sur atelier ou prestation" defaultExpanded sx={{ minHeight: 0, borderTop: '3px solid #7b1fa2', bgcolor: '#faf7fc' }}>
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                    {['Atelier', 'Prestation'].map((type) => (
-                      <Button
-                        key={type}
-                        size="small"
-                        variant={positionnementType === type ? 'contained' : 'outlined'}
-                        onClick={() => { setPositionnementType(type); setPositionnementChoix('') }}
-                      >
-                        {type === 'Atelier' ? 'Ateliers' : 'Prestations'}
-                      </Button>
-                    ))}
-                  </Stack>
-                  <TextField
-                    select
-                    label={positionnementType === 'Atelier' ? 'Choisir un atelier' : 'Choisir une prestation'}
-                    value={positionnementChoix}
-                    onChange={(event) => setPositionnementChoix(event.target.value)}
-                    fullWidth
-                    size="small"
-                  >
-                    {optionsPositionnement[positionnementType].map((option) => (
-                      <MenuItem key={option.libelle} value={option.libelle}>
-                        {option.libelle}{option.conseille ? ' — conseillé pour cette situation' : ''}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                {nombreActionsSupplementaires > 0 ? (
                   <Button
                     size="small"
-                    variant="contained"
-                    disabled={!positionnementChoix}
-                    onClick={positionnerSurAtelierOuPrestation}
+                    variant="text"
+                    sx={{ alignSelf: 'flex-start', mt: 0.5 }}
+                    onClick={() => {
+                      const target = document.getElementById('section-prescriptions')
+                      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
                   >
-                    Positionner la personne
+                    Voir {nombreActionsSupplementaires} autre(s) recommandation(s) dans l’offre de services
                   </Button>
-                  {actionsRetenues.filter((action) => action.type === 'Atelier' || action.type === 'Prestation').length > 0 ? (
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Déjà positionné(e) sur :</Typography>
-                      {actionsRetenues
-                        .filter((action) => action.type === 'Atelier' || action.type === 'Prestation')
-                        .map((action) => (
-                          <Typography key={`${action.type}-${action.nom}`} variant="body2">
-                            - {action.nom} ({action.type})
-                          </Typography>
-                        ))}
-                    </Stack>
-                  ) : null}
+                ) : null}
               </CockpitBlockCard>
           </Grid>
 
