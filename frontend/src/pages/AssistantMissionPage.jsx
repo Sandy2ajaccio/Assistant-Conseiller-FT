@@ -43,6 +43,7 @@ import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
+import { CATEGORIES_DEMANDEURS_EMPLOI, getCategorieDemandeurEmploi } from '../data/categoriesDemandeursEmploi'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
 import {
@@ -316,6 +317,34 @@ const formatDateFr = (isoLike) => {
   return d.toLocaleString('fr-FR')
 }
 
+// Transforme un verbe conjugué à la 3e personne du singulier (style « note de dossier »,
+// sans pronom : « a réalisé… », « n’a pas… », « travaille… ») en 2e personne du pluriel
+// de politesse (« vous avez réalisé… », « vous n’avez pas… », « vous travaillez… »).
+const conjuguerA3emePersonneVersVous = (segment) => {
+  let resultat = segment
+
+  // Passé composé négatif : "n'a pas fait" / "n'a pas de" -> "vous n'avez pas fait" / "vous n'avez pas de"
+  resultat = resultat.replace(/^n['’]a\s+pas\b/i, "vous n'avez pas")
+  // Présent négatif : "n'est pas" -> "vous n'êtes pas"
+  resultat = resultat.replace(/^n['’]est\s+pas\b/i, "vous n'êtes pas")
+  // Passé composé affirmatif : "a réalisé", "a travaillé", "a suivi" -> "vous avez réalisé", etc.
+  resultat = resultat.replace(/^a\s+(?=\w)/i, 'vous avez ')
+  // Présent 3e personne courant : "travaille", "cherche", "occupe", "possède", "dispose", "connaît"
+  resultat = resultat.replace(/^(travaille|cherche|occupe|possède|dispose|connaît|maîtrise|habite|vit|réside)\b/i, (m, verbe) => {
+    const verbeMinuscule = verbe.toLowerCase()
+    const radical = verbeMinuscule.slice(0, -1)
+    return `vous ${radical}ez`
+  })
+  if (/^envisage/i.test(resultat)) return resultat.replace(/^envisage/i, 'vous envisagez')
+  if (/^souhaite/i.test(resultat)) return resultat.replace(/^souhaite/i, 'vous souhaitez')
+  if (/^recherche/i.test(resultat)) return resultat.replace(/^recherche/i, 'vous recherchez')
+  if (/^ne sait plus/i.test(resultat)) return resultat.replace(/^ne sait plus/i, 'vous ne savez plus')
+  if (/^ne sait pas/i.test(resultat)) return resultat.replace(/^ne sait pas/i, 'vous ne savez pas')
+  if (/^pas de/i.test(resultat)) return resultat.replace(/^pas de/i, "vous n'avez pas de")
+
+  return resultat
+}
+
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
@@ -323,25 +352,35 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     .map((phrase) => phrase.trim())
     .filter(Boolean)
 
-  return phrases.map((phrase) => {
+  const phrasesReformulees = phrases.map((phrase) => {
     const phraseNormalisee = phrase
       .replace(/\bRégion\b/g, 'région')
       .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
       .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
       .replace(/\bau regard de son profil\b/gi, 'au regard de votre profil')
       .replace(/\bet dans cette perspective,\s*souhaite\b/gi, 'et, dans cette perspective, vous souhaitez')
-    const debutMinuscule = phraseNormalisee.charAt(0).toLowerCase() + phraseNormalisee.slice(1)
-    if (/^\d+\s*ans?\b/i.test(phraseNormalisee)) return `vous disposez de ${debutMinuscule}`
-    if (/^ne sait plus/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait plus/i, 'vous ne savez plus')
-    if (/^ne sait pas/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^ne sait pas/i, 'vous ne savez pas')
-    if (/^envisage/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^envisage/i, 'vous envisagez')
-    if (/^souhaite/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^souhaite/i, 'vous souhaitez')
-    if (/^recherche/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^recherche/i, 'vous recherchez')
-    if (/^pas de/i.test(phraseNormalisee)) return phraseNormalisee.replace(/^pas de/i, "vous n'avez pas de")
-    if (/^sans /i.test(phraseNormalisee)) return `vous êtes ${debutMinuscule}`
-    if (/^vous\b/i.test(phraseNormalisee)) return debutMinuscule
-    return debutMinuscule
-  }).join(', et ')
+
+    // Découpe la phrase en propositions séparées par "mais" / "et" / "," afin que chaque
+    // proposition porte son propre verbe conjugué à la 2e personne (ex : "a réalisé X, souhaite Y
+    // mais n'a pas Z" -> "vous avez réalisé X, vous souhaitez Y mais vous n'avez pas Z").
+    const propositions = phraseNormalisee.split(/(\s+mais\s+|\s+et\s+|,\s+)/i)
+    const propositionsReformulees = propositions.map((partie, index) => {
+      // Les séparateurs capturés (indices impairs) sont réinjectés tels quels.
+      if (index % 2 === 1) return partie
+      const debutMinuscule = partie.charAt(0).toLowerCase() + partie.slice(1)
+      if (/^\d+\s*ans?\b/i.test(debutMinuscule)) return `vous disposez de ${debutMinuscule}`
+      if (/^sans /i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
+      if (/^vous\b/i.test(debutMinuscule)) return debutMinuscule
+      return conjuguerA3emePersonneVersVous(debutMinuscule)
+    })
+
+    return propositionsReformulees.join('')
+  })
+
+  if (phrasesReformulees.length <= 1) return phrasesReformulees.join('')
+  // Phrases distinctes du récit jointes par un point-virgule plutôt que par une seule
+  // phrase-fleuve en ", et " : plus lisible et plus proche d'une synthèse rédigée.
+  return phrasesReformulees.join(' ; ')
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
@@ -421,6 +460,7 @@ function AssistantMissionPage() {
     setSectionsOuvertes((previous) => ({ ...previous, [sectionId]: expanded }))
   }
   const [situationAdministrative, setSituationAdministrative] = useState('')
+  const [categorieActuelle, setCategorieActuelle] = useState('')
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
   const [ceQueDitLaPersonne, setCeQueDitLaPersonne] = useState('')
@@ -734,6 +774,90 @@ function AssistantMissionPage() {
     }
     return alertes
   }, [analyseDemandeAutomatique.freins, analyseDemandeAutomatique.objectifs])
+
+  // Conseille un changement de catégorie France Travail (1 à 10) lorsque la situation réelle
+  // décrite dans le diagnostic ne correspond plus à la catégorie administrative déclarée.
+  // Ne calcule jamais de sanction ni de durée : se limite à signaler l'écart au conseiller,
+  // qui reste seul décisionnaire (cf. principesDecision de data/categorieRules.js).
+  const coherenceCategorie = useMemo(() => {
+    const reference = getCategorieDemandeurEmploi(categorieActuelle)
+    if (!categorieActuelle || !reference) {
+      return { alerte: null, reference: null }
+    }
+
+    const texteSituation = `${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel} ${projet} ${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.toLowerCase()
+
+    const disponibleImmediatement = texteSituation.includes('disponible immédiatement')
+    const nonDisponible = texteSituation.includes('non disponible') || texteSituation.includes('indisponib')
+    const enEmploiActuel = /\ben (emploi|poste|cdi|cdd|activité)\b|activité réduite|auto-entrepreneur|micro-entreprise/.test(texteSituation)
+    const beneficiaireRsa = texteSituation.includes('bénéficiaire du rsa') || texteSituation.includes('brsa')
+    const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    const freinsImportants = freinsComplets.length >= 2
+
+    const numero = reference.numero
+    const alertes = []
+
+    // Catégories 1-3 et 6-8 supposent une disponibilité immédiate (ou un délai court pour 6-8).
+    if ([1, 2, 3].includes(numero) && nonDisponible) {
+      alertes.push(
+        `La catégorie ${numero} déclarée suppose une disponibilité immédiate, mais la situation décrite indique une indisponibilité. Un passage en catégorie 4 (sans emploi, non immédiatement disponible) semble à envisager avec le demandeur.`,
+      )
+    }
+
+    if (numero === 4 && disponibleImmediatement) {
+      alertes.push(
+        'La catégorie 4 déclarée suppose une indisponibilité, mais la personne est décrite comme disponible immédiatement. Vérifier si un passage en catégorie 1, 2 ou 3 (selon le type de contrat recherché) est plus cohérent.',
+      )
+    }
+
+    // Catégorie 5 suppose un emploi actuel ; 1-3 supposent une absence d'emploi.
+    if ([1, 2, 3].includes(numero) && enEmploiActuel) {
+      alertes.push(
+        `La personne est catégorisée ${numero} (sans emploi) mais la situation décrite mentionne un emploi ou une activité en cours. Vérifier si une catégorie 5, 6, 7 ou 8 (personne en emploi recherchant un autre emploi) correspond mieux.`,
+      )
+    }
+
+    if (numero === 5 && !enEmploiActuel && nonDisponible === false && disponibleImmediatement) {
+      alertes.push(
+        'La catégorie 5 déclarée suppose une personne actuellement en emploi, mais aucun emploi actuel n’est mentionné et la personne semble disponible immédiatement. Vérifier si une catégorie 1, 2 ou 3 est plus adaptée.',
+      )
+    }
+
+    // Catégories 9 et 10 : freins sociaux / RSA.
+    if (![9, 10].includes(numero) && freinsImportants && !enEmploiActuel) {
+      alertes.push(
+        `Plusieurs freins importants font temporairement obstacle à la recherche d’emploi alors que la catégorie ${numero} est déclarée. Un accompagnement à vocation d’insertion sociale (catégorie 9) mérite d’être examiné avec le demandeur.`,
+      )
+    }
+
+    if (numero === 9 && !freinsImportants) {
+      alertes.push(
+        'La catégorie 9 (accompagnement à vocation d’insertion sociale) est déclarée, mais peu de freins sont actuellement identifiés dans le diagnostic. Vérifier si la situation a évolué et si un retour vers une catégorie 1 à 8 est envisageable.',
+      )
+    }
+
+    if (beneficiaireRsa && numero !== 10 && ![1, 2, 3, 9].includes(numero)) {
+      alertes.push(
+        'La personne est signalée bénéficiaire du RSA : vérifier la cohérence avec la catégorie déclarée et, si le contrat d’engagement n’est pas encore signé, l’éventuelle catégorie 10.',
+      )
+    }
+
+    return {
+      reference,
+      alerte: alertes.length > 0 ? alertes[0] : null,
+      alertesCompletes: alertes,
+    }
+  }, [
+    categorieActuelle,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    freinsSelectionnes,
+    analyseDemandeAutomatique.freins,
+  ])
 
   const capaciteAAgir = useMemo(() => {
     const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
@@ -1299,10 +1423,17 @@ function AssistantMissionPage() {
     }
   }, [recommandationsMoteur, codeSituationOp2])
 
+  // recommandationsMoteur.actions regroupe TOUTES les recommandations (ateliers + prestations
+  // + partenaires + formations + MAP), ce qui peut dépasser 30 lignes. Pour rester une vraie
+  // liste d'actions immédiates, on ne garde que les toutes premières (les mieux classées par
+  // le moteur) ; le reste se consulte dans le Tableau de bord de l'offre de services.
+  const NOMBRE_MAX_ACTIONS_IMMEDIATES = 5
+  const toutesLesActionsMoteur = recommandationsMoteur.actions || []
   const actionsImmediatesActives = useMemo(
-    () => recommandationsMoteur.actions || [],
-    [recommandationsMoteur],
+    () => toutesLesActionsMoteur.slice(0, NOMBRE_MAX_ACTIONS_IMMEDIATES),
+    [toutesLesActionsMoteur],
   )
+  const nombreActionsSupplementaires = Math.max(0, toutesLesActionsMoteur.length - NOMBRE_MAX_ACTIONS_IMMEDIATES)
 
   const planActionConcret = useMemo(() => {
     const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
@@ -1353,7 +1484,7 @@ function AssistantMissionPage() {
   const syntheseEntretien = useMemo(() => {
     const paragraphes = []
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
-    const contexte = [situationAdministrative, situationPersonnelle].filter((item) => item.trim()).join(' ')
+    const contexte = [situationAdministrative, situationPersonnelle].map((item) => item.trim()).filter(Boolean).join(' · ')
 
     paragraphes.push(
       demande
@@ -1361,17 +1492,71 @@ function AssistantMissionPage() {
         : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.",
     )
 
+    // Les champs multi-sélection (parcours, situations) sont stockés en interne comme une
+    // liste jointe par « · » pour un affichage compact côté cockpit. Pour la synthèse en
+    // prose destinée à la personne, on les remet en forme comme une liste naturelle
+    // ("A, B et C") avec formatListeCourte plutôt que de recopier les puces telles quelles.
+    const enListeNaturelle = (texteAvecPuces) =>
+      formatListeCourte(
+        String(texteAvecPuces || '')
+          .split('·')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      )
+
+    // Statuts purement administratifs ou déjà évidents pour la personne : ils sont utiles
+    // au conseiller dans le cockpit mais n'apportent rien dans une synthèse qui lui est lue.
+    // On ne garde dans "Votre situation actuelle" que les éléments concrets (mobilité,
+    // logement, garde d'enfants, santé, permis, RQTH...).
+    const LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE = new Set([
+      'Inscription France Travail active',
+      'Actualisation à jour',
+      'Contrat d’engagement signé',
+      'Contrat d’engagement à signer',
+      'Indemnisation ARE',
+      'Allocation ASS',
+      'Bénéficiaire du RSA',
+      'BRSA sans orientation enregistrée',
+      'Primo-inscrit',
+      'Réinscrit après plus de 10 ans',
+      'Catégorie 1',
+      'Catégorie 2',
+      'Catégorie 3',
+      'Orientation Collectivité / Conseil départemental',
+      'Sans indemnisation',
+      'Titre de séjour valide',
+      'Titre de séjour à renouveler',
+      'Manquement ou absence à traiter',
+      'Démarche administrative en cours',
+      'À l’aise avec le numérique',
+      'Maîtrise du français',
+      'Disponible immédiatement',
+    ])
+    const situationUtileALaSynthese = (texteAvecPuces) =>
+      String(texteAvecPuces || '')
+        .split('·')
+        .map((item) => item.trim())
+        .filter((item) => item && !LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE.has(item))
+        .join(' · ')
+
+    const contexteUtile = situationUtileALaSynthese(contexte)
+
     const parcoursEtProjet = [
-      parcoursProfessionnel.trim() ? `Votre parcours : ${parcoursProfessionnel.trim().replace(/[.]+$/, '')}.` : '',
+      parcoursProfessionnel.trim() ? `Votre parcours : ${enListeNaturelle(parcoursProfessionnel)}.` : '',
       projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
-      contexte ? `Votre situation actuelle : ${contexte.replace(/[.]+$/, '')}.` : '',
+      contexteUtile ? `Votre situation actuelle : ${enListeNaturelle(contexteUtile)}.` : '',
     ].filter(Boolean).join(' ')
     if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
 
     const constats = []
     const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
+    // « Autres ressources » est un libellé générique de la liste de points d'appui : il n'est
+    // repris dans la synthèse que s'il accompagne au moins un point d'appui plus précis.
+    const ressourcesSyntheseUtiles = ressourcesSelectionnees.length > 1
+      ? ressourcesSelectionnees
+      : ressourcesSelectionnees.filter((item) => item !== 'Autres ressources')
     if (freinsSynthese.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSynthese)}`)
-    if (ressourcesSelectionnees.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSelectionnees)}`)
+    if (ressourcesSyntheseUtiles.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSyntheseUtiles)}`)
     if (constats.length > 0) paragraphes.push(`Nous avons identifié ${constats.join(', ainsi que ')}.`)
 
     const actions = [
@@ -1682,6 +1867,7 @@ function AssistantMissionPage() {
     setIdentifiantDemandeur(entryId)
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -1859,6 +2045,7 @@ function AssistantMissionPage() {
     identifiant: identifiantDemandeur,
     typeEntretien,
     situationAdministrative,
+    categorieActuelle,
     situationPersonnelle,
     parcoursProfessionnel,
     ceQueDitLaPersonne,
@@ -1922,6 +2109,7 @@ function AssistantMissionPage() {
         setIdentifiantDemandeur(dossier.identifiant || '')
         setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
         setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
         setSituationPersonnelle(dossier.situationPersonnelle || '')
         setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
         setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2072,6 +2260,7 @@ function AssistantMissionPage() {
     setIdentifiantDemandeur(id)
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
+    setCategorieActuelle(dossier.categorieActuelle || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2936,7 +3125,7 @@ function AssistantMissionPage() {
         <CockpitBlockCard
           title="Aide à la décision et prescriptions adaptées"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
-          defaultExpanded={false}
+          defaultExpanded
           summarySx={{ minHeight: 42 }}
           detailsSx={{ py: 2 }}
         >
@@ -3908,6 +4097,41 @@ function AssistantMissionPage() {
                   </Accordion>
                 </CockpitBlockCard>
 
+              <CockpitBlockCard
+                title="Catégorie France Travail"
+                sx={{ minHeight: 'auto', borderTop: '3px solid #01696F', bgcolor: '#eefaf9' }}
+              >
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Choisissez la catégorie administrative déclarée (1 à 10) : le logiciel vérifie sa cohérence avec la situation décrite et vous alerte en cas d'écart.
+                  </Typography>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label="Catégorie actuelle de la personne accompagnée"
+                    value={categorieActuelle}
+                    onChange={(event) => setCategorieActuelle(event.target.value)}
+                  >
+                    <MenuItem value="">Non renseignée</MenuItem>
+                    {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
+                      <MenuItem key={cat.numero} value={String(cat.numero)}>
+                        Catégorie {cat.numero} — {cat.libelle}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {coherenceCategorie.alerte ? (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      <strong>Incohérence de catégorie détectée</strong> — catégorie {coherenceCategorie.reference?.numero} déclarée.
+                      {' '}
+                      {coherenceCategorie.alerte}
+                    </Alert>
+                  ) : categorieActuelle ? (
+                    <Alert severity="success" sx={{ mt: 1 }}>
+                      Aucune incohérence détectée entre la catégorie {coherenceCategorie.reference?.numero} déclarée et la situation décrite.
+                    </Alert>
+                  ) : null}
+              </CockpitBlockCard>
+
               <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup
                     title="Freins a prendre en compte"
@@ -4045,12 +4269,14 @@ function AssistantMissionPage() {
                       {' '}Les structures, l’éligibilité, les postes disponibles et le circuit doivent être confirmés selon les procédures internes France Travail.
                     </Alert>
                   ) : null}
-                  <Tabs
+                  <TextField
+                    select
+                    label="Choisir un type de conseil à afficher"
                     value={recommandationTab}
-                    onChange={(_, value) => setRecommandationTab(value)}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{ minHeight: 30, '& .MuiTab-root': { minHeight: 30, py: 0 } }}
+                    onChange={(event) => setRecommandationTab(event.target.value)}
+                    size="small"
+                    fullWidth
+                    sx={{ maxWidth: { xs: '100%', sm: 360 } }}
                   >
                     {recommandationsService
                       .filter((item) => (
@@ -4058,9 +4284,9 @@ function AssistantMissionPage() {
                         || (item.key === 'iae' && recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
                       ))
                       .map((item) => (
-                      <Tab key={item.key} value={item.key} label={item.title} />
+                      <MenuItem key={item.key} value={item.key}>{item.title}</MenuItem>
                     ))}
-                  </Tabs>
+                  </TextField>
                   {recommandationActive ? (
                     <CockpitRecommendationCard
                       title={recommandationActive.title}
@@ -4131,6 +4357,19 @@ function AssistantMissionPage() {
                     ))}
                   </Stack>
                 )}
+                {nombreActionsSupplementaires > 0 ? (
+                  <Button
+                    size="small"
+                    variant="text"
+                    sx={{ alignSelf: 'flex-start', mt: 0.5 }}
+                    onClick={() => {
+                      const target = document.getElementById('section-prescriptions')
+                      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                  >
+                    Voir {nombreActionsSupplementaires} autre(s) recommandation(s) dans l’offre de services
+                  </Button>
+                ) : null}
               </CockpitBlockCard>
           </Grid>
 

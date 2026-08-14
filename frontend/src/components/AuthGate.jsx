@@ -155,6 +155,11 @@ const AuthGate = ({ children }) => {
 
       googleButtonRef.current.replaceChildren()
 
+      const largeurDisponible = Math.min(
+        396,
+        Math.max(200, googleButtonRef.current.clientWidth || 396),
+      )
+
       window.google.accounts.id.renderButton(
         googleButtonRef.current,
         {
@@ -164,10 +169,14 @@ const AuthGate = ({ children }) => {
           text: 'signin_with',
           shape: 'rectangular',
           logo_alignment: 'left',
-          width: 396,
+          width: largeurDisponible,
         },
       )
     }
+
+    const relancerAuRedimensionnement = () => renderGoogleButton()
+
+    window.addEventListener('resize', relancerAuRedimensionnement)
 
     const existingScript = document.querySelector(
       'script[data-google-identity]',
@@ -184,11 +193,13 @@ const AuthGate = ({ children }) => {
         )
       }
 
-      return () =>
+      return () => {
         existingScript.removeEventListener(
           'load',
           renderGoogleButton,
         )
+        window.removeEventListener('resize', relancerAuRedimensionnement)
+      }
     }
 
     const script = document.createElement('script')
@@ -218,11 +229,13 @@ const AuthGate = ({ children }) => {
 
     document.head.appendChild(script)
 
-    return () =>
+    return () => {
       script.removeEventListener(
         'load',
         renderGoogleButton,
       )
+      window.removeEventListener('resize', relancerAuRedimensionnement)
+    }
   }, [checking, user])
 
   const disconnectFromGoogle = async () => {
@@ -339,6 +352,7 @@ const AuthGate = ({ children }) => {
         sx={{
           minHeight: '100vh',
           display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           placeItems: 'center',
           p: 2,
           bgcolor: '#0d1b2d',
@@ -407,6 +421,7 @@ const AuthGate = ({ children }) => {
         sx={{
           minHeight: '100vh',
           display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           placeItems: 'center',
           p: 2,
           bgcolor: '#0d1b2d',
