@@ -3125,7 +3125,7 @@ function AssistantMissionPage() {
         <CockpitBlockCard
           title="Aide à la décision et prescriptions adaptées"
           subtitle="Ces propositions évoluent automatiquement selon les informations saisies dans l’entretien."
-          defaultExpanded={false}
+          defaultExpanded
           summarySx={{ minHeight: 42 }}
           detailsSx={{ py: 2 }}
         >
@@ -4269,12 +4269,14 @@ function AssistantMissionPage() {
                       {' '}Les structures, l’éligibilité, les postes disponibles et le circuit doivent être confirmés selon les procédures internes France Travail.
                     </Alert>
                   ) : null}
-                  <Tabs
+                  <TextField
+                    select
+                    label="Choisir un type de conseil à afficher"
                     value={recommandationTab}
-                    onChange={(_, value) => setRecommandationTab(value)}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{ minHeight: 30, '& .MuiTab-root': { minHeight: 30, py: 0 } }}
+                    onChange={(event) => setRecommandationTab(event.target.value)}
+                    size="small"
+                    fullWidth
+                    sx={{ maxWidth: { xs: '100%', sm: 360 } }}
                   >
                     {recommandationsService
                       .filter((item) => (
@@ -4282,9 +4284,9 @@ function AssistantMissionPage() {
                         || (item.key === 'iae' && recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
                       ))
                       .map((item) => (
-                      <Tab key={item.key} value={item.key} label={item.title} />
+                      <MenuItem key={item.key} value={item.key}>{item.title}</MenuItem>
                     ))}
-                  </Tabs>
+                  </TextField>
                   {recommandationActive ? (
                     <CockpitRecommendationCard
                       title={recommandationActive.title}
