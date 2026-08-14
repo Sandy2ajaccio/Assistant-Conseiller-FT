@@ -9,7 +9,7 @@ const navItems = [
   { label: '⚙ Paramètres', to: '/parametres' },
 ]
 
-function Sidebar() {
+function Sidebar({ onNavigate }) {
   return (
     <div>
       <div className="brand">
@@ -24,6 +24,7 @@ function Sidebar() {
             to={item.to}
             className={({ isActive }) => (isActive ? 'active' : '')}
             end={item.to === '/'}
+            onClick={onNavigate}
           >
             {item.label}
           </NavLink>
