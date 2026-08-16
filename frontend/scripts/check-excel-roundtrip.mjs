@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
 import {
   anonymiserPortfolioRecord,
@@ -6,6 +9,9 @@ import {
   mapPortfolioRow,
   portfolioRecordToDossier,
 } from '../src/services/portfolioImportService.js'
+
+const here = path.dirname(fileURLToPath(import.meta.url))
+const sourcePortfolioPanel = fs.readFileSync(path.join(here, '../src/components/PortfolioManagementPanel.jsx'), 'utf8')
 
 const workbook = XLSX.utils.book_new()
 const worksheet = XLSX.utils.json_to_sheet([
@@ -56,6 +62,9 @@ const dossierRecharge = portfolioRecordToDossier({ ...mapped, ...patchPortefeuil
 assert.equal(dossierRecharge.ceQueDitLaPersonne, 'Souhaite changer de métier')
 assert.equal(dossierRecharge.projet, 'Explorer deux pistes métier')
 assert.deepEqual(dossierRecharge.ressourcesSelectionnees, ['Experience'])
+assert.ok(sourcePortfolioPanel.includes('Ouvrir le dossier'))
+assert.ok(sourcePortfolioPanel.includes('Enregistrer les modifications'))
+assert.ok(sourcePortfolioPanel.includes('Demande exprimée ou évolution du dossier'))
 
 const anonymised = anonymiserPortfolioRecord({ identifiant: 'TEST123', nom: 'EXEMPLE', prenom: 'Camille', age: 42 })
 assert.deepEqual(anonymised, { identifiant: 'TEST123', age: 42 })

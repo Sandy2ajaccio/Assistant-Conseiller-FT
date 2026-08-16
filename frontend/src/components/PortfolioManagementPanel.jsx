@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Alert,
   Autocomplete,
@@ -40,10 +41,17 @@ const emptyRecord = {
   profils: [],
   dateInscription: '',
   dateRetraitePrevisionnelle: '',
+  situationAdministrative: '',
+  situationPersonnelle: '',
+  parcoursProfessionnel: '',
+  ceQueDitLaPersonne: '',
+  projet: '',
+  formation: '',
 }
 
 const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
   const [record, setRecord] = useState(emptyRecord)
+  const [editingIdentifier, setEditingIdentifier] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
   const [saveError, setSaveError] = useState('')
   const [filters, setFilters] = useState({
@@ -86,10 +94,31 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
         + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
       )
       setRecord(emptyRecord)
+      setEditingIdentifier('')
       onPortfolioChanged(result.record.identifiant)
     } catch (error) {
       setSaveError(error.message || 'Enregistrement impossible.')
     }
+  }
+
+  const handleEdit = (item) => {
+    setSaveStatus('')
+    setSaveError('')
+    setEditingIdentifier(item.identifiant)
+    setRecord({
+      ...emptyRecord,
+      ...item,
+      profils: Array.isArray(item.profils) ? item.profils : [],
+    })
+    window.setTimeout(() => {
+      document.getElementById('portfolio-record-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
+
+  const cancelEdit = () => {
+    setRecord(emptyRecord)
+    setEditingIdentifier('')
+    setSaveError('')
   }
 
   const handleExport = () => {
@@ -105,9 +134,9 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderColor: '#9bb8d3' }}>
       <Stack direction={{ xs: 'column', xl: 'row' }} spacing={2}>
-        <Box component="form" onSubmit={handleSave} sx={{ flex: 1.15 }}>
+        <Box id="portfolio-record-form" component="form" onSubmit={handleSave} sx={{ flex: 1.15, scrollMarginTop: 24 }}>
           <Typography variant="h6" sx={{ fontWeight: 900, color: '#173f67' }}>
-            Ajouter ou mettre à jour un demandeur
+            {editingIdentifier ? `Modifier le dossier ${editingIdentifier}` : 'Ajouter ou mettre à jour un demandeur'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Un numéro France Travail déjà présent sera mis à jour sans doublon. Aucun nom ni prénom n’est affiché ou enregistré.
@@ -120,12 +149,13 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               alignItems: 'start',
             }}
           >
-            <TextField fullWidth required size="small" label="Numéro France Travail" value={record.identifiant} onChange={updateRecord('identifiant')} />
-            <TextField fullWidth required select size="small" label="Civilité" value={record.civilite} onChange={updateRecord('civilite')}>
+            <TextField fullWidth required size="small" label="Numéro France Travail" value={record.identifiant} onChange={updateRecord('identifiant')} disabled={Boolean(editingIdentifier)} />
+            <TextField fullWidth required={!editingIdentifier} select size="small" label="Civilité" value={record.civilite} onChange={updateRecord('civilite')}>
+              <MenuItem value="">Non renseignée</MenuItem>
               <MenuItem value="Mr">Mr</MenuItem>
               <MenuItem value="Mme">Mme</MenuItem>
             </TextField>
-            <TextField fullWidth required size="small" type="number" label="Âge" value={record.age} onChange={updateRecord('age')} inputProps={{ min: 16, max: 100 }} />
+            <TextField fullWidth required={!editingIdentifier} size="small" type="number" label="Âge" value={record.age} onChange={updateRecord('age')} inputProps={{ min: 16, max: 100 }} />
             <Box>
               <Typography variant="caption" sx={{ display: 'block', mb: 0.25, color: 'text.secondary', fontWeight: 700 }}>
                 Date d’inscription
@@ -165,9 +195,22 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               )}
               sx={{ gridColumn: { sm: '1 / -1', lg: 'span 2' } }}
             />
-            <Button type="submit" variant="contained" sx={{ fontWeight: 800, minHeight: 40, gridColumn: { sm: '1 / -1', lg: 'auto' } }}>
-              Enregistrer le demandeur
-            </Button>
+            <TextField fullWidth size="small" label="Situation administrative" value={record.situationAdministrative || ''} onChange={updateRecord('situationAdministrative')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 1' } }} />
+            <TextField fullWidth size="small" label="Situation personnelle" value={record.situationPersonnelle || ''} onChange={updateRecord('situationPersonnelle')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 1' } }} />
+            <TextField fullWidth size="small" label="Parcours professionnel" value={record.parcoursProfessionnel || ''} onChange={updateRecord('parcoursProfessionnel')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 1' } }} />
+            <TextField fullWidth multiline minRows={2} size="small" label="Demande exprimée ou évolution du dossier" value={record.ceQueDitLaPersonne || ''} onChange={updateRecord('ceQueDitLaPersonne')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 3' } }} />
+            <TextField fullWidth multiline minRows={2} size="small" label="Projet professionnel" value={record.projet || ''} onChange={updateRecord('projet')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 2' } }} />
+            <TextField fullWidth multiline minRows={2} size="small" label="Formation ou besoin à actualiser" value={record.formation || ''} onChange={updateRecord('formation')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 1' } }} />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ gridColumn: '1 / -1' }}>
+              <Button type="submit" variant="contained" sx={{ fontWeight: 800, minHeight: 40 }}>
+                {editingIdentifier ? 'Enregistrer les modifications' : 'Enregistrer le demandeur'}
+              </Button>
+              {editingIdentifier ? (
+                <Button type="button" variant="outlined" onClick={cancelEdit} sx={{ fontWeight: 800 }}>
+                  Annuler la modification
+                </Button>
+              ) : null}
+            </Stack>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
             Import Excel anonymisé : tous les DE importés sont rattachés à votre portefeuille. Seules les données de suivi rattachées au numéro FT sont conservées ; les colonnes « Nom » et « Prénom » sont ignorées.
@@ -263,6 +306,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                   <TableCell sx={{ fontWeight: 800 }}>Âge</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Retraite prévisionnelle</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Alerte</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 260 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -284,6 +328,22 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                         {alertStyle ? (
                           <Chip size="small" label={alertStyle.label} color={alertStyle.color} sx={{ fontWeight: 700 }} />
                         ) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.75}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            component={Link}
+                            to={`/assistant?dossier=${encodeURIComponent(item.identifiant)}`}
+                            sx={{ fontWeight: 850, whiteSpace: 'nowrap' }}
+                          >
+                            Ouvrir le dossier
+                          </Button>
+                          <Button size="small" variant="outlined" onClick={() => handleEdit(item)} sx={{ fontWeight: 850 }}>
+                            Modifier
+                          </Button>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   )

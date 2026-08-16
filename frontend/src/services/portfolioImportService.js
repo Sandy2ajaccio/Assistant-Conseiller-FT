@@ -261,13 +261,17 @@ export const savePortfolioRecord = async (record) => {
   const age = numberOrEmpty(record?.age)
 
   if (!identifiant) throw new Error('Le numéro France Travail est obligatoire.')
-  if (!civilite) throw new Error('La civilité (Mr ou Mme) est obligatoire.')
-  if (age === '' || age < 16 || age > 100) throw new Error('Indiquez un âge compris entre 16 et 100 ans.')
 
   const previous = deduplicateRecords(readImportedRecords())
   const byId = new Map(previous.map((item) => [item.identifiant, item]))
   const existing = byId.get(identifiant)
-  const savedRecord = mergeNonEmptyFields(existing, {
+  if (!existing && !civilite) throw new Error('La civilité (Mr ou Mme) est obligatoire pour un nouveau demandeur.')
+  if (!existing && (age === '' || age < 16 || age > 100)) {
+    throw new Error('Indiquez un âge compris entre 16 et 100 ans pour un nouveau demandeur.')
+  }
+  if (age !== '' && (age < 16 || age > 100)) throw new Error('Indiquez un âge compris entre 16 et 100 ans.')
+  const savedRecord = anonymiserPortfolioRecord({
+    ...existing,
     ...anonymiserPortfolioRecord(record),
     identifiant,
     civilite,
