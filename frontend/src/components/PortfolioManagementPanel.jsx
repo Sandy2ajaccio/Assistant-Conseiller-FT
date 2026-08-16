@@ -35,6 +35,24 @@ const emptyRecord = {
   profils: [],
   dateInscription: '',
   dateRetraitePrevisionnelle: '',
+  ancienneteModaliteMois: '',
+  dateDernierContact: '',
+  prochainJalon: '',
+  dateProchainJalon: '',
+  motifProchainJalon: '',
+  dateConvocation: '',
+  nombreActionsConseillees: '',
+  nombreActionsEnCoursOuTerminees: '',
+  statutProfil: '',
+  dateDerniereModification: '',
+  acteurDerniereModification: '',
+  oreAContractualiser: '',
+  consentementPromotionProfil: '',
+  commune: '',
+  canton: '',
+  categorieActuelle: '',
+  indisponibiliteEnCours: '',
+  deldDetld: '',
   situationAdministrative: '',
   situationPersonnelle: '',
   parcoursProfessionnel: '',
@@ -220,6 +238,39 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             <TextField fullWidth multiline minRows={2} size="small" label="Demande exprimée ou évolution du dossier" value={record.ceQueDitLaPersonne || ''} onChange={updateRecord('ceQueDitLaPersonne')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 3' } }} />
             <TextField fullWidth multiline minRows={2} size="small" label="Projet professionnel" value={record.projet || ''} onChange={updateRecord('projet')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 2' } }} />
             <TextField fullWidth multiline minRows={2} size="small" label="Formation ou besoin à actualiser" value={record.formation || ''} onChange={updateRecord('formation')} sx={{ gridColumn: { sm: '1 / -1', lg: 'span 1' } }} />
+            <Typography variant="subtitle2" sx={{ gridColumn: '1 / -1', mt: 0.5, fontWeight: 900, color: '#173f67' }}>
+              Informations importées et suivi du portefeuille
+            </Typography>
+            <TextField fullWidth size="small" type="number" label="Ancienneté dans la modalité (mois)" value={record.ancienneteModaliteMois || ''} onChange={updateRecord('ancienneteModaliteMois')} inputProps={{ min: 0 }} />
+            <TextField fullWidth size="small" type="date" label="Dernier contact" value={record.dateDernierContact || ''} onChange={updateRecord('dateDernierContact')} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" type="date" label="Date du prochain jalon" value={record.dateProchainJalon || ''} onChange={updateRecord('dateProchainJalon')} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" label="Précision du prochain jalon" value={record.prochainJalon || ''} onChange={updateRecord('prochainJalon')} />
+            <TextField fullWidth size="small" label="Motif du prochain jalon" value={record.motifProchainJalon || ''} onChange={updateRecord('motifProchainJalon')} />
+            <TextField fullWidth size="small" type="date" label="Date de convocation" value={record.dateConvocation || ''} onChange={updateRecord('dateConvocation')} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" type="number" label="Actions conseillées" value={record.nombreActionsConseillees ?? ''} onChange={updateRecord('nombreActionsConseillees')} inputProps={{ min: 0 }} />
+            <TextField fullWidth size="small" type="number" label="Actions en cours ou terminées" value={record.nombreActionsEnCoursOuTerminees ?? ''} onChange={updateRecord('nombreActionsEnCoursOuTerminees')} inputProps={{ min: 0 }} />
+            <TextField fullWidth size="small" select label="Statut du profil" value={record.statutProfil || ''} onChange={updateRecord('statutProfil')}>
+              <MenuItem value="">Non renseigné</MenuItem>
+              <MenuItem value="Visible par les recruteurs">Visible par les recruteurs</MenuItem>
+              <MenuItem value="Non visible par les recruteurs">Non visible par les recruteurs</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" type="date" label="Dernière modification" value={record.dateDerniereModification || ''} onChange={updateRecord('dateDerniereModification')} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" label="Acteur de la dernière modification" value={record.acteurDerniereModification || ''} onChange={updateRecord('acteurDerniereModification')} />
+            <TextField fullWidth size="small" select label="ORE à contractualiser" value={record.oreAContractualiser || ''} onChange={updateRecord('oreAContractualiser')}>
+              <MenuItem value="">Non renseigné</MenuItem><MenuItem value="OUI">Oui</MenuItem><MenuItem value="NON">Non</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" select label="Consentement promotion du profil" value={record.consentementPromotionProfil || ''} onChange={updateRecord('consentementPromotionProfil')}>
+              <MenuItem value="">Non renseigné</MenuItem><MenuItem value="OUI">Oui</MenuItem><MenuItem value="NON">Non</MenuItem><MenuItem value="Non renseigné">À recueillir</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" label="Commune" value={record.commune || ''} onChange={updateRecord('commune')} />
+            <TextField fullWidth size="small" label="Canton" value={record.canton || ''} onChange={updateRecord('canton')} />
+            <TextField fullWidth size="small" select label="Catégorie actuelle" value={record.categorieActuelle || ''} onChange={updateRecord('categorieActuelle')}>
+              <MenuItem value="">À vérifier</MenuItem><MenuItem value="1">Catégorie 1</MenuItem><MenuItem value="2">Catégorie 2</MenuItem><MenuItem value="3">Catégorie 3</MenuItem><MenuItem value="4">Catégorie 4</MenuItem><MenuItem value="5">Catégorie 5</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" select label="Indisponibilité en cours" value={record.indisponibiliteEnCours || ''} onChange={updateRecord('indisponibiliteEnCours')}>
+              <MenuItem value="">Non renseignée</MenuItem><MenuItem value="OUI">Oui</MenuItem><MenuItem value="NON">Non</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" label="DELD / DETLD" value={record.deldDetld || ''} onChange={updateRecord('deldDetld')} />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ gridColumn: '1 / -1' }}>
               <Button type="submit" variant="contained" sx={{ fontWeight: 800, minHeight: 40 }}>
                 {editingIdentifier ? 'Enregistrer les modifications' : 'Enregistrer le demandeur'}
@@ -366,9 +417,12 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                   <TableCell sx={{ fontWeight: 800 }}>Rattachement</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Civilité</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Âge</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Retraite prévisionnelle</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Dernier contact</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Prochain jalon</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Catégorie</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Alerte</TableCell>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 260 }}>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 260 }}>Ouvrir / modifier</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -384,7 +438,10 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                       </TableCell>
                       <TableCell>{item.civilite || '—'}</TableCell>
                       <TableCell>{item.age || '—'}</TableCell>
-                      <TableCell>{item.dateRetraitePrevisionnelle || '—'}</TableCell>
+                      <TableCell>{item.dateDernierContact || '—'}</TableCell>
+                      <TableCell>{item.dateProchainJalon || item.prochainJalon || '—'}{item.motifProchainJalon ? ` · ${item.motifProchainJalon}` : ''}</TableCell>
+                      <TableCell>{item.nombreActionsConseillees ?? '—'} / {item.nombreActionsEnCoursOuTerminees ?? '—'}</TableCell>
+                      <TableCell>{item.categorieActuelle || '—'}</TableCell>
                       <TableCell>
                         {alerts.length === 0 ? (
                           <Chip size="small" color="success" label="Suivi à jour" sx={{ fontWeight: 800 }} />

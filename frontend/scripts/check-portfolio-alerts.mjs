@@ -37,8 +37,38 @@ const complete = {
   parcoursProfessionnel: 'Projet défini et recherche active',
   action: 'Candidatures ciblées',
   statut: 'En cours',
+  categorieActuelle: '1',
 }
 assert.deepEqual(generatePortfolioAlerts(complete, now), [])
+
+const importedFollowUp = generatePortfolioAlerts({
+  identifiant: 'IMP001',
+  civilite: 'Mme',
+  categorieActuelle: '2',
+  dateDernierContact: '2026-03-01',
+  dateProchainJalon: '2026-08-15',
+  dateConvocation: '2026-08-15',
+  motifProchainJalon: 'FIN DE FORMATION',
+  nombreActionsConseillees: 5,
+  nombreActionsEnCoursOuTerminees: 2,
+  statutProfil: 'Non visible par les recruteurs',
+  oreAContractualiser: 'OUI',
+  consentementPromotionProfil: 'Non renseigné',
+  indisponibiliteEnCours: 'OUI',
+}, now)
+assert.ok(importedFollowUp.some((item) => item.id === 'contact-ancien'))
+assert.ok(importedFollowUp.some((item) => item.id === 'jalon-overdue'))
+assert.ok(importedFollowUp.some((item) => item.id === 'convocation-overdue'))
+assert.ok(importedFollowUp.some((item) => item.id === 'actions-a-suivre'))
+assert.ok(importedFollowUp.some((item) => item.id === 'profil-non-visible'))
+assert.ok(importedFollowUp.some((item) => item.id === 'ore-a-contractualiser'))
+assert.ok(importedFollowUp.some((item) => item.id === 'consentement-a-renseigner'))
+assert.ok(importedFollowUp.some((item) => item.id === 'indisponibilite-en-cours'))
+assert.ok(importedFollowUp.some((item) => item.id === 'bilan-action-a-faire'))
+
+const radiation = generatePortfolioAlerts({ identifiant: 'RAD001', motifProchainJalon: 'A radier' }, now)
+assert.ok(radiation.some((item) => item.id === 'radiation-a-verifier'))
+assert.ok(radiation.some((item) => /Aucune radiation automatique/i.test(item.action)))
 
 const summary = getPortfolioAlertSummary([{ identifiant: 'IA001', codeSituationOp2: 'IA' }, complete], now)
 assert.equal(summary.dossiersAvecAlertes, 1)

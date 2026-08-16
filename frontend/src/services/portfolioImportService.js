@@ -90,6 +90,46 @@ const readValue = (row, header) => {
   return key ? text(row[key]) : ''
 }
 
+const readFirstValue = (row, headers = []) => {
+  for (const header of headers) {
+    const value = readValue(row, header)
+    if (value) return value
+  }
+  return ''
+}
+
+const cleanImportedValue = (value) => {
+  const raw = text(value)
+  return /^(?:24|0|n\/a)$/i.test(raw) ? '' : raw
+}
+
+const toIsoDate = (year, month, day) => {
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+  if (Number.isNaN(date.getTime())
+    || date.getUTCFullYear() !== Number(year)
+    || date.getUTCMonth() !== Number(month) - 1
+    || date.getUTCDate() !== Number(day)) return ''
+  return date.toISOString().slice(0, 10)
+}
+
+const normalizeImportedDate = (value) => {
+  const raw = cleanImportedValue(value)
+  if (!raw) return ''
+  if (/^\d{5}(?:[.,]\d+)?$/.test(raw)) {
+    const serial = Number(raw.replace(',', '.'))
+    const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000)
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10)
+  }
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (iso) return toIsoDate(iso[1], iso[2], iso[3])
+  const french = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
+  if (french) {
+    const year = french[3].length === 2 ? `20${french[3]}` : french[3]
+    return toIsoDate(year, french[2], french[1])
+  }
+  return ''
+}
+
 const isAffirmative = (value) => /^(oui|o|yes|true|vrai|1|x|bénéficiaire|beneficiaire)$/i.test(text(value))
 
 const PROFILE_IMPORT_COLUMNS = [
@@ -164,23 +204,50 @@ const normaliserCivilite = (value) => {
   return ''
 }
 
-export const mapPortfolioRow = (row) => ({
-  appartientMonPortefeuille: true,
-  portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
-  priorite: readValue(row, 'Priorité'),
-  civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
-  identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
-  age: numberOrEmpty(readValue(row, 'Age') || readValue(row, 'Âge')),
-  profils: readProfiles(row),
-  dateNaissance: readValue(row, 'Date de naissance'),
-  dateInscription: readValue(row, "Date d'inscription"),
-  ancienneteInscription: readValue(row, "Ancienneté d'inscription")
-    || readValue(row, 'Ancienneté inscription'),
-  dateRetraitePrevisionnelle: readValue(row, 'Date de retraite prévisionnelle')
-    || readValue(row, 'Date de départ en retraite'),
-  telephone: readValue(row, 'Téléphone'),
-  aRappeler: readValue(row, 'À rappeler'),
-  dateRappel: readValue(row, 'Date rappel'),
+export const mapPortfolioRow = (row) => {
+  const categorieActuelle = cleanImportedValue(readFirstValue(row, ['Cat.', 'Catégorie', 'Catégorie actuelle']))
+  const importedProfiles = new Set(readProfiles(row))
+  if (/^[123]$/.test(categorieActuelle)) importedProfiles.add(`categorie_${categorieActuelle}`)
+  const prochainJalonBrut = cleanImportedValue(readFirstValue(row, ['Prochain jalon perso.', 'Prochain jalon personnel', 'Prochain jalon']))
+  const dateProchainJalon = normalizeImportedDate(prochainJalonBrut)
+  const motifProchainJalon = cleanImportedValue(readFirstValue(row, ['Motif prochain jalon', 'Motif du prochain jalon']))
+  const dateRappelImportee = normalizeImportedDate(readValue(row, 'Date rappel'))
+
+  return ({
+    appartientMonPortefeuille: true,
+    portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
+    priorite: readValue(row, 'Priorité'),
+    civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
+    identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
+    age: numberOrEmpty(readValue(row, 'Age') || readValue(row, 'Âge')),
+    profils: [...importedProfiles],
+    dateNaissance: normalizeImportedDate(readValue(row, 'Date de naissance')),
+    dateInscription: normalizeImportedDate(readValue(row, "Date d'inscription")),
+    ancienneteInscription: readValue(row, "Ancienneté d'inscription")
+      || readValue(row, 'Ancienneté inscription'),
+    ancienneteModaliteMois: numberOrEmpty(readValue(row, 'Ancienneté dans la modalité en cours (DE) (mois)')),
+    dateDernierContact: normalizeImportedDate(readValue(row, 'Date dernier contact')),
+    prochainJalon: dateProchainJalon || prochainJalonBrut,
+    dateProchainJalon,
+    motifProchainJalon,
+    dateConvocation: normalizeImportedDate(readFirstValue(row, ['Date convoc.', 'Date convocation'])),
+    nombreActionsConseillees: numberOrEmpty(readValue(row, 'Nb actions conseillées')),
+    nombreActionsEnCoursOuTerminees: numberOrEmpty(readValue(row, 'Nb actions en cours ou terminées')),
+    statutProfil: cleanImportedValue(readValue(row, 'Statut du profil')),
+    dateDerniereModification: normalizeImportedDate(readValue(row, 'Date dernière modification')),
+    acteurDerniereModification: cleanImportedValue(readValue(row, 'Acteur dernière modification')),
+    oreAContractualiser: cleanImportedValue(readValue(row, 'ORE à contractualiser')),
+    consentementPromotionProfil: cleanImportedValue(readValue(row, 'Consentement promotion de profil')),
+    commune: cleanImportedValue(readValue(row, 'Commune')),
+    canton: cleanImportedValue(readValue(row, 'Canton')),
+    categorieActuelle,
+    indisponibiliteEnCours: cleanImportedValue(readFirstValue(row, ['Indispo. en cours', 'Indisponibilité en cours'])),
+    deldDetld: cleanImportedValue(readFirstValue(row, ['DELD / DETLD', 'DELD/DETLD'])),
+    dateRetraitePrevisionnelle: normalizeImportedDate(readValue(row, 'Date de retraite prévisionnelle')
+      || readValue(row, 'Date de départ en retraite')),
+    telephone: readValue(row, 'Téléphone'),
+    aRappeler: readValue(row, 'À rappeler') || (dateRappelImportee ? 'Oui' : ''),
+    dateRappel: dateRappelImportee,
   contratEngagement: readValue(row, "Contrat d'engagement"),
   prestation: readValue(row, 'Prestation'),
   atelier: readValue(row, 'Atelier'),
@@ -194,7 +261,7 @@ export const mapPortfolioRow = (row) => ({
   historiqueEntretiens: readValue(row, 'Historique entretiens'),
   historiqueCourriers: readValue(row, 'Historique courriers'),
   dateManquement: readValue(row, 'Date manquement'),
-  motif: readValue(row, 'Motif'),
+    motif: readValue(row, 'Motif') || motifProchainJalon,
   action: readValue(row, 'Action'),
   statut: readValue(row, 'Statut'),
   decision: readValue(row, 'Décision'),
@@ -204,8 +271,9 @@ export const mapPortfolioRow = (row) => ({
   situationAdministrative: readValue(row, 'Situation administrative'),
   situationPersonnelle: readValue(row, 'Situation personnelle'),
   parcoursProfessionnel: readValue(row, 'Parcours professionnel') || readValue(row, 'Parcours'),
-  projet: readValue(row, 'Projet professionnel') || readValue(row, 'Projet'),
-})
+    projet: readValue(row, 'Projet professionnel') || readValue(row, 'Projet'),
+  })
+}
 
 const mergeNonEmptyFields = (existing = {}, incoming = {}) => {
   const merged = { ...anonymiserPortfolioRecord(existing) }
@@ -449,6 +517,23 @@ export const exportPortfolioWorkbook = (filters = {}) => {
     "Date d'inscription": record.dateInscription,
     "Ancienneté d'inscription": record.ancienneteInscription,
     "Date de retraite prévisionnelle": record.dateRetraitePrevisionnelle,
+    "Ancienneté dans la modalité en cours (DE) (mois)": record.ancienneteModaliteMois,
+    "Date dernier contact": record.dateDernierContact,
+    "Prochain jalon perso.": record.prochainJalon,
+    "Motif prochain jalon": record.motifProchainJalon,
+    "Date convoc.": record.dateConvocation,
+    "Nb actions conseillées": record.nombreActionsConseillees,
+    "Nb actions en cours ou terminées": record.nombreActionsEnCoursOuTerminees,
+    "Statut du profil": record.statutProfil,
+    "Date dernière modification": record.dateDerniereModification,
+    "Acteur dernière modification": record.acteurDerniereModification,
+    "ORE à contractualiser": record.oreAContractualiser,
+    "Consentement promotion de profil": record.consentementPromotionProfil,
+    Commune: record.commune,
+    Canton: record.canton,
+    "Cat.": record.categorieActuelle,
+    "Indispo. en cours": record.indisponibiliteEnCours,
+    "DELD / DETLD": record.deldDetld,
     Téléphone: record.telephone,
     Priorité: record.priorite,
     "Contrat d'engagement": record.contratEngagement,
@@ -461,11 +546,9 @@ export const exportPortfolioWorkbook = (filters = {}) => {
     Commentaires: record.commentaires,
   }))
   const worksheet = XLSX.utils.json_to_sheet(rows)
-  worksheet['!cols'] = [
-    { wch: 18 }, { wch: 12 }, { wch: 7 }, { wch: 48 }, { wch: 18 },
-    { wch: 24 }, { wch: 30 }, { wch: 18 }, { wch: 12 }, { wch: 24 }, { wch: 24 },
-    { wch: 24 }, { wch: 24 }, { wch: 18 }, { wch: 28 }, { wch: 18 }, { wch: 40 },
-  ]
+  worksheet['!cols'] = Object.keys(rows[0] || {}).map((header) => ({
+    wch: Math.min(48, Math.max(12, header.length + 2)),
+  }))
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Portefeuille filtré')
   const date = new Date().toISOString().slice(0, 10)

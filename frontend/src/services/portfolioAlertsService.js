@@ -26,6 +26,13 @@ const daysUntil = (value, now = new Date()) => {
   return Math.round((target.getTime() - today.getTime()) / 86400000)
 }
 
+const numberValue = (value) => {
+  const parsed = Number(String(value ?? '').replace(',', '.'))
+  return Number.isFinite(parsed) && text(value) ? parsed : null
+}
+
+const isYes = (value) => /^(?:oui|o|yes|true|vrai|1|x)$/i.test(text(value))
+
 const addAlert = (alerts, alert) => {
   if (!alerts.some((item) => item.id === alert.id)) alerts.push(alert)
 }
@@ -67,7 +74,7 @@ const hasAction = (record) => [
   record.atelier,
   record.formation,
   record.decision,
-].some((value) => text(value))
+].some((value) => text(value)) || Number(record.nombreActionsEnCoursOuTerminees || 0) > 0
 
 const profiles = (record) => new Set(
   Array.isArray(record.profils)
@@ -80,6 +87,7 @@ export const generatePortfolioAlerts = (record = {}, now = new Date()) => {
   const combined = normalize([
     record.alerte,
     record.motif,
+    record.motifProchainJalon,
     record.statut,
     record.commentaires,
     record.historiqueAppels,
@@ -119,7 +127,137 @@ export const generatePortfolioAlerts = (record = {}, now = new Date()) => {
   }
 
   alertFromDate({ alerts, id: 'rappel', label: 'Rappel', value: record.dateRappel, now })
+  alertFromDate({ alerts, id: 'jalon', label: 'Prochain jalon', value: record.dateProchainJalon, now })
+  alertFromDate({ alerts, id: 'convocation', label: 'Convocation', value: record.dateConvocation, now })
   alertFromDate({ alerts, id: 'echeance', label: 'Échéance', value: record.echeance, now })
+
+  const daysSinceContact = daysUntil(record.dateDernierContact, now)
+  if (daysSinceContact !== null && daysSinceContact <= -60) {
+    const elapsed = Math.abs(daysSinceContact)
+    addAlert(alerts, {
+      id: 'contact-ancien',
+      niveau: elapsed >= 120 ? 'error' : 'warning',
+      priorite: elapsed >= 120 ? 96 : 74,
+      titre: `Dernier contact il y a ${elapsed} jour(s)`,
+      action: 'Vérifier le dossier et programmer le prochain contact utile selon la situation.',
+    })
+  }
+
+  const advisedActions = numberValue(record.nombreActionsConseillees)
+  const trackedActions = numberValue(record.nombreActionsEnCoursOuTerminees)
+  if (advisedActions !== null && trackedActions !== null && advisedActions > trackedActions) {
+    addAlert(alerts, {
+      id: 'actions-a-suivre',
+      niveau: 'warning',
+      priorite: 78,
+      titre: `${advisedActions - trackedActions} action(s) conseillée(s) restent à suivre`,
+      action: 'Vérifier avec la personne les actions engagées, terminées ou à relancer.',
+    })
+  }
+
+  if (/non visible/.test(normalize(record.statutProfil))) {
+    addAlert(alerts, {
+      id: 'profil-non-visible',
+      niveau: 'warning',
+      priorite: 55,
+      titre: 'Profil non visible par les recruteurs',
+      action: 'Vérifier avec la personne si le profil doit être complété puis rendu visible.',
+    })
+  }
+
+  if (isYes(record.oreAContractualiser)) {
+    addAlert(alerts, {
+      id: 'ore-a-contractualiser',
+      niveau: 'warning',
+      priorite: 88,
+      titre: 'ORE à contractualiser',
+      action: 'Vérifier les éléments attendus et appliquer la procédure interne avant contractualisation.',
+    })
+  }
+
+  if (/non renseigne/.test(normalize(record.consentementPromotionProfil))) {
+    addAlert(alerts, {
+      id: 'consentement-a-renseigner',
+      niveau: 'warning',
+      priorite: 67,
+      titre: 'Consentement de promotion du profil à renseigner',
+      action: 'Recueillir et tracer le choix de la personne avant toute promotion de son profil.',
+    })
+  } else if (/^(?:non|n)$/.test(normalize(record.consentementPromotionProfil)) && !/non visible/.test(normalize(record.statutProfil))) {
+    addAlert(alerts, {
+      id: 'consentement-incoherent',
+      niveau: 'error',
+      priorite: 105,
+      titre: 'Visibilité du profil à vérifier',
+      action: 'Le consentement est indiqué « non » : vérifier la visibilité et ne pas promouvoir le profil sans accord.',
+    })
+  }
+
+  if (isYes(record.indisponibiliteEnCours)) {
+    addAlert(alerts, {
+      id: 'indisponibilite-en-cours',
+      niveau: 'warning',
+      priorite: 83,
+      titre: 'Indisponibilité en cours',
+      action: 'Vérifier la période, le motif, le prochain contact et la catégorie adaptée.',
+    })
+  }
+
+  if (!text(record.categorieActuelle)) {
+    addAlert(alerts, {
+      id: 'categorie-a-verifier',
+      niveau: 'warning',
+      priorite: 65,
+      titre: 'Catégorie à vérifier',
+      action: 'Renseigner la catégorie actuelle puis vérifier sa cohérence avec la situation du DE.',
+    })
+  }
+
+  if (/deld|detld/.test(normalize(record.deldDetld))
+    && !text(record.dateDernierContact)
+    && !text(record.dateProchainJalon)) {
+    addAlert(alerts, {
+      id: 'suivi-longue-duree-a-planifier',
+      niveau: 'warning',
+      priorite: 79,
+      titre: 'Suivi DELD / DETLD à planifier',
+      action: 'Vérifier le dernier contact et fixer un prochain jalon adapté au dossier.',
+    })
+  }
+
+  if (/a radier/.test(combined)) {
+    addAlert(alerts, {
+      id: 'radiation-a-verifier',
+      niveau: 'error',
+      priorite: 118,
+      titre: 'Situation d’inscription à vérifier',
+      action: 'Contrôler le dossier et la procédure interne. Aucune radiation automatique.',
+    })
+  } else if (/nouveau beneficiaire du rsa/.test(combined)) {
+    addAlert(alerts, {
+      id: 'nouveau-rsa',
+      niveau: 'warning',
+      priorite: 86,
+      titre: 'Nouveau bénéficiaire du RSA',
+      action: 'Vérifier l’orientation, l’organisme référent et le contrat d’engagement.',
+    })
+  } else if (/fin de formation|sortie de prestation/.test(combined)) {
+    addAlert(alerts, {
+      id: 'bilan-action-a-faire',
+      niveau: 'warning',
+      priorite: 82,
+      titre: 'Bilan de l’action à réaliser',
+      action: 'Tracer le résultat, actualiser le projet et convenir de la prochaine étape.',
+    })
+  } else if (/cre redynamisation/.test(combined)) {
+    addAlert(alerts, {
+      id: 'cre-redynamisation',
+      niveau: 'warning',
+      priorite: 80,
+      titre: 'CRE / redynamisation à traiter',
+      action: 'Vérifier la situation, préparer le contact et tracer la suite retenue.',
+    })
+  }
 
   const remaining = Number(String(record.joursRestants ?? '').replace(',', '.'))
   if (Number.isFinite(remaining) && text(record.joursRestants)) {
