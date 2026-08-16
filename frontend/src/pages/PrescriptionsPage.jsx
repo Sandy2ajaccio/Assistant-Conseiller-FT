@@ -27,6 +27,7 @@ import {
   importPortfolioWorkbook,
   listPortfolioRecords,
   portfolioRecordToDossier,
+  suggestPortfolioImportPurpose,
 } from '../services/portfolioImportService'
 
 const PrescriptionsPage = () => {
@@ -123,13 +124,23 @@ const PrescriptionsPage = () => {
   const handleImport = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    const motifImport = window.prompt(
+      'Quel est l’objectif de cet import ? Il sera affiché dans votre suivi.',
+      suggestPortfolioImportPurpose(file.name),
+    )
+    if (motifImport === null) {
+      event.target.value = ''
+      return
+    }
     setImportStatus('Import en cours…')
     try {
-      const result = await importPortfolioWorkbook(file)
+      const result = await importPortfolioWorkbook(file, { motifImport })
       setPortfolioVersion((value) => value + 1)
       setImportStatus(
-        `${result.total} DE uniques traités : ${result.created} ajouté(s), ${result.updated} mis à jour, `
+        `${result.motifImport} · ${result.total} DE uniques traités : ${result.created} ajouté(s), ${result.updated} mis à jour, `
         + `${result.unchanged} inchangé(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
+        + ` Couleurs : ${result.suiviCouleurs.enCours} en cours, ${result.suiviCouleurs.realises} réalisé(s), `
+        + `${result.suiviCouleurs.actionsRequises} action(s) requise(s), ${result.suiviCouleurs.aRecontacter} à recontacter.`
         + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
       )
     } catch (error) {

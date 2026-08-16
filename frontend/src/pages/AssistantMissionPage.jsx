@@ -57,6 +57,7 @@ import { analyserSuiviAccompagnement, SUIVIS_ACCOMPAGNEMENT } from '../services/
 import {
   importPortfolioWorkbook,
   listPortfolioRecords,
+  suggestPortfolioImportPurpose,
   updatePortfolioRecordFromDossier,
 } from '../services/portfolioImportService'
 import {
@@ -2539,13 +2540,23 @@ function AssistantMissionPage() {
   const handlePortfolioImport = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    const motifImport = window.prompt(
+      'Quel est l’objectif de cet import ? Il sera affiché dans votre suivi.',
+      suggestPortfolioImportPurpose(file.name),
+    )
+    if (motifImport === null) {
+      event.target.value = ''
+      return
+    }
     setPortfolioImportStatus('Import en cours…')
     try {
-      const result = await importPortfolioWorkbook(file)
+      const result = await importPortfolioWorkbook(file, { motifImport })
       setPortfolioImportStatus(
-        `${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
+        `${result.motifImport} · ${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
         + `${result.unchanged} inchangée(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
         + ` ${result.rattachesPortefeuille} dossier(s) rattaché(s) à votre portefeuille.`
+        + ` Suivi couleurs : ${result.suiviCouleurs.enCours} en cours, ${result.suiviCouleurs.realises} réalisé(s), `
+        + `${result.suiviCouleurs.actionsRequises} action(s) requise(s), ${result.suiviCouleurs.aRecontacter} à recontacter.`
         + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
       )
     } catch (error) {

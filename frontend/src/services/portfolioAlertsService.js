@@ -97,6 +97,49 @@ export const generatePortfolioAlerts = (record = {}, now = new Date()) => {
   ].filter(Boolean).join(' '))
   const codeOp2 = text(record.codeSituationOp2).toUpperCase()
   const recordProfiles = profiles(record)
+  const trackingStatus = text(record.statutSuiviImport)
+
+  if (trackingStatus === 'action_requise') {
+    addAlert(alerts, {
+      id: 'import-action-requise',
+      niveau: 'error',
+      priorite: 119,
+      titre: 'Suite à décider après l’import',
+      action: 'Choisir rapidement : reconvoquer, avertir selon la procédure interne, ou signaler au CRE.',
+    })
+  } else if (trackingStatus === 'a_reconvoquer') {
+    addAlert(alerts, {
+      id: 'import-a-reconvoquer',
+      niveau: 'error',
+      priorite: 118,
+      titre: 'DE à reconvoquer',
+      action: 'Vérifier la situation, fixer une nouvelle convocation et tracer l’envoi.',
+    })
+  } else if (trackingStatus === 'a_avertir') {
+    addAlert(alerts, {
+      id: 'import-a-avertir',
+      niveau: 'error',
+      priorite: 117,
+      titre: 'Avertissement à vérifier',
+      action: 'Contrôler les faits et appliquer la procédure interne avant tout avertissement. Aucune décision automatique.',
+    })
+  } else if (trackingStatus === 'a_signaler_cre') {
+    addAlert(alerts, {
+      id: 'import-a-signaler-cre',
+      niveau: 'error',
+      priorite: 116,
+      titre: 'Situation à signaler au CRE',
+      action: 'Préparer les éléments utiles, effectuer le signalement selon le circuit interne et tracer la suite.',
+    })
+  } else if (trackingStatus === 'a_recontacter') {
+    addAlert(alerts, {
+      id: 'import-a-recontacter',
+      niveau: 'warning',
+      priorite: 89,
+      titre: 'DE à recontacter',
+      action: 'Effectuer le contact, noter le résultat et choisir la prochaine étape.',
+    })
+  }
 
   if (codeOp2 === 'IA') {
     addAlert(alerts, {

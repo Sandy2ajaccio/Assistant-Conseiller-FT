@@ -24,7 +24,9 @@ import {
   exportPortfolioWorkbook,
   listPortfolioRecords,
   PORTFOLIO_PROFILE_OPTIONS,
+  PORTFOLIO_TRACKING_STATUS_OPTIONS,
   savePortfolioRecord,
+  trackingStatusOption,
 } from '../services/portfolioImportService'
 import { getPortfolioAlertSummary } from '../services/portfolioAlertsService'
 
@@ -53,6 +55,11 @@ const emptyRecord = {
   categorieActuelle: '',
   indisponibiliteEnCours: '',
   deldDetld: '',
+  motifImport: '',
+  statutSuiviImport: 'a_qualifier',
+  actionSuiviImport: '',
+  commentaireSuiviImport: '',
+  dateSuiviImport: '',
   situationAdministrative: '',
   situationPersonnelle: '',
   parcoursProfessionnel: '',
@@ -76,7 +83,9 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
   })
   const [exportStatus, setExportStatus] = useState('')
   const [portfolioSearch, setPortfolioSearch] = useState('')
-  const [alertFilter, setAlertFilter] = useState('alerts')
+  const [alertFilter, setAlertFilter] = useState('all')
+  const [trackingFilter, setTrackingFilter] = useState('all')
+  const [campaignFilter, setCampaignFilter] = useState('all')
   const [expandedAlertId, setExpandedAlertId] = useState('')
 
   const exportCount = useMemo(
@@ -94,22 +103,50 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
     [allRecords],
   )
 
+  const campaignOptions = useMemo(
+    () => [...new Set(allRecords.map((item) => item.motifImport).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
+    [allRecords],
+  )
+
+  const trackingSummary = useMemo(() => {
+    const scoped = campaignFilter === 'all'
+      ? allRecords
+      : allRecords.filter((item) => item.motifImport === campaignFilter)
+    const isActionRequired = (status) => ['action_requise', 'a_reconvoquer', 'a_avertir', 'a_signaler_cre'].includes(status)
+    return {
+      aQualifier: scoped.filter((item) => !item.statutSuiviImport || item.statutSuiviImport === 'a_qualifier').length,
+      enCours: scoped.filter((item) => item.statutSuiviImport === 'en_cours').length,
+      realises: scoped.filter((item) => item.statutSuiviImport === 'realise').length,
+      actionsRequises: scoped.filter((item) => isActionRequired(item.statutSuiviImport)).length,
+      aRecontacter: scoped.filter((item) => item.statutSuiviImport === 'a_recontacter').length,
+    }
+  }, [allRecords, campaignFilter])
+
   const displayedRecords = useMemo(() => {
     const search = portfolioSearch.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
     return alertSummary.details
       .filter(({ record: item, alerts }) => {
         if (search && !String(item.identifiant || '').toUpperCase().includes(search)) return false
+        if (campaignFilter !== 'all' && item.motifImport !== campaignFilter) return false
+        if (trackingFilter === 'action' && !['action_requise', 'a_reconvoquer', 'a_avertir', 'a_signaler_cre'].includes(item.statutSuiviImport)) return false
+        if (trackingFilter !== 'all' && trackingFilter !== 'action' && (item.statutSuiviImport || 'a_qualifier') !== trackingFilter) return false
         if (alertFilter === 'urgent') return alerts.some((alert) => alert.niveau === 'error')
         if (alertFilter === 'alerts') return alerts.length > 0
         if (alertFilter === 'current') return alerts.length === 0
         return true
       })
       .sort((a, b) => {
+        const trackingPriority = {
+          action_requise: 60, a_reconvoquer: 60, a_avertir: 60, a_signaler_cre: 60,
+          a_recontacter: 50, en_cours: 40, a_qualifier: 30, realise: 10,
+        }
+        const trackingA = trackingPriority[a.record.statutSuiviImport || 'a_qualifier'] || 0
+        const trackingB = trackingPriority[b.record.statutSuiviImport || 'a_qualifier'] || 0
         const priorityA = a.alerts[0]?.priorite || 0
         const priorityB = b.alerts[0]?.priorite || 0
-        return priorityB - priorityA || String(a.record.identifiant).localeCompare(String(b.record.identifiant), 'fr')
+        return trackingB - trackingA || priorityB - priorityA || String(a.record.identifiant).localeCompare(String(b.record.identifiant), 'fr')
       })
-  }, [alertSummary, alertFilter, portfolioSearch])
+  }, [alertSummary, alertFilter, portfolioSearch, campaignFilter, trackingFilter])
 
   const updateRecord = (field) => (event) => {
     setRecord((current) => ({ ...current, [field]: event.target.value }))
@@ -156,6 +193,23 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
     setRecord(emptyRecord)
     setEditingIdentifier('')
     setSaveError('')
+  }
+
+  const handleQuickTrackingChange = async (item, status) => {
+    const option = trackingStatusOption(status)
+    setSaveError('')
+    try {
+      const result = await savePortfolioRecord({
+        ...item,
+        statutSuiviImport: status,
+        actionSuiviImport: status === 'a_qualifier' ? '' : option.label,
+        dateSuiviImport: new Date().toISOString().slice(0, 10),
+      })
+      setSaveStatus(`${item.identifiant} : ${option.label}. Suivi enregistré.`)
+      onPortfolioChanged(result.record.identifiant)
+    } catch (error) {
+      setSaveError(error.message || 'Mise à jour rapide impossible.')
+    }
   }
 
   const handleExport = () => {
@@ -241,6 +295,13 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             <Typography variant="subtitle2" sx={{ gridColumn: '1 / -1', mt: 0.5, fontWeight: 900, color: '#173f67' }}>
               Informations importées et suivi du portefeuille
             </Typography>
+            <TextField fullWidth size="small" label="Objectif de l’import" value={record.motifImport || ''} onChange={updateRecord('motifImport')} />
+            <TextField fullWidth size="small" select label="Statut du suivi importé" value={record.statutSuiviImport || 'a_qualifier'} onChange={updateRecord('statutSuiviImport')}>
+              {PORTFOLIO_TRACKING_STATUS_OPTIONS.map((option) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
+            </TextField>
+            <TextField fullWidth size="small" type="date" label="Date de suivi" value={record.dateSuiviImport || ''} onChange={updateRecord('dateSuiviImport')} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" label="Suite retenue" value={record.actionSuiviImport || ''} onChange={updateRecord('actionSuiviImport')} />
+            <TextField fullWidth size="small" multiline minRows={2} label="Commentaire de suivi" value={record.commentaireSuiviImport || ''} onChange={updateRecord('commentaireSuiviImport')} sx={{ gridColumn: { sm: 'span 2' } }} />
             <TextField fullWidth size="small" type="number" label="Ancienneté dans la modalité (mois)" value={record.ancienneteModaliteMois || ''} onChange={updateRecord('ancienneteModaliteMois')} inputProps={{ min: 0 }} />
             <TextField fullWidth size="small" type="date" label="Dernier contact" value={record.dateDernierContact || ''} onChange={updateRecord('dateDernierContact')} InputLabelProps={{ shrink: true }} />
             <TextField fullWidth size="small" type="date" label="Date du prochain jalon" value={record.dateProchainJalon || ''} onChange={updateRecord('dateProchainJalon')} InputLabelProps={{ shrink: true }} />
@@ -361,6 +422,31 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
         <Typography variant="h6" sx={{ fontWeight: 900, color: '#173f67' }}>
           Demandeurs enregistrés ({allRecords.length})
         </Typography>
+        <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 900, color: '#173f67' }}>
+          Suivi immédiat des imports
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 1, mt: 0.75 }}>
+          {[
+            ['a_qualifier', trackingSummary.aQualifier, 'Non traités', '#64748b', '#f1f5f9'],
+            ['en_cours', trackingSummary.enCours, 'En cours / convoqués', '#735c00', '#fff7b2'],
+            ['realise', trackingSummary.realises, 'Réalisés', '#176b35', '#d9f5e3'],
+            ['action', trackingSummary.actionsRequises, 'Actions requises', '#a32121', '#ffe0e0'],
+            ['a_recontacter', trackingSummary.aRecontacter, 'À recontacter', '#176b87', '#d9f2fc'],
+          ].map(([filter, value, label, color, background]) => (
+            <Button
+              key={filter}
+              variant={trackingFilter === filter ? 'contained' : 'outlined'}
+              onClick={() => {
+                setTrackingFilter((current) => current === filter ? 'all' : filter)
+                setAlertFilter('all')
+              }}
+              sx={{ minHeight: 62, display: 'block', textAlign: 'left', color, bgcolor: background, borderColor: color, fontWeight: 900, '&:hover': { bgcolor: background } }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 950, lineHeight: 1 }}>{value}</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 850 }}>{label}</Typography>
+            </Button>
+          ))}
+        </Box>
         <Box
           sx={{
             display: 'grid',
@@ -392,6 +478,32 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
           <TextField
             select
             size="small"
+            label="Objectif de l’import"
+            value={campaignFilter}
+            onChange={(event) => setCampaignFilter(event.target.value)}
+            sx={{ minWidth: 260 }}
+          >
+            <MenuItem value="all">Tous les imports</MenuItem>
+            {campaignOptions.map((campaign) => <MenuItem key={campaign} value={campaign}>{campaign}</MenuItem>)}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="État d’avancement"
+            value={trackingFilter}
+            onChange={(event) => setTrackingFilter(event.target.value)}
+            sx={{ minWidth: 240 }}
+          >
+            <MenuItem value="all">Tous les états</MenuItem>
+            <MenuItem value="a_qualifier">Non traités</MenuItem>
+            <MenuItem value="en_cours">En cours / convoqués</MenuItem>
+            <MenuItem value="realise">Réalisés</MenuItem>
+            <MenuItem value="action">Actions requises</MenuItem>
+            <MenuItem value="a_recontacter">À recontacter</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
             label="Priorité de suivi"
             value={alertFilter}
             onChange={(event) => setAlertFilter(event.target.value)}
@@ -414,13 +526,10 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800 }}>N° France Travail</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Rattachement</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Civilité</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Âge</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Objectif</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 250 }}>Suivi rapide</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Dernier contact</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Prochain jalon</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Actions</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Catégorie</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Alerte</TableCell>
                   <TableCell sx={{ fontWeight: 800, minWidth: 260 }}>Ouvrir / modifier</TableCell>
                 </TableRow>
@@ -429,19 +538,32 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                 {displayedRecords.map(({ record: item, alerts }) => {
                   const alertsToShow = expandedAlertId === item.identifiant ? alerts : alerts.slice(0, 2)
                   return (
-                    <TableRow key={item.identifiant}>
+                    <TableRow key={item.identifiant} sx={{ bgcolor: trackingStatusOption(item.statutSuiviImport).background }}>
                       <TableCell>{item.identifiant}</TableCell>
+                      <TableCell>{item.motifImport || '—'}</TableCell>
                       <TableCell>
-                        {item.appartientMonPortefeuille ? (
-                          <Chip size="small" color="success" label="Mon portefeuille" sx={{ fontWeight: 800 }} />
-                        ) : '—'}
+                        <TextField
+                          fullWidth
+                          select
+                          size="small"
+                          value={item.statutSuiviImport || 'a_qualifier'}
+                          onChange={(event) => handleQuickTrackingChange(item, event.target.value)}
+                          sx={{
+                            minWidth: 235,
+                            '& .MuiInputBase-root': {
+                              bgcolor: trackingStatusOption(item.statutSuiviImport).background,
+                              color: trackingStatusOption(item.statutSuiviImport).color,
+                              fontWeight: 900,
+                            },
+                          }}
+                        >
+                          {PORTFOLIO_TRACKING_STATUS_OPTIONS.map((option) => (
+                            <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>
+                          ))}
+                        </TextField>
                       </TableCell>
-                      <TableCell>{item.civilite || '—'}</TableCell>
-                      <TableCell>{item.age || '—'}</TableCell>
                       <TableCell>{item.dateDernierContact || '—'}</TableCell>
                       <TableCell>{item.dateProchainJalon || item.prochainJalon || '—'}{item.motifProchainJalon ? ` · ${item.motifProchainJalon}` : ''}</TableCell>
-                      <TableCell>{item.nombreActionsConseillees ?? '—'} / {item.nombreActionsEnCoursOuTerminees ?? '—'}</TableCell>
-                      <TableCell>{item.categorieActuelle || '—'}</TableCell>
                       <TableCell>
                         {alerts.length === 0 ? (
                           <Chip size="small" color="success" label="Suivi à jour" sx={{ fontWeight: 800 }} />

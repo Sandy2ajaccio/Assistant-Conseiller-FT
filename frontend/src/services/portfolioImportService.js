@@ -6,6 +6,68 @@ const portefeuilleInitial = []
 
 export const MON_PORTEFEUILLE_LABEL = 'Mon portefeuille'
 
+export const PORTFOLIO_TRACKING_STATUS_OPTIONS = [
+  { id: 'a_qualifier', label: 'Non traité / à qualifier', color: '#64748b', background: '#f1f5f9' },
+  { id: 'en_cours', label: 'En cours · convocation envoyée', color: '#735c00', background: '#fff7b2' },
+  { id: 'realise', label: 'Démarche réalisée', color: '#176b35', background: '#d9f5e3' },
+  { id: 'action_requise', label: 'Action requise · choisir la suite', color: '#a32121', background: '#ffe0e0' },
+  { id: 'a_reconvoquer', label: 'À reconvoquer', color: '#a32121', background: '#ffe0e0' },
+  { id: 'a_avertir', label: 'À avertir · procédure à confirmer', color: '#a32121', background: '#ffe0e0' },
+  { id: 'a_signaler_cre', label: 'À signaler au CRE', color: '#a32121', background: '#ffe0e0' },
+  { id: 'a_recontacter', label: 'À recontacter', color: '#176b87', background: '#d9f2fc' },
+]
+
+export const trackingStatusOption = (status) => PORTFOLIO_TRACKING_STATUS_OPTIONS
+  .find((option) => option.id === status) || PORTFOLIO_TRACKING_STATUS_OPTIONS[0]
+
+const normalizeTrackingStatus = (value) => {
+  const raw = String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (PORTFOLIO_TRACKING_STATUS_OPTIONS.some((option) => option.id === value)) return value
+  if (/reconvoquer/.test(raw)) return 'a_reconvoquer'
+  if (/avertir/.test(raw)) return 'a_avertir'
+  if (/signaler.*cre/.test(raw)) return 'a_signaler_cre'
+  if (/recontacter/.test(raw)) return 'a_recontacter'
+  if (/realise/.test(raw)) return 'realise'
+  if (/action requise/.test(raw)) return 'action_requise'
+  if (/en cours|convocation envoyee/.test(raw)) return 'en_cours'
+  return 'a_qualifier'
+}
+
+export const suggestPortfolioImportPurpose = (fileName = '') => {
+  const baseName = text(fileName).replace(/\.(?:xlsx?|csv)$/i, '').trim()
+  const withoutConvoPrefix = baseName.replace(/^(?:convo(?:cation)?s?\s*)/i, '').trim()
+  return withoutConvoPrefix || baseName || 'Nouvel import portefeuille'
+}
+
+const hexToRgb = (value) => {
+  const hex = String(value || '').replace(/^#/, '').slice(-6)
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return null
+  return {
+    r: Number.parseInt(hex.slice(0, 2), 16),
+    g: Number.parseInt(hex.slice(2, 4), 16),
+    b: Number.parseInt(hex.slice(4, 6), 16),
+  }
+}
+
+export const trackingStatusFromCellStyle = (style = {}) => {
+  const fill = style?.fill || style || {}
+  const rgb = hexToRgb(fill?.fgColor?.rgb)
+  if (rgb) {
+    const { r, g, b } = rgb
+    if (r >= 190 && g >= 170 && b <= 130) return 'en_cours'
+    if (r >= 170 && g <= 130 && b <= 130) return 'action_requise'
+    if (b >= 170 && b > r * 1.1 && b >= g) return 'a_recontacter'
+    if (g >= 120 && g > r * 1.15 && g > b * 0.8) return 'realise'
+  }
+  if (fill?.fgColor?.theme === 7) return 'a_recontacter'
+  return 'a_qualifier'
+}
+
+const trackingStatusForSheetRow = (sheet, rowNumber) => {
+  const firstCell = sheet?.[XLSX.utils.encode_cell({ r: rowNumber - 1, c: 0 })]
+  return trackingStatusFromCellStyle(firstCell?.s)
+}
+
 const rattacherAMonPortefeuille = (record = {}) => ({
   ...record,
   appartientMonPortefeuille: true,
@@ -212,10 +274,19 @@ export const mapPortfolioRow = (row) => {
   const dateProchainJalon = normalizeImportedDate(prochainJalonBrut)
   const motifProchainJalon = cleanImportedValue(readFirstValue(row, ['Motif prochain jalon', 'Motif du prochain jalon']))
   const dateRappelImportee = normalizeImportedDate(readValue(row, 'Date rappel'))
+  const statutSuiviImport = normalizeTrackingStatus(
+    readFirstValue(row, ['Statut de suivi', 'Statut import']) || row.__statutSuiviImport,
+  )
 
   return ({
     appartientMonPortefeuille: true,
     portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
+    motifImport: readFirstValue(row, ["Objet de l'import", 'Objet import', 'Campagne']) || row.__motifImport || '',
+    fichierImport: row.__fichierImport || '',
+    statutSuiviImport,
+    actionSuiviImport: readFirstValue(row, ['Suite de suivi', 'Action de suivi import']),
+    commentaireSuiviImport: readFirstValue(row, ['Commentaire de suivi import', 'Commentaire import']),
+    dateSuiviImport: normalizeImportedDate(readFirstValue(row, ['Date de suivi import', 'Date suivi import'])),
     priorite: readValue(row, 'Priorité'),
     civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
     identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
@@ -278,13 +349,17 @@ export const mapPortfolioRow = (row) => {
 const mergeNonEmptyFields = (existing = {}, incoming = {}) => {
   const merged = { ...anonymiserPortfolioRecord(existing) }
   Object.entries(anonymiserPortfolioRecord(incoming)).forEach(([key, value]) => {
+    if (key === 'statutSuiviImport'
+      && value === 'a_qualifier'
+      && text(merged.statutSuiviImport)
+      && merged.statutSuiviImport !== 'a_qualifier') return
     if (key === 'identifiant' || text(value)) merged[key] = value
   })
   return anonymiserPortfolioRecord(merged)
 }
 
-const hasUsefulChange = (existing = {}, incoming = {}) => Object.entries(incoming)
-  .some(([key, value]) => key !== 'identifiant' && text(value) && text(existing[key]) !== text(value))
+const hasUsefulChange = (existing = {}, incoming = {}) => Object.entries(mergeNonEmptyFields(existing, incoming))
+  .some(([key, value]) => key !== 'identifiant' && text(existing[key]) !== text(value))
 
 const deduplicateRecords = (records) => {
   const byId = new Map()
@@ -509,6 +584,11 @@ export const exportPortfolioWorkbook = (filters = {}) => {
 
   const rows = records.map((record) => ({
     Identifiant: record.identifiant,
+    "Objet de l'import": record.motifImport,
+    "Statut de suivi": trackingStatusOption(record.statutSuiviImport).label,
+    "Suite de suivi": record.actionSuiviImport,
+    "Commentaire de suivi import": record.commentaireSuiviImport,
+    "Date de suivi import": record.dateSuiviImport,
     Civilité: record.civilite,
     Âge: record.age,
     "Profils et situations": [...profileIdsForRecord(record)]
@@ -556,14 +636,21 @@ export const exportPortfolioWorkbook = (filters = {}) => {
   return records.length
 }
 
-export const importPortfolioWorkbook = async (file) => {
+export const importPortfolioWorkbook = async (file, options = {}) => {
   const buffer = await file.arrayBuffer()
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, cellStyles: true })
   const sheetName = workbook.SheetNames.includes('Suivi DE') ? 'Suivi DE' : workbook.SheetNames[0]
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) throw new Error('Le classeur ne contient aucune feuille exploitable.')
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
+  const motifImport = text(options.motifImport) || suggestPortfolioImportPurpose(file.name)
+  const fichierImport = text(file.name).replace(/[^\p{L}\p{N} ._()-]/gu, '')
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }).map((row, index) => ({
+    ...row,
+    __motifImport: motifImport,
+    __fichierImport: fichierImport,
+    __statutSuiviImport: trackingStatusForSheetRow(sheet, index + 2),
+  }))
   const mapped = rows.map(mapPortfolioRow).filter((record) => record.identifiant)
   if (mapped.length === 0) {
     throw new Error('Aucun demandeur reconnu. Vérifiez la colonne Identifiant (numéro France Travail).')
@@ -616,6 +703,14 @@ export const importPortfolioWorkbook = async (file) => {
     sheetName,
     cloudSynced,
     rattachesPortefeuille: incomingById.size,
+    motifImport,
+    suiviCouleurs: {
+      aQualifier: mapped.filter((record) => record.statutSuiviImport === 'a_qualifier').length,
+      enCours: mapped.filter((record) => record.statutSuiviImport === 'en_cours').length,
+      realises: mapped.filter((record) => record.statutSuiviImport === 'realise').length,
+      actionsRequises: mapped.filter((record) => record.statutSuiviImport === 'action_requise').length,
+      aRecontacter: mapped.filter((record) => record.statutSuiviImport === 'a_recontacter').length,
+    },
   }
 }
 

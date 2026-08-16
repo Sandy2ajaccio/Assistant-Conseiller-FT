@@ -70,6 +70,20 @@ const radiation = generatePortfolioAlerts({ identifiant: 'RAD001', motifProchain
 assert.ok(radiation.some((item) => item.id === 'radiation-a-verifier'))
 assert.ok(radiation.some((item) => /Aucune radiation automatique/i.test(item.action)))
 
+const importStatuses = [
+  ['action_requise', 'import-action-requise'],
+  ['a_reconvoquer', 'import-a-reconvoquer'],
+  ['a_avertir', 'import-a-avertir'],
+  ['a_signaler_cre', 'import-a-signaler-cre'],
+  ['a_recontacter', 'import-a-recontacter'],
+]
+importStatuses.forEach(([status, expectedAlert]) => {
+  const alerts = generatePortfolioAlerts({ identifiant: `SUIVI-${status}`, statutSuiviImport: status }, now)
+  assert.ok(alerts.some((item) => item.id === expectedAlert))
+})
+assert.ok(generatePortfolioAlerts({ identifiant: 'AVERTIR', statutSuiviImport: 'a_avertir' }, now)
+  .some((item) => /Aucune décision automatique/i.test(item.action)))
+
 const summary = getPortfolioAlertSummary([{ identifiant: 'IA001', codeSituationOp2: 'IA' }, complete], now)
 assert.equal(summary.dossiersAvecAlertes, 1)
 assert.equal(summary.dossiersUrgents, 1)

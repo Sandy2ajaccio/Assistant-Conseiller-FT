@@ -7,7 +7,10 @@ import {
   anonymiserPortfolioRecord,
   buildPortfolioPatchFromDossier,
   mapPortfolioRow,
+  PORTFOLIO_TRACKING_STATUS_OPTIONS,
   portfolioRecordToDossier,
+  suggestPortfolioImportPurpose,
+  trackingStatusFromCellStyle,
 } from '../src/services/portfolioImportService.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -74,6 +77,12 @@ assert.equal(mapped.categorieActuelle, '2')
 assert.equal(mapped.indisponibiliteEnCours, 'NON')
 assert.equal(mapped.deldDetld, 'DELD, DETLD')
 assert.ok(mapped.profils.includes('categorie_2'))
+assert.equal(suggestPortfolioImportPurpose('Convo atelier CPF senior.xlsx'), 'atelier CPF senior')
+assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: 'FFFF00' } }), 'en_cours')
+assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: '00B050' } }), 'realise')
+assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: 'FF0000' } }), 'action_requise')
+assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: 'CAEEFB' } }), 'a_recontacter')
+assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: {} }), 'a_qualifier')
 
 const dossierModifie = {
   situationAdministrative: 'Sans emploi',
@@ -101,6 +110,9 @@ assert.ok(sourcePortfolioPanel.includes('Dossiers urgents'))
 assert.ok(sourcePortfolioPanel.includes('Voir les ${alerts.length} alertes'))
 assert.ok(sourcePortfolioPanel.includes('Informations importées et suivi du portefeuille'))
 assert.ok(sourcePortfolioPanel.includes('Motif du prochain jalon'))
+assert.ok(sourcePortfolioPanel.includes('Suivi immédiat des imports'))
+assert.ok(PORTFOLIO_TRACKING_STATUS_OPTIONS.some((option) => option.label === 'À signaler au CRE'))
+assert.ok(PORTFOLIO_TRACKING_STATUS_OPTIONS.some((option) => option.label === 'À avertir · procédure à confirmer'))
 
 const anonymised = anonymiserPortfolioRecord({ identifiant: 'TEST123', nom: 'EXEMPLE', prenom: 'Camille', age: 42 })
 assert.deepEqual(anonymised, { identifiant: 'TEST123', age: 42 })
