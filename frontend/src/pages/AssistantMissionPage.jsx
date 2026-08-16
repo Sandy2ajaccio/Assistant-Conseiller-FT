@@ -434,7 +434,6 @@ function AssistantMissionPage() {
     // En DPA, seules les sections de découverte restent ouvertes. Les blocs de décision
     // s'ouvrent à la demande depuis la barre d'accès directs afin de raccourcir la page.
     explorationGuidee: estDPA(type),
-    listesDiagnostic: estDPA(type),
     orientationReseau: false,
     offreServices: false,
     synthese: false,
@@ -551,6 +550,18 @@ function AssistantMissionPage() {
     if (!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim()) {
       allerASection('section-entretien')
       window.setTimeout(() => document.getElementById('demande-rendez-vous')?.focus(), 450)
+      return
+    }
+
+    if (
+      !situationAdministrative.trim()
+      && !situationPersonnelle.trim()
+      && !parcoursProfessionnel.trim()
+      && freinsSelectionnes.length === 0
+      && ressourcesSelectionnees.length === 0
+    ) {
+      document.getElementById('parcours-multiselection')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      window.setTimeout(() => document.querySelector('#parcours-multiselection input')?.focus(), 450)
       return
     }
 
@@ -2607,15 +2618,32 @@ function AssistantMissionPage() {
         ? 'Élevé'
         : recommandationsMoteur.niveauConfiance || 'Moyen'
   const confianceSousReserve = niveauConfianceAffiche !== 'Élevé'
-  const prochaineAction = dossierCoherentEtComplet
-    ? 'Le dossier est prêt : relisez la synthèse puis clôturez.'
-    : (controleDecision.bloquants > 0
-      ? controleDecision.prochaineAction
-      : controleCloture.find((item) => !item.ok)?.label)
-      || 'Décrivez la situation pour lancer l’analyse.'
-  const syntheseApercu = syntheseEntretien.trim()
-    ? `${syntheseEntretien.trim().slice(0, 170)}${syntheseEntretien.trim().length > 170 ? '…' : ''}`
-    : 'La synthèse se construit automatiquement pendant votre saisie.'
+  const nombreChoixParcours = parseSituationValues(situationAdministrative).length
+    + parseSituationValues(situationPersonnelle).length
+    + parseSituationValues(parcoursProfessionnel).length
+    + freinsSelectionnes.length
+    + ressourcesSelectionnees.length
+  const parcoursStructureRenseigne = nombreChoixParcours > 0
+  const demandeRenseignee = Boolean(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
+  const prochaineAction = !identifiantDemandeur.trim()
+    ? 'Renseignez l’identifiant France Travail.'
+    : !demandeRenseignee
+      ? 'Notez la demande exprimée pendant l’entretien.'
+      : !parcoursStructureRenseigne
+        ? 'Ouvrez les menus du parcours et cochez les éléments utiles.'
+        : dossierCoherentEtComplet
+          ? 'Le dossier est prêt : relisez la synthèse puis clôturez.'
+          : (controleDecision.bloquants > 0
+            ? controleDecision.prochaineAction
+            : controleCloture.find((item) => !item.ok)?.label)
+            || 'Relisez les informations avant la synthèse.'
+  const syntheseApercu = !demandeRenseignee
+    ? 'Saisissez d’abord la demande exprimée, puis complétez les menus du parcours.'
+    : !parcoursStructureRenseigne
+      ? 'Demande saisie. Cochez maintenant les repères utiles du parcours pour enrichir la synthèse.'
+      : syntheseEntretien.trim()
+        ? `${syntheseEntretien.trim().slice(0, 170)}${syntheseEntretien.trim().length > 170 ? '…' : ''}`
+        : 'La synthèse se construit automatiquement pendant votre saisie.'
 
   return (
     <Box
@@ -2790,7 +2818,7 @@ function AssistantMissionPage() {
                   }}
                 >
                   <Typography variant="overline" sx={{ fontWeight: 950, color: '#6b3fa0', letterSpacing: 1 }}>
-                    GÉNÉRÉE EN TEMPS RÉEL
+                    SE CONSTRUIT AVEC VOS CHOIX
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 950, mb: 0.75 }}>
                     Synthèse automatique
@@ -2827,7 +2855,7 @@ function AssistantMissionPage() {
             </Box>
             <Grid container spacing={0.75} sx={{ flex: 1, width: '100%' }}>
               {[
-                ['1', 'Saisir la situation', 'section-entretien', '', '#1976d2'],
+                ['1', 'Saisir et cocher le parcours', 'section-entretien', '', '#1976d2'],
                 ['2', 'Choisir une solution', 'section-prescriptions', 'offreServices', '#2e7d32'],
                 ['3', 'Finaliser la synthèse', 'section-synthese', 'synthese', '#6b3fa0'],
               ].map(([numero, label, anchorId, sectionId, color]) => (
@@ -2881,7 +2909,7 @@ function AssistantMissionPage() {
         </Paper>
 
         {workspaceTab !== 'sauvegardes' ? (
-          <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
+          <CockpitBlockCard title="1. Demande exprimée et parcours" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
               <TextField
                 id="demande-rendez-vous"
                 label="Demande ou objectif du rendez-vous"
@@ -2908,6 +2936,82 @@ function AssistantMissionPage() {
                   minRows={2}
                   size="small"
                 />
+              <Paper
+                id="parcours-multiselection"
+                variant="outlined"
+                sx={{
+                  mt: 0.75,
+                  p: { xs: 1.25, md: 1.75 },
+                  borderRadius: 2.5,
+                  borderColor: '#9fc5e8',
+                  borderWidth: 2,
+                  bgcolor: '#f4f9fe',
+                  scrollMarginTop: '24px',
+                }}
+              >
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} justifyContent="space-between" sx={{ mb: 1.5 }}>
+                  <Box>
+                    <Typography variant="overline" sx={{ fontWeight: 950, color: '#0b6fb8', letterSpacing: 0.9 }}>
+                      APRÈS LA SAISIE · COMPLÉTER LE PARCOURS
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 950, color: '#173f67', lineHeight: 1.2 }}>
+                      Ouvrez les menus et cochez plusieurs réponses
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Ne cochez que les éléments utiles. Chaque choix alimente immédiatement le diagnostic et la synthèse automatique.
+                    </Typography>
+                  </Box>
+                  <Chip
+                    color={nombreChoixParcours > 0 ? 'success' : 'primary'}
+                    variant={nombreChoixParcours > 0 ? 'filled' : 'outlined'}
+                    label={nombreChoixParcours > 0 ? `${nombreChoixParcours} choix retenu(s)` : 'Plusieurs choix possibles'}
+                    sx={{ fontWeight: 900, flexShrink: 0 }}
+                  />
+                </Stack>
+
+                <Grid container spacing={1.25}>
+                  <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                    <SituationMultiSelect
+                      label="Situation administrative"
+                      value={situationAdministrative}
+                      onChange={setSituationAdministrative}
+                      options={SITUATION_ADMINISTRATIVE_OPTIONS}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                    <SituationMultiSelect
+                      label="Situation personnelle"
+                      value={situationPersonnelle}
+                      onChange={setSituationPersonnelle}
+                      options={SITUATION_PERSONNELLE_OPTIONS}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6, xl: 4 }}>
+                    <SituationMultiSelect
+                      label="Parcours professionnel"
+                      value={parcoursProfessionnel}
+                      onChange={setParcoursProfessionnel}
+                      options={PARCOURS_PROFESSIONNEL_OPTIONS}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <CockpitBadgeGroup
+                      title="Freins à prendre en compte"
+                      options={FREINS_OPTIONS}
+                      selected={freinsSelectionnes}
+                      onToggle={onToggleFrein}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <CockpitBadgeGroup
+                      title="Ressources et points d’appui"
+                      options={RESSOURCES_OPTIONS}
+                      selected={ressourcesSelectionnees}
+                      onToggle={onToggleBadge(setRessourcesSelectionnees)}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
             </CockpitBlockCard>
         ) : null}
 
@@ -3103,65 +3207,6 @@ function AssistantMissionPage() {
                 {questionCouranteOuverte ? 'Enregistrer et continuer' : 'Suivante'}
               </Button>
             </Stack>
-          </SectionRepliable>
-        ) : null}
-
-        {workspaceTab !== 'sauvegardes' ? (
-          <SectionRepliable
-            id="listesDiagnostic"
-            title="Listes du diagnostic — sélection multiple"
-            expanded={sectionsOuvertes.listesDiagnostic}
-            onChange={basculerSection('listesDiagnostic')}
-          >
-            <CockpitBlockCard
-              title="Listes du diagnostic — sélection multiple"
-            subtitle="Ouvrez chaque menu puis cochez autant d’éléments que nécessaire. Vos choix alimentent immédiatement le diagnostic et les recommandations."
-            sx={{ borderTop: '6px solid #ed6c02', bgcolor: '#fffdf8' }}
-            detailsSx={{ p: { xs: 1.25, md: 2 } }}
-          >
-            <Grid container spacing={1.25}>
-              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
-                <SituationMultiSelect
-                  label="Situation administrative"
-                  value={situationAdministrative}
-                  onChange={setSituationAdministrative}
-                  options={SITUATION_ADMINISTRATIVE_OPTIONS}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
-                <SituationMultiSelect
-                  label="Situation personnelle"
-                  value={situationPersonnelle}
-                  onChange={setSituationPersonnelle}
-                  options={SITUATION_PERSONNELLE_OPTIONS}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6, xl: 4 }}>
-                <SituationMultiSelect
-                  label="Parcours professionnel"
-                  value={parcoursProfessionnel}
-                  onChange={setParcoursProfessionnel}
-                  options={PARCOURS_PROFESSIONNEL_OPTIONS}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <CockpitBadgeGroup
-                  title="Freins à prendre en compte"
-                  options={FREINS_OPTIONS}
-                  selected={freinsSelectionnes}
-                  onToggle={onToggleFrein}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <CockpitBadgeGroup
-                  title="Ressources et points d’appui"
-                  options={RESSOURCES_OPTIONS}
-                  selected={ressourcesSelectionnees}
-                  onToggle={onToggleBadge(setRessourcesSelectionnees)}
-                />
-              </Grid>
-            </Grid>
-            </CockpitBlockCard>
           </SectionRepliable>
         ) : null}
 

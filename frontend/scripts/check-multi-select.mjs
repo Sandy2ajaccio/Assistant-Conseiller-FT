@@ -14,8 +14,9 @@ const pageSource = await readFile(new URL('../src/pages/AssistantMissionPage.jsx
 assert.match(pageSource, /const SituationMultiSelect/)
 assert.match(pageSource, /disableCloseOnSelect/)
 assert.match(pageSource, /<Checkbox checked=\{selected\}/)
-assert.match(pageSource, /Listes du diagnostic — sélection multiple/)
-assert.match(pageSource, /Ouvrez chaque menu puis cochez autant d’éléments que nécessaire/)
+assert.match(pageSource, /id="parcours-multiselection"/)
+assert.match(pageSource, /Demande exprimée et parcours/)
+assert.match(pageSource, /Ouvrez les menus et cochez plusieurs réponses/)
 
 const badgesSource = await readFile(new URL('../src/components/CockpitBadgeGroup.jsx', import.meta.url), 'utf8')
 assert.match(badgesSource, /<Autocomplete/)
