@@ -47,6 +47,7 @@ const suiviGlobal = analyserSuiviAccompagnement({
   categorie: '9',
 })
 assert.equal(suiviGlobal.conseille, 'global')
+assert.ok(suiviGlobal.pistesSpecialisees.some((item) => item.id === 'glo'))
 
 const suiviEssentiel = analyserSuiviAccompagnement({
   demande: 'Recherche active emploi, disponible immédiatement et autonome',
@@ -60,6 +61,13 @@ const suiviProjetFlou = analyserSuiviAccompagnement({
   ressources: ['Autonomie'],
 })
 assert.equal(suiviProjetFlou.conseille, 'renforce')
+
+const suiviRegardCroise = analyserSuiviAccompagnement({
+  demande: 'Reconversion bloquée, perte de confiance et difficulté à choisir une nouvelle orientation professionnelle',
+  freins: ['Confiance en soi'],
+})
+assert.equal(suiviRegardCroise.regardCroiseConseille, true)
+assert.ok(suiviRegardCroise.pistesSpecialisees.some((item) => item.id === 'regards-croises'))
 
 const suiviIa = analyserSuiviAccompagnement({
   demande: 'Inscription administrative à vérifier',
@@ -100,6 +108,8 @@ assert.ok(sourcePage.includes('Contrôle intelligent de la catégorie'))
 assert.ok(sourcePage.includes('Conseil sur le portefeuille de suivi'))
 assert.ok(sourcePage.includes('ControlesAutomatiquesDossierCard'))
 assert.ok(sourcePage.includes('Suivi obligations · détail à confirmer'))
+assert.ok(sourcePage.includes('Je vous oriente vers le portefeuille Accompagnement Global (GLO)'))
+assert.ok(sourcePage.includes('Regards croisés avec un psychologue du travail'))
 assert.ok(sourcePortefeuille.includes('IA — ne pas convoquer'))
 assert.ok(sourcePortefeuille.includes('disabled={dossierInscriptionAdministrative}'))
 

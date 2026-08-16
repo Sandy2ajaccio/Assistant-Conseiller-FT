@@ -13,7 +13,7 @@ export const SUIVIS_ACCOMPAGNEMENT = [
   },
   {
     id: 'global',
-    label: 'Global',
+    label: 'Global (GLO)',
     description: 'Coordination sociale et professionnelle lorsque plusieurs dimensions font obstacle.',
     couleur: '#7b1fa2',
   },
@@ -56,11 +56,15 @@ export const analyserSuiviAccompagnement = ({
   const freinsTresStructurants = /logement|sante|handicap|financ|garde d.enfant/.test(texte)
   const categorieNumero = Number(categorie)
   const codeIa = String(codeSituationOp2 || '').toUpperCase() === 'IA'
+  const besoinPsychologueExplicite = /psychologue du travail|regards? croises?|souffrance au travail|epuisement professionnel|burn.?out|blocage professionnel|echecs? repetes/.test(texte)
+  const besoinApprofondissement = projetFlou && /confiance|sante|handicap|reconversion|parcours complexe|difficulte a choisir|ne sait plus/.test(texte)
+  const regardCroiseConseille = besoinPsychologueExplicite || besoinApprofondissement
 
   let conseille = 'renforce'
   let motif = 'Un accompagnement renforcé permet de structurer les étapes avant une mise en autonomie.'
   const aVerifier = []
   const sousPistes = []
+  const pistesSpecialisees = []
 
   if (!contexteSuffisant) {
     conseille = ''
@@ -89,6 +93,22 @@ export const analyserSuiviAccompagnement = ({
   if (/rqth|handicap/.test(texte)) {
     aVerifier.push('La RQTH seule ne détermine pas le suivi : vérifier ses conséquences professionnelles et les besoins de compensation.')
   }
+  if (conseille === 'global') {
+    pistesSpecialisees.push({
+      id: 'glo',
+      titre: 'Accompagnement Global (GLO)',
+      objectif: 'Coordonner les dimensions sociales et professionnelles avec un plan d’action progressif.',
+      aConfirmer: 'Confirmer le besoin de coordination, le professionnel social mobilisé et le circuit interne d’affectation.',
+    })
+  }
+  if (regardCroiseConseille) {
+    pistesSpecialisees.push({
+      id: 'regards-croises',
+      titre: 'Regards croisés avec un psychologue du travail',
+      objectif: 'Approfondir une situation professionnelle complexe, un blocage ou une reconversion difficile à clarifier.',
+      aConfirmer: 'Formaliser la demande adressée au psychologue et vérifier le circuit local de la fiche de liaison.',
+    })
+  }
   if (codeIa) {
     aVerifier.unshift('Code OP2 IA : ne pas convoquer ; consulter l’accompagnement avant de proposer un suivi.')
   }
@@ -106,6 +126,8 @@ export const analyserSuiviAccompagnement = ({
     motif,
     aVerifier,
     sousPistes,
+    pistesSpecialisees,
+    regardCroiseConseille,
     messageEcart: ecart
       ? `Le suivi retenu (${choisi.label}) diffère de la proposition (${reference.label}). Notez la justification de ce choix.`
       : '',

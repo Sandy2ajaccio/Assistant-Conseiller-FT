@@ -345,6 +345,32 @@ const normaliserLibelleSynthese = (valeur) => {
   return texte.charAt(0).toLocaleLowerCase('fr-FR') + texte.slice(1)
 }
 
+const ORIENTATIONS_SUIVI_SYNTHESE = {
+  essentiel: 'Je vous oriente vers le suivi Essentiel de France Travail afin de soutenir vos démarches tout en maintenant votre autonomie.',
+  renforce: 'Je vous oriente vers un suivi Renforcé de France Travail afin de structurer plus régulièrement votre projet et vos démarches.',
+  global: 'Je vous oriente vers le portefeuille Accompagnement Global (GLO) de France Travail afin de coordonner les dimensions sociales et professionnelles de votre parcours. Cette orientation sera mise en œuvre après confirmation du circuit interne et du professionnel référent.',
+}
+
+const formulerOrientationRetenue = (item = {}) => {
+  if (/regards? croisés/i.test(item.nom || '')) {
+    return 'Je vous propose la prestation Regards croisés avec un psychologue du travail de France Travail afin d’approfondir votre situation professionnelle et de préciser la suite de votre parcours. Le rendez-vous et le circuit de liaison vous seront confirmés.'
+  }
+
+  const nom = String(item.nom || '').trim()
+  if (!nom) return ''
+  const acteur = String(item.partenaire || item.intervenants || '').trim()
+  const localisation = String(item.localisation || '').trim()
+  const objectif = normaliserLibelleSynthese(item.objectif || '')
+  const destination = item.type === 'Partenaire'
+    ? `Je vous oriente vers ${nom}`
+    : `Je vous propose ${item.type === 'Atelier' ? 'l’atelier' : 'la prestation'} ${nom}`
+  const aupresDe = acteur && !acteur.toLowerCase().includes(nom.toLowerCase()) ? ` auprès de ${acteur}` : ''
+  const lieu = !localisation || /^tous$/i.test(localisation)
+    ? ''
+    : /corse/i.test(localisation) ? ` en ${localisation}` : ` à ${localisation}`
+  return `${destination}${aupresDe}${lieu}${objectif ? ` afin de ${objectif}` : ''}.`
+}
+
 const formatDateFr = (isoLike) => {
   if (!isoLike) return 'Non renseignee'
   const d = new Date(isoLike)
@@ -1167,7 +1193,7 @@ function AssistantMissionPage() {
     const rechercheEmploi = /recherche d.?emploi|candidature|retour a l.?emploi|emploi durable|emploi stable|retrouver.*emploi/.test(contexte)
     const mobiliteInternationale = /etranger|international|mobilite internationale|anglais|allemand|espagnol/.test(contexte)
     const immersion = /immersion|pmsmp|decouvrir.*metier|confirmer.*projet|tester.*metier|tester.*environnement|metier en tension/.test(contexte)
-    const regardsCroises = /regards? croises?|psychologue du travail|besoin.*reconversion|reconversion.*(?:rsa|deld|senior|50 ans)/.test(contexte)
+    const regardsCroises = conseilSuiviAccompagnement.regardCroiseConseille
     const financementFormation = /\baif\b|financement.*formation|formation.*financement|cpf insuffisant|reste a charge|devis.*formation/.test(contexte)
     const pisteIAEPertinente = Boolean(recommandationsMoteur.diagnostic?.propositionIAE?.pertinente)
 
@@ -1239,6 +1265,7 @@ function AssistantMissionPage() {
     situationAdministrative,
     situationPersonnelle,
     parcoursProfessionnel,
+    conseilSuiviAccompagnement.regardCroiseConseille,
   ])
 
   const prescriptionsDetaillees = useMemo(() => {
@@ -1693,14 +1720,11 @@ function AssistantMissionPage() {
       paragraphes.push(`Vos points d’appui sont ${formatListeCourte(ressourcesSyntheseUtiles.map(normaliserLibelleSynthese))}.`)
     }
 
-    const actions = [
-      ...actionsImmediatesValidees,
-      ...actionsRetenues.map((item) => (
-        item.type === 'Partenaire'
-          ? `votre orientation vers ${item.nom}`
-          : `votre participation à ${item.nom}${item.echeanceAction ? ` avant le ${new Date(`${item.echeanceAction}T12:00:00`).toLocaleDateString('fr-FR')}` : ''}`
-      )),
-    ]
+    if (ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi]) {
+      paragraphes.push(ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi])
+    }
+
+    const actions = actionsImmediatesValidees
       .filter(Boolean)
       .filter((item) => !/pix(?:\s+emploi)?|test pix/i.test(item))
       .filter((item, index, items) => items.indexOf(item) === index)
@@ -1708,6 +1732,13 @@ function AssistantMissionPage() {
     if (actions.length > 0) {
       paragraphes.push(`Nous convenons de ${formatListeCourte(actions.map(normaliserLibelleSynthese))}.`)
     }
+
+    actionsRetenues
+      .filter((item) => !/pix(?:\s+emploi)?|test pix/i.test(item.nom || ''))
+      .slice(0, 4)
+      .map(formulerOrientationRetenue)
+      .filter(Boolean)
+      .forEach((orientation) => paragraphes.push(orientation))
 
     if (suiviPortefeuilleMutualise.commentaire?.trim()) {
       paragraphes.push(`Suivi et prochaine action convenus : ${suiviPortefeuilleMutualise.commentaire.trim()}`)
@@ -1731,6 +1762,7 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     analyseDemandeAutomatique.freins,
     actionsRetenues,
+    suiviAccompagnementChoisi,
     formalitesEntretien,
     suiviPortefeuilleMutualise.commentaire,
   ])
@@ -2192,6 +2224,21 @@ function AssistantMissionPage() {
 
   const validerActionImmediate = (label) => {
     setActionsImmediatesValidees((prev) => (prev.includes(label) ? prev : [...prev, label]))
+  }
+
+  const basculerPrestationSpecialisee = (nom) => {
+    const dejaRetenue = actionsRetenues.some((item) => item.nom === nom)
+    const prestation = offreServiceCorse.find((item) => item.nom === nom)
+    if (!prestation && !dejaRetenue) return
+    const prochainesActions = dejaRetenue
+      ? actionsRetenues.filter((item) => item.nom !== nom)
+      : [...actionsRetenues, normaliserSuiviAction({ ...prestation, categorieDecision: prestation.type })]
+    setActionsRetenues(prochainesActions)
+    setDecisions((prev) => ({
+      ...prev,
+      prescriptionPrestation: prochainesActions.some((item) => item.type === 'Prestation'),
+      orientationPartenaire: prochainesActions.some((item) => item.categorieDecision === 'Partenaire'),
+    }))
   }
 
   const buildSnapshot = () => ({
@@ -3399,6 +3446,40 @@ function AssistantMissionPage() {
                   </Paper>
                 ) : null}
                 {conseilSuiviAccompagnement.aVerifier.map((item) => <Alert key={item} severity="warning" sx={{ py: 0 }}>{item}</Alert>)}
+                {conseilSuiviAccompagnement.pistesSpecialisees.length > 0 ? (
+                  <Paper variant="outlined" sx={{ p: 1.25, bgcolor: '#f7f2fb', borderColor: '#c9afd9' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#6a1b9a', mb: 0.75 }}>
+                      Orientation complémentaire proposée si nécessaire
+                    </Typography>
+                    <Grid container spacing={1}>
+                      {conseilSuiviAccompagnement.pistesSpecialisees.map((piste) => {
+                        const retenue = piste.id === 'glo'
+                          ? suiviAccompagnementChoisi === 'global'
+                          : actionsRetenues.some((item) => item.nom === 'Regards croisés')
+                        return (
+                          <Grid key={piste.id} size={{ xs: 12, md: 6 }}>
+                            <Paper variant="outlined" sx={{ height: '100%', p: 1, bgcolor: '#fff' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>{piste.titre}</Typography>
+                              <Typography variant="body2" color="text.secondary">{piste.objectif}</Typography>
+                              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'warning.dark' }}>À confirmer : {piste.aConfirmer}</Typography>
+                              <Button
+                                size="small"
+                                variant={retenue ? 'contained' : 'outlined'}
+                                color="secondary"
+                                onClick={() => (piste.id === 'glo'
+                                  ? setSuiviAccompagnementChoisi(retenue ? '' : 'global')
+                                  : basculerPrestationSpecialisee('Regards croisés'))}
+                                sx={{ mt: 0.75, fontWeight: 900 }}
+                              >
+                                {retenue ? 'Orientation retenue ✓' : 'Retenir cette orientation'}
+                              </Button>
+                            </Paper>
+                          </Grid>
+                        )
+                      })}
+                    </Grid>
+                  </Paper>
+                ) : null}
                 <Typography variant="caption" color="text.secondary">
                   Le portefeuille mutualisé reste votre organisation de travail. Le choix ci-dessus décrit le niveau de suivi conseillé et ne modifie jamais automatiquement le code situation OP2.
                 </Typography>
