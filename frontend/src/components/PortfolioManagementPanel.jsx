@@ -104,14 +104,14 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
   )
 
   const campaignOptions = useMemo(
-    () => [...new Set(allRecords.map((item) => item.motifImport).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
+    () => [...new Set(allRecords.map((item) => item.motifImport || item.fichierImport).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
     [allRecords],
   )
 
   const trackingSummary = useMemo(() => {
     const scoped = campaignFilter === 'all'
       ? allRecords
-      : allRecords.filter((item) => item.motifImport === campaignFilter)
+      : allRecords.filter((item) => (item.motifImport || item.fichierImport) === campaignFilter)
     const isActionRequired = (status) => ['action_requise', 'a_reconvoquer', 'a_avertir', 'a_signaler_cre'].includes(status)
     return {
       aQualifier: scoped.filter((item) => !item.statutSuiviImport || item.statutSuiviImport === 'a_qualifier').length,
@@ -127,7 +127,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
     return alertSummary.details
       .filter(({ record: item, alerts }) => {
         if (search && !String(item.identifiant || '').toUpperCase().includes(search)) return false
-        if (campaignFilter !== 'all' && item.motifImport !== campaignFilter) return false
+        if (campaignFilter !== 'all' && (item.motifImport || item.fichierImport) !== campaignFilter) return false
         if (trackingFilter === 'action' && !['action_requise', 'a_reconvoquer', 'a_avertir', 'a_signaler_cre'].includes(item.statutSuiviImport)) return false
         if (trackingFilter !== 'all' && trackingFilter !== 'action' && (item.statutSuiviImport || 'a_qualifier') !== trackingFilter) return false
         if (alertFilter === 'urgent') return alerts.some((alert) => alert.niveau === 'error')
@@ -295,7 +295,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             <Typography variant="subtitle2" sx={{ gridColumn: '1 / -1', mt: 0.5, fontWeight: 900, color: '#173f67' }}>
               Informations importées et suivi du portefeuille
             </Typography>
-            <TextField fullWidth size="small" label="Objectif de l’import" value={record.motifImport || ''} onChange={updateRecord('motifImport')} />
+            <TextField fullWidth size="small" label="Motif particulier (facultatif)" value={record.motifImport || ''} onChange={updateRecord('motifImport')} helperText="Laissez vide pour un portefeuille général." />
             <TextField fullWidth size="small" select label="Statut du suivi importé" value={record.statutSuiviImport || 'a_qualifier'} onChange={updateRecord('statutSuiviImport')}>
               {PORTFOLIO_TRACKING_STATUS_OPTIONS.map((option) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
             </TextField>
@@ -478,12 +478,12 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
           <TextField
             select
             size="small"
-            label="Objectif de l’import"
+            label="Fichier ou motif"
             value={campaignFilter}
             onChange={(event) => setCampaignFilter(event.target.value)}
             sx={{ minWidth: 260 }}
           >
-            <MenuItem value="all">Tous les imports</MenuItem>
+            <MenuItem value="all">Tous les fichiers</MenuItem>
             {campaignOptions.map((campaign) => <MenuItem key={campaign} value={campaign}>{campaign}</MenuItem>)}
           </TextField>
           <TextField
@@ -526,7 +526,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800 }}>N° France Travail</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Objectif</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Import / motif</TableCell>
                   <TableCell sx={{ fontWeight: 800, minWidth: 250 }}>Suivi rapide</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Dernier contact</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Prochain jalon</TableCell>
@@ -540,7 +540,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                   return (
                     <TableRow key={item.identifiant} sx={{ bgcolor: trackingStatusOption(item.statutSuiviImport).background }}>
                       <TableCell>{item.identifiant}</TableCell>
-                      <TableCell>{item.motifImport || '—'}</TableCell>
+                      <TableCell>{item.motifImport || item.fichierImport || 'Import général'}</TableCell>
                       <TableCell>
                         <TextField
                           fullWidth

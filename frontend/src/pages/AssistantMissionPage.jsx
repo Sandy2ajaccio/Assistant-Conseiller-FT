@@ -57,7 +57,6 @@ import { analyserSuiviAccompagnement, SUIVIS_ACCOMPAGNEMENT } from '../services/
 import {
   importPortfolioWorkbook,
   listPortfolioRecords,
-  suggestPortfolioImportPurpose,
   updatePortfolioRecordFromDossier,
 } from '../services/portfolioImportService'
 import {
@@ -264,6 +263,29 @@ const QUESTIONS_FALLBACK = [
   'Quels freins doivent etre traites en priorite ?',
   'Quelle action concrete declencher aujourd hui ?',
 ]
+
+const optionsRapidesPourQuestion = (question = '') => {
+  const texte = String(question).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (/informations? manquent|confirmer la recommandation/.test(texte)) {
+    return ['Projet professionnel', 'CV et compétences', 'Disponibilité', 'Mobilité', 'Santé / handicap', 'Formation / financement', 'Situation administrative', 'À vérifier avec la personne']
+  }
+  if (/objectif prioritaire/.test(texte)) {
+    return ['Définir ou clarifier le projet', 'Rechercher un emploi', 'Travailler le CV', 'Choisir une formation', 'Lever un frein', 'Faire le point sur la situation', 'À vérifier avec la personne']
+  }
+  if (/freins?.*priorit/.test(texte)) {
+    return ['Mobilité', 'Santé / handicap', 'Logement', 'Garde d’enfants', 'Finances', 'Numérique', 'Maîtrise du français', 'Aucun frein prioritaire']
+  }
+  if (/action concrete|declencher aujourd/.test(texte)) {
+    return ['Actualiser le dossier', 'Travailler le CV', 'Explorer un métier', 'Proposer un atelier', 'Étudier une formation', 'Traiter un frein', 'Programmer un contact', 'À définir avec la personne']
+  }
+  if (/metier|secteur|competence|piste/.test(texte)) {
+    return ['Aucune piste à ce stade', 'Métier à préciser', 'Secteurs à explorer', 'Compétences à identifier', 'Compétences transférables', 'Reconversion à étudier', 'À vérifier avec la personne']
+  }
+  if (/formation|financ/.test(texte)) {
+    return ['Objectif de formation à préciser', 'Prérequis à vérifier', 'Financement à étudier', 'Calendrier à vérifier', 'Alternative à rechercher', 'À vérifier avec la personne']
+  }
+  return ['Information confirmée', 'Information manquante', 'Non concerné', 'À vérifier avec la personne']
+}
 
 const CARD_MIN_HEIGHT = 128
 
@@ -865,6 +887,14 @@ function AssistantMissionPage() {
   const questionCourante = questionsEntretien[questionIndex] || ''
   const questionCouranteOuverte = /^(quel|quelle|quels|quelles|comment|pourquoi|dans quel|dans quelle|decrivez|décrivez|precisez|précisez)/i
     .test(questionCourante.trim())
+  const optionsReponseRapide = useMemo(
+    () => questionCouranteOuverte ? optionsRapidesPourQuestion(questionCourante) : [],
+    [questionCourante, questionCouranteOuverte],
+  )
+  const reponsesRapidesSelectionnees = useMemo(
+    () => new Set(String(assistantAnswers[questionCourante] || '').split(' ; ').map((item) => item.trim()).filter(Boolean)),
+    [assistantAnswers, questionCourante],
+  )
   const aideQuestionCourante = /métier|secteur|compétence/i.test(questionCourante)
     ? 'Aide : notez les métiers déjà envisagés, les secteurs refusés, les tâches appréciées et les savoir-faire transférables. Si la personne ne sait pas, écrivez « aucune piste à ce stade ».'
     : 'Notez les éléments exprimés par la personne. Si elle ne sait pas répondre, indiquez-le clairement.'
@@ -2237,6 +2267,22 @@ function AssistantMissionPage() {
     }))
   }
 
+  const basculerReponseRapide = (option) => {
+    if (!questionCourante) return
+    const selections = new Set(reponsesRapidesSelectionnees)
+    if (selections.has(option)) selections.delete(option)
+    else selections.add(option)
+    onAssistantAnswer(questionCourante, [...selections].join(' ; '))
+  }
+
+  const avancerExplorationGuidee = () => {
+    if (questionIndex >= questionsEntretien.length - 1) {
+      setSectionsOuvertes((previous) => ({ ...previous, explorationGuidee: false }))
+      return
+    }
+    setQuestionIndex((previous) => previous + 1)
+  }
+
   const ajouterQuestionsAdvpAuxNotes = () => {
     const texteQuestions = advpAnalyse.questions.map((question) => `• ${question}`).join('\n')
     setAdvpTab(advpAnalyse.phase)
@@ -2559,19 +2605,11 @@ function AssistantMissionPage() {
   const handlePortfolioImport = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    const motifImport = window.prompt(
-      'Quel est l’objectif de cet import ? Il sera affiché dans votre suivi.',
-      suggestPortfolioImportPurpose(file.name),
-    )
-    if (motifImport === null) {
-      event.target.value = ''
-      return
-    }
     setPortfolioImportStatus('Import en cours…')
     try {
-      const result = await importPortfolioWorkbook(file, { motifImport })
+      const result = await importPortfolioWorkbook(file)
       setPortfolioImportStatus(
-        `${result.motifImport} · ${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
+        `${result.libelleImport} · ${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
         + `${result.unchanged} inchangée(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
         + ` ${result.rattachesPortefeuille} dossier(s) rattaché(s) à votre portefeuille.`
         + ` Suivi couleurs : ${result.suiviCouleurs.enCours} en cours, ${result.suiviCouleurs.realises} réalisé(s), `
@@ -3829,16 +3867,33 @@ function AssistantMissionPage() {
                 </Stack>
               ) : null}
             </Stack>
+            {questionCouranteOuverte && optionsReponseRapide.length > 0 ? (
+              <Paper variant="outlined" sx={{ mt: 1, p: 1, bgcolor: '#faf7ff', borderColor: '#cfb7e8' }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 900, color: '#5b2182' }}>
+                  Cochez rapidement les éléments utiles
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 0.25 }}>
+                  {optionsReponseRapide.map((option) => (
+                    <FormControlLabel
+                      key={option}
+                      control={<Checkbox size="small" checked={reponsesRapidesSelectionnees.has(option)} onChange={() => basculerReponseRapide(option)} />}
+                      label={<Typography variant="body2" sx={{ fontWeight: reponsesRapidesSelectionnees.has(option) ? 850 : 500 }}>{option}</Typography>}
+                      sx={{ m: 0, px: 0.5, minHeight: 34, borderRadius: 1, bgcolor: reponsesRapidesSelectionnees.has(option) ? '#eadcf7' : 'transparent' }}
+                    />
+                  ))}
+                </Box>
+              </Paper>
+            ) : null}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} sx={{ mt: 1 }}>
               <TextField
                 fullWidth
                 size="small"
-                label={questionCouranteOuverte ? 'Votre réponse' : 'Précision facultative'}
-                placeholder={questionCouranteOuverte ? 'Saisissez les éléments donnés par la personne…' : ''}
-                helperText={questionCouranteOuverte ? aideQuestionCourante : ''}
-                value={questionCouranteOuverte ? assistantAnswers[questionCourante] || '' : questionPrecisions[questionCourante] || ''}
+                label={questionCouranteOuverte && optionsReponseRapide.length > 0 ? 'Autre précision (facultatif)' : questionCouranteOuverte ? 'Votre réponse' : 'Précision facultative'}
+                placeholder={questionCouranteOuverte && optionsReponseRapide.length > 0 ? 'Ajoutez seulement ce qui n’est pas proposé ci-dessus…' : questionCouranteOuverte ? 'Saisissez les éléments donnés par la personne…' : ''}
+                helperText={questionCouranteOuverte && optionsReponseRapide.length > 0 ? 'Plusieurs cases peuvent être cochées. Vous pouvez aussi ajouter une courte précision.' : questionCouranteOuverte ? aideQuestionCourante : ''}
+                value={questionCouranteOuverte && optionsReponseRapide.length > 0 ? questionPrecisions[questionCourante] || '' : questionCouranteOuverte ? assistantAnswers[questionCourante] || '' : questionPrecisions[questionCourante] || ''}
                 onChange={(event) => (
-                  questionCouranteOuverte
+                  questionCouranteOuverte && optionsReponseRapide.length === 0
                     ? onAssistantAnswer(questionCourante, event.target.value)
                     : setQuestionPrecisions((prev) => ({ ...prev, [questionCourante]: event.target.value }))
                 )}
@@ -3854,10 +3909,14 @@ function AssistantMissionPage() {
               <Button
                 size="small"
                 variant="contained"
-                disabled={questionCouranteOuverte && !`${assistantAnswers[questionCourante] || ''}`.trim()}
-                onClick={() => setQuestionIndex((prev) => Math.min(questionsEntretien.length - 1, prev + 1))}
+                disabled={questionCouranteOuverte
+                  && !`${assistantAnswers[questionCourante] || ''}`.trim()
+                  && !`${questionPrecisions[questionCourante] || ''}`.trim()}
+                onClick={avancerExplorationGuidee}
               >
-                {questionCouranteOuverte ? 'Enregistrer et continuer' : 'Suivante'}
+                {questionIndex >= questionsEntretien.length - 1
+                  ? 'Terminer l’exploration'
+                  : questionCouranteOuverte ? 'Valider et passer à la suivante' : 'Suivante'}
               </Button>
             </Stack>
           </SectionRepliable>

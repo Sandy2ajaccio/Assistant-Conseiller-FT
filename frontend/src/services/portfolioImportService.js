@@ -33,12 +33,6 @@ const normalizeTrackingStatus = (value) => {
   return 'a_qualifier'
 }
 
-export const suggestPortfolioImportPurpose = (fileName = '') => {
-  const baseName = text(fileName).replace(/\.(?:xlsx?|csv)$/i, '').trim()
-  const withoutConvoPrefix = baseName.replace(/^(?:convo(?:cation)?s?\s*)/i, '').trim()
-  return withoutConvoPrefix || baseName || 'Nouvel import portefeuille'
-}
-
 const hexToRgb = (value) => {
   const hex = String(value || '').replace(/^#/, '').slice(-6)
   if (!/^[0-9a-f]{6}$/i.test(hex)) return null
@@ -281,7 +275,7 @@ export const mapPortfolioRow = (row) => {
   return ({
     appartientMonPortefeuille: true,
     portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
-    motifImport: readFirstValue(row, ["Objet de l'import", 'Objet import', 'Campagne']) || row.__motifImport || '',
+    motifImport: readFirstValue(row, ['Motif particulier (facultatif)', "Objet de l'import", 'Objet import', 'Campagne']) || row.__motifImport || '',
     fichierImport: row.__fichierImport || '',
     statutSuiviImport,
     actionSuiviImport: readFirstValue(row, ['Suite de suivi', 'Action de suivi import']),
@@ -584,7 +578,7 @@ export const exportPortfolioWorkbook = (filters = {}) => {
 
   const rows = records.map((record) => ({
     Identifiant: record.identifiant,
-    "Objet de l'import": record.motifImport,
+    "Motif particulier (facultatif)": record.motifImport,
     "Statut de suivi": trackingStatusOption(record.statutSuiviImport).label,
     "Suite de suivi": record.actionSuiviImport,
     "Commentaire de suivi import": record.commentaireSuiviImport,
@@ -643,7 +637,7 @@ export const importPortfolioWorkbook = async (file, options = {}) => {
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) throw new Error('Le classeur ne contient aucune feuille exploitable.')
 
-  const motifImport = text(options.motifImport) || suggestPortfolioImportPurpose(file.name)
+  const motifImport = text(options.motifImport)
   const fichierImport = text(file.name).replace(/[^\p{L}\p{N} ._()-]/gu, '')
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }).map((row, index) => ({
     ...row,
@@ -704,6 +698,7 @@ export const importPortfolioWorkbook = async (file, options = {}) => {
     cloudSynced,
     rattachesPortefeuille: incomingById.size,
     motifImport,
+    libelleImport: motifImport || fichierImport || 'Import général',
     suiviCouleurs: {
       aQualifier: mapped.filter((record) => record.statutSuiviImport === 'a_qualifier').length,
       enCours: mapped.filter((record) => record.statutSuiviImport === 'en_cours').length,
