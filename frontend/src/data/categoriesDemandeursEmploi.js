@@ -245,6 +245,135 @@ export const CATEGORIES_DEMANDEURS_EMPLOI = [
   },
 ]
 
+export const SOURCE_OFFICIELLE_CATEGORIES = {
+  titre: "Arrêté du 30 décembre 2024 définissant les catégories de demandeurs d'emploi",
+  entreeEnVigueur: '2 janvier 2025',
+  url: 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000050934968/',
+}
+
+const normaliserTexteCategorie = (value) => String(value || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+
+const ajouterCandidat = (candidats, numero, raison, aVerifier = []) => {
+  if (!candidats.has(numero)) {
+    candidats.set(numero, { numero, raisons: [], aVerifier: [] })
+  }
+  const candidat = candidats.get(numero)
+  if (raison && !candidat.raisons.includes(raison)) candidat.raisons.push(raison)
+  aVerifier.forEach((item) => {
+    if (item && !candidat.aVerifier.includes(item)) candidat.aVerifier.push(item)
+  })
+}
+
+/**
+ * Produit des catégories possibles à contrôler avec la personne. Cette fonction n'effectue
+ * aucun transfert de catégorie : elle rend visibles les critères manquants et la décision
+ * reste soumise au dossier réel et à la procédure interne France Travail.
+ */
+export const analyserCoherenceCategorie = ({
+  categorieActuelle = '',
+  situationAdministrative = '',
+  situationPersonnelle = '',
+  parcoursProfessionnel = '',
+  projet = '',
+  demande = '',
+  besoin = '',
+  freins = [],
+} = {}) => {
+  const reference = getCategorieDemandeurEmploi(categorieActuelle)
+  const texte = normaliserTexteCategorie([
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    demande,
+    besoin,
+    ...freins,
+  ].join(' '))
+  const candidats = new Map()
+
+  const emploiActuel = /en (?:emploi|poste|cdi|cdd|activite)|activite reduite|auto-entrepreneur|micro-entreprise|emploi actuel/.test(texte)
+  const sansEmploi = /sans emploi|aucun emploi|demandeur d.emploi|recherche active|premiere recherche/.test(texte) && !emploiActuel
+  const disponible = /disponible immediatement|disponibilite immediate/.test(texte)
+  const indisponible = /non disponible|indisponib|arret maladie|formation en cours/.test(texte)
+  const tempsPartiel = /temps partiel/.test(texte)
+  const contratCourt = /\bcdd\b|interim|temporaire|saisonnier|contrat court/.test(texte)
+  const tempsPlein = /temps plein|\bcdi\b/.test(texte) && !tempsPartiel
+  const rsa = /beneficiaire du rsa|demande de rsa|\bbrsa\b|\brsa\b/.test(texte)
+  const contratASigner = /contrat d.engagement a signer|en attente de (?:la )?signature/.test(texte)
+  const primoInscrit = /primo-inscrit|nouvellement inscrit|non inscrit.*31 decembre 2024/.test(texte)
+  const accompagnementSocial = /accompagnement (?:a vocation d.)?insertion sociale|parcours social|suivi social/.test(texte)
+  const freinsTemporaires = freins.length >= 2 || /obstacle temporaire|freins? sociaux|difficultes? sociales/.test(texte)
+
+  if (emploiActuel) {
+    if (indisponible && tempsPartiel) {
+      ajouterCandidat(candidats, 7, 'Emploi ou activité en cours, indisponibilité immédiate et recherche à temps partiel.', ['Confirmer les actes positifs de recherche d’emploi.'])
+    } else if (indisponible && contratCourt) {
+      ajouterCandidat(candidats, 8, 'Emploi ou activité en cours, indisponibilité immédiate et recherche de contrat court.', ['Confirmer les actes positifs de recherche d’emploi.'])
+    } else if (indisponible && tempsPlein) {
+      ajouterCandidat(candidats, 6, 'Emploi ou activité en cours, indisponibilité immédiate et recherche d’un CDI à temps plein.', ['Confirmer les actes positifs de recherche d’emploi.'])
+    } else {
+      ajouterCandidat(candidats, 5, 'La situation mentionne un emploi ou une activité et la recherche d’un autre emploi.', ['Préciser la disponibilité et le type de contrat recherché.'])
+      if (indisponible) {
+        ;[6, 7, 8].forEach((numero) => ajouterCandidat(candidats, numero, 'Une indisponibilité immédiate est signalée.', ['Préciser le type et le temps de travail recherchés.', 'Confirmer les actes positifs de recherche d’emploi.']))
+      }
+    }
+  } else if (indisponible) {
+    ajouterCandidat(candidats, 4, 'La personne est décrite sans emploi et non immédiatement disponible.', ['Confirmer la cause et la durée prévisible de l’indisponibilité.'])
+  } else if (disponible || sansEmploi) {
+    if (tempsPartiel) {
+      ajouterCandidat(candidats, 2, 'La personne est sans emploi, disponible et recherche un CDI à temps partiel.', ['Confirmer la disponibilité immédiate et les actes de recherche.'])
+    } else if (contratCourt) {
+      ajouterCandidat(candidats, 3, 'La personne est sans emploi, disponible et recherche un CDD, de l’intérim ou un emploi saisonnier.', ['Confirmer la disponibilité immédiate et les actes de recherche.'])
+    } else if (tempsPlein) {
+      ajouterCandidat(candidats, 1, 'La personne est sans emploi, disponible et recherche un CDI à temps plein.', ['Confirmer les actes positifs de recherche d’emploi.'])
+    } else {
+      ;[1, 2, 3].forEach((numero) => ajouterCandidat(candidats, numero, 'La personne semble sans emploi et disponible immédiatement.', ['Préciser CDI plein temps, CDI temps partiel ou contrat court.', 'Confirmer les actes positifs de recherche d’emploi.']))
+    }
+  }
+
+  if (freinsTemporaires && accompagnementSocial) {
+    ajouterCandidat(candidats, 9, 'Des difficultés temporaires font obstacle à la recherche et un accompagnement social est mentionné.', ['Confirmer que la personne bénéficie bien d’un accompagnement à vocation d’insertion sociale.'])
+  } else if (freinsTemporaires) {
+    ajouterCandidat(candidats, 9, 'Plusieurs difficultés temporaires sont décrites.', ['La catégorie 9 exige aussi un accompagnement à vocation d’insertion sociale : le confirmer avant tout changement.'])
+  }
+
+  if (rsa && contratASigner) {
+    ajouterCandidat(candidats, 10, 'Une situation RSA et une attente de signature du contrat d’engagement sont mentionnées.', [primoInscrit ? '' : 'Confirmer que la personne n’était pas déjà inscrite au 31 décembre 2024.'])
+  } else if (rsa) {
+    ajouterCandidat(candidats, 10, 'Une situation RSA est mentionnée.', ['Confirmer l’attente de signature du contrat d’engagement.', 'Confirmer la situation d’inscription au 31 décembre 2024.'])
+  }
+
+  const resultat = Array.from(candidats.values()).map((item) => ({
+    ...item,
+    reference: getCategorieDemandeurEmploi(item.numero),
+  }))
+  const numeroActuel = reference?.numero || null
+  const categorieActuelleCompatible = numeroActuel
+    ? resultat.some((item) => item.numero === numeroActuel)
+    : null
+  const contexteSuffisant = Boolean(
+    resultat.length > 0 && (emploiActuel || sansEmploi || disponible || indisponible || accompagnementSocial || rsa),
+  )
+
+  return {
+    reference,
+    candidats: resultat,
+    contexteSuffisant,
+    categorieActuelleCompatible,
+    changementAEnvisager: Boolean(reference && contexteSuffisant && !categorieActuelleCompatible),
+    message: !reference
+      ? 'Renseignez la catégorie actuellement déclarée pour activer l’alerte de cohérence.'
+      : !contexteSuffisant
+        ? 'La situation ne contient pas encore assez de critères pour contrôler la catégorie.'
+        : categorieActuelleCompatible
+          ? `La catégorie ${reference.numero} fait partie des catégories compatibles à vérifier au vu des éléments saisis.`
+          : `La catégorie ${reference.numero} ne correspond pas aux catégories suggérées par les éléments saisis. Vérifiez un changement avec la personne et la procédure interne France Travail.`,
+  }
+}
+
 export const getCategorieDemandeurEmploi = (categorie) => {
   const numero = Number(
     String(categorie || '').replace(/[^0-9]/g, ''),

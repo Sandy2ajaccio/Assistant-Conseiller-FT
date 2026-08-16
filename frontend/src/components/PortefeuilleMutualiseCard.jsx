@@ -43,6 +43,7 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
   const suivi = normaliserSuiviPortefeuilleMutualise(value)
   const file = getFilePortefeuilleMutualise(suivi.file)
   const codeOp2 = normaliserCodeSituationOp2(codeSituationOp2)
+  const dossierInscriptionAdministrative = codeOp2 === 'IA'
   const alertes = [
     ...genererAlertesPortefeuilleMutualise(suivi),
     ...(!codeOp2 ? [{
@@ -51,8 +52,14 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
       titre: 'Code situation OP2 à renseigner',
       message: 'Le code OP2 décrit la situation de la personne ; il ne correspond pas au portefeuille.',
     }] : []),
+    ...(dossierInscriptionAdministrative ? [{
+      id: 'ia-sans-convocation',
+      niveau: 'error',
+      titre: 'IA — ne pas convoquer',
+      message: 'Pour une inscription administrative (code OP2 IA), ne préparez aucune convocation. Vérifiez d’abord les informations et consignes présentes dans son accompagnement.',
+    }] : []),
   ]
-  const nombreAlertes = compterAlertesPortefeuilleMutualise(suivi) + (codeOp2 ? 0 : 1)
+  const nombreAlertes = compterAlertesPortefeuilleMutualise(suivi) + (codeOp2 ? 0 : 1) + (dossierInscriptionAdministrative ? 1 : 0)
   const update = (field) => (event) => {
     const nextValue = field === 'procedureInterneConfirmee'
       ? event.target.checked
@@ -92,6 +99,12 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
               sx={{ fontWeight: 900, alignSelf: { md: 'flex-start' } }}
             />
           </Stack>
+
+          {dossierInscriptionAdministrative ? (
+            <Alert severity="error" variant="filled">
+              <strong>Code IA : aucune convocation.</strong> Consultez l’accompagnement de la personne avant toute action.
+            </Alert>
+          ) : null}
 
           <Grid container spacing={1.25}>
             <Grid size={{ xs: 12, md: 4 }}>
@@ -139,7 +152,8 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
                     label="Date d’envoi de la convocation"
                     value={suivi.dateConvocation}
                     onChange={update('dateConvocation')}
-                    helperText="Consigne : 10 à 15 jours avant le rendez-vous"
+                    disabled={dossierInscriptionAdministrative}
+                    helperText={dossierInscriptionAdministrative ? 'Désactivé : ne jamais convoquer un dossier IA' : 'Consigne : 10 à 15 jours avant le rendez-vous'}
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
@@ -151,6 +165,7 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
                     label="Date du rendez-vous"
                     value={suivi.dateRendezVous}
                     onChange={update('dateRendezVous')}
+                    disabled={dossierInscriptionAdministrative}
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
@@ -162,6 +177,7 @@ function PortefeuilleMutualiseCard({ value, onChange, codeSituationOp2, onCodeSi
                     label="Modalité du rendez-vous"
                     value={suivi.modaliteRendezVous}
                     onChange={update('modaliteRendezVous')}
+                    disabled={dossierInscriptionAdministrative}
                   >
                     <MenuItem value="visio">Visioconférence</MenuItem>
                     <MenuItem value="telephone">Téléphone</MenuItem>

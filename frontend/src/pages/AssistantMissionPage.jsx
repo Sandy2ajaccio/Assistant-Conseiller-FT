@@ -39,12 +39,19 @@ import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
 import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
+import PortefeuilleMissionStart from '../components/PortefeuilleMissionStart'
 import PrescriptionDashboard from '../components/PrescriptionDashboard'
 import SuiviObligationsCard from '../components/SuiviObligationsCard'
 import SuiviRemobilisationCard from '../components/SuiviRemobilisationCard'
 import { offreServiceCorse } from '../data/offreServiceCorse'
-import { CATEGORIES_DEMANDEURS_EMPLOI, getCategorieDemandeurEmploi } from '../data/categoriesDemandeursEmploi'
+import {
+  analyserCoherenceCategorie,
+  CATEGORIES_DEMANDEURS_EMPLOI,
+  SOURCE_OFFICIELLE_CATEGORIES,
+} from '../data/categoriesDemandeursEmploi'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
+import { analyserAdvpAutomatique } from '../services/advpAssistantService'
+import { analyserSuiviAccompagnement, SUIVIS_ACCOMPAGNEMENT } from '../services/suiviAccompagnementService'
 import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
 import {
   buildFormalitesSynthese,
@@ -468,6 +475,12 @@ function AssistantMissionPage() {
   const [projet, setProjet] = useState('')
   const [formation, setFormation] = useState('')
 
+  useEffect(() => {
+    if (ceQueDitLaPersonne.trim() && besoinIdentifieConseiller.trim() === ceQueDitLaPersonne.trim()) {
+      setBesoinIdentifieConseiller('')
+    }
+  }, [ceQueDitLaPersonne, besoinIdentifieConseiller])
+
   const [freinsSelectionnes, setFreinsSelectionnes] = useState([])
   const [ressourcesSelectionnees, setRessourcesSelectionnees] = useState([])
 
@@ -521,6 +534,7 @@ function AssistantMissionPage() {
   const [classementTab, setClassementTab] = useState('maintenant')
   const [portefeuilleChoisi, setPortefeuilleChoisi] = useState(NOM_PORTEFEUILLE_MUTUALISE)
   const [codeSituationOp2, setCodeSituationOp2] = useState('')
+  const [suiviAccompagnementChoisi, setSuiviAccompagnementChoisi] = useState('')
   const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
 
@@ -666,6 +680,34 @@ function AssistantMissionPage() {
       .join(' '),
     [assistantAnswers, questionPrecisions],
   )
+
+  const advpAnalyse = useMemo(() => analyserAdvpAutomatique({
+    demande: ceQueDitLaPersonne,
+    besoin: besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    formation,
+    freins: freinsSelectionnes,
+    ressources: ressourcesSelectionnees,
+    reponsesGuidees: reponsesGuideesTexte,
+  }), [
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    formation,
+    freinsSelectionnes,
+    ressourcesSelectionnees,
+    reponsesGuideesTexte,
+  ])
+
+  useEffect(() => {
+    if (advpAnalyse.contexteSuffisant) setAdvpTab(advpAnalyse.phase)
+  }, [advpAnalyse.contexteSuffisant, advpAnalyse.phase])
 
   const analyseReferentielReseauEmploi = useMemo(
     () => analyserAvecReferentielReseauEmploi(
@@ -828,79 +870,16 @@ function AssistantMissionPage() {
     return alertes
   }, [analyseDemandeAutomatique.freins, analyseDemandeAutomatique.objectifs])
 
-  // Conseille un changement de catégorie France Travail (1 à 10) lorsque la situation réelle
-  // décrite dans le diagnostic ne correspond plus à la catégorie administrative déclarée.
-  // Ne calcule jamais de sanction ni de durée : se limite à signaler l'écart au conseiller,
-  // qui reste seul décisionnaire (cf. principesDecision de data/categorieRules.js).
-  const coherenceCategorie = useMemo(() => {
-    const reference = getCategorieDemandeurEmploi(categorieActuelle)
-    if (!categorieActuelle || !reference) {
-      return { alerte: null, reference: null }
-    }
-
-    const texteSituation = `${situationAdministrative} ${situationPersonnelle} ${parcoursProfessionnel} ${projet} ${ceQueDitLaPersonne} ${besoinIdentifieConseiller}`.toLowerCase()
-
-    const disponibleImmediatement = texteSituation.includes('disponible immédiatement')
-    const nonDisponible = texteSituation.includes('non disponible') || texteSituation.includes('indisponib')
-    const enEmploiActuel = /\ben (emploi|poste|cdi|cdd|activité)\b|activité réduite|auto-entrepreneur|micro-entreprise/.test(texteSituation)
-    const beneficiaireRsa = texteSituation.includes('bénéficiaire du rsa') || texteSituation.includes('brsa')
-    const freinsComplets = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
-    const freinsImportants = freinsComplets.length >= 2
-
-    const numero = reference.numero
-    const alertes = []
-
-    // Catégories 1-3 et 6-8 supposent une disponibilité immédiate (ou un délai court pour 6-8).
-    if ([1, 2, 3].includes(numero) && nonDisponible) {
-      alertes.push(
-        `La catégorie ${numero} déclarée suppose une disponibilité immédiate, mais la situation décrite indique une indisponibilité. Un passage en catégorie 4 (sans emploi, non immédiatement disponible) semble à envisager avec le demandeur.`,
-      )
-    }
-
-    if (numero === 4 && disponibleImmediatement) {
-      alertes.push(
-        'La catégorie 4 déclarée suppose une indisponibilité, mais la personne est décrite comme disponible immédiatement. Vérifier si un passage en catégorie 1, 2 ou 3 (selon le type de contrat recherché) est plus cohérent.',
-      )
-    }
-
-    // Catégorie 5 suppose un emploi actuel ; 1-3 supposent une absence d'emploi.
-    if ([1, 2, 3].includes(numero) && enEmploiActuel) {
-      alertes.push(
-        `La personne est catégorisée ${numero} (sans emploi) mais la situation décrite mentionne un emploi ou une activité en cours. Vérifier si une catégorie 5, 6, 7 ou 8 (personne en emploi recherchant un autre emploi) correspond mieux.`,
-      )
-    }
-
-    if (numero === 5 && !enEmploiActuel && nonDisponible === false && disponibleImmediatement) {
-      alertes.push(
-        'La catégorie 5 déclarée suppose une personne actuellement en emploi, mais aucun emploi actuel n’est mentionné et la personne semble disponible immédiatement. Vérifier si une catégorie 1, 2 ou 3 est plus adaptée.',
-      )
-    }
-
-    // Catégories 9 et 10 : freins sociaux / RSA.
-    if (![9, 10].includes(numero) && freinsImportants && !enEmploiActuel) {
-      alertes.push(
-        `Plusieurs freins importants font temporairement obstacle à la recherche d’emploi alors que la catégorie ${numero} est déclarée. Un accompagnement à vocation d’insertion sociale (catégorie 9) mérite d’être examiné avec le demandeur.`,
-      )
-    }
-
-    if (numero === 9 && !freinsImportants) {
-      alertes.push(
-        'La catégorie 9 (accompagnement à vocation d’insertion sociale) est déclarée, mais peu de freins sont actuellement identifiés dans le diagnostic. Vérifier si la situation a évolué et si un retour vers une catégorie 1 à 8 est envisageable.',
-      )
-    }
-
-    if (beneficiaireRsa && numero !== 10 && ![1, 2, 3, 9].includes(numero)) {
-      alertes.push(
-        'La personne est signalée bénéficiaire du RSA : vérifier la cohérence avec la catégorie déclarée et, si le contrat d’engagement n’est pas encore signé, l’éventuelle catégorie 10.',
-      )
-    }
-
-    return {
-      reference,
-      alerte: alertes.length > 0 ? alertes[0] : null,
-      alertesCompletes: alertes,
-    }
-  }, [
+  const coherenceCategorie = useMemo(() => analyserCoherenceCategorie({
+    categorieActuelle,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    demande: ceQueDitLaPersonne,
+    besoin: besoinIdentifieConseiller,
+    freins: Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])),
+  }), [
     categorieActuelle,
     situationAdministrative,
     situationPersonnelle,
@@ -910,6 +889,33 @@ function AssistantMissionPage() {
     besoinIdentifieConseiller,
     freinsSelectionnes,
     analyseDemandeAutomatique.freins,
+  ])
+
+  const conseilSuiviAccompagnement = useMemo(() => analyserSuiviAccompagnement({
+    demande: ceQueDitLaPersonne,
+    besoin: besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    freins: Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])),
+    ressources: ressourcesSelectionnees,
+    categorie: categorieActuelle,
+    codeSituationOp2,
+    suiviChoisi: suiviAccompagnementChoisi,
+  }), [
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    freinsSelectionnes,
+    analyseDemandeAutomatique.freins,
+    ressourcesSelectionnees,
+    categorieActuelle,
+    codeSituationOp2,
+    suiviAccompagnementChoisi,
   ])
 
   const capaciteAAgir = useMemo(() => {
@@ -1951,6 +1957,7 @@ function AssistantMissionPage() {
     setClassementTab(dossier.classementTab || 'maintenant')
     setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
     setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
+    setSuiviAccompagnementChoisi(dossier.suiviAccompagnementChoisi || '')
     setHistoriqueEntretiens(Array.isArray(dossier.historiqueEntretiens) ? dossier.historiqueEntretiens : [])
     setDecisionConseillerStatut(dossier.decisionConseillerStatut || 'Modifiee')
     setDecisionConseillerCommentaire(dossier.decisionConseillerCommentaire || '')
@@ -2090,6 +2097,22 @@ function AssistantMissionPage() {
     }))
   }
 
+  const ajouterQuestionsAdvpAuxNotes = () => {
+    const texteQuestions = advpAnalyse.questions.map((question) => `• ${question}`).join('\n')
+    setAdvpTab(advpAnalyse.phase)
+    setAdvpNotes((prev) => ({
+      ...prev,
+      [advpAnalyse.phase]: {
+        ...prev[advpAnalyse.phase],
+        questions: prev[advpAnalyse.phase].questions.trim()
+          ? `${prev[advpAnalyse.phase].questions.trim()}\n${texteQuestions}`
+          : texteQuestions,
+      },
+    }))
+    setModeApprofondi(true)
+    window.setTimeout(() => document.getElementById('advp-detaillee')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
+  }
+
   const validerActionImmediate = (label) => {
     setActionsImmediatesValidees((prev) => (prev.includes(label) ? prev : [...prev, label]))
   }
@@ -2135,6 +2158,7 @@ function AssistantMissionPage() {
     classementTab,
     portefeuilleChoisi,
     codeSituationOp2,
+    suiviAccompagnementChoisi,
     workspaceTab,
     assistantPhase,
     modeApprofondi,
@@ -2190,6 +2214,7 @@ function AssistantMissionPage() {
         setClassementTab(dossier.classementTab || 'maintenant')
         setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
         setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
+        setSuiviAccompagnementChoisi(dossier.suiviAccompagnementChoisi || '')
         setWorkspaceTab(dossier.workspaceTab || 'entretien')
         setAssistantPhase(dossier.assistantPhase || 'exploration')
         setModeApprofondi(Boolean(dossier.modeApprofondi))
@@ -2255,6 +2280,7 @@ function AssistantMissionPage() {
     classementTab,
     portefeuilleChoisi,
     codeSituationOp2,
+    suiviAccompagnementChoisi,
     workspaceTab,
     assistantPhase,
     modeApprofondi,
@@ -2341,6 +2367,7 @@ function AssistantMissionPage() {
     setClassementTab(dossier.classementTab || 'maintenant')
     setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
     setCodeSituationOp2(normaliserCodeSituationOp2(dossier.codeSituationOp2 || dossier.portefeuilleChoisi))
+    setSuiviAccompagnementChoisi(dossier.suiviAccompagnementChoisi || '')
     setAssistantPhase(dossier.assistantPhase || 'exploration')
     setModeApprofondi(Boolean(dossier.modeApprofondi))
     setRecommandationTab(dossier.recommandationTab || 'orientation')
@@ -2434,6 +2461,7 @@ function AssistantMissionPage() {
     setClassementTab('maintenant')
     setPortefeuilleChoisi(NOM_PORTEFEUILLE_MUTUALISE)
     setCodeSituationOp2('')
+    setSuiviAccompagnementChoisi('')
     setHistoriqueEntretiens([])
     setDecisionConseillerStatut('Modifiee')
     setDecisionConseillerCommentaire('')
@@ -2749,6 +2777,16 @@ function AssistantMissionPage() {
         </Paper>
 
         {workspaceTab !== 'sauvegardes' ? (
+          <PortefeuilleMissionStart
+            onOpenPortfolio={() => allerASection('section-portefeuille-mutualise', 'portefeuilleMutualise')}
+            onOpenSaves={() => {
+              setWorkspaceTab('sauvegardes')
+              ouvrirListeAnalyses()
+            }}
+          />
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' ? (
           <Paper
             id="section-entretien"
             sx={{
@@ -2914,28 +2952,36 @@ function AssistantMissionPage() {
                 id="demande-rendez-vous"
                 label="Demande ou objectif du rendez-vous"
                 value={ceQueDitLaPersonne}
-                onChange={(event) => {
-                  const nextValue = event.target.value
-                  setCeQueDitLaPersonne(nextValue)
-                  if (!besoinIdentifieConseiller.trim() || besoinIdentifieConseiller === ceQueDitLaPersonne) {
-                    setBesoinIdentifieConseiller(nextValue)
-                  }
-                }}
+                onChange={(event) => setCeQueDitLaPersonne(event.target.value)}
                 fullWidth
                 multiline
                 minRows={3}
                 size="small"
                 helperText=""
               />
-              <TextField
-                  label="Besoin identifié par le conseiller"
-                  value={besoinIdentifieConseiller}
-                  onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  size="small"
-                />
+              <Accordion
+                disableGutters
+                defaultExpanded={Boolean(besoinIdentifieConseiller.trim() && besoinIdentifieConseiller.trim() !== ceQueDitLaPersonne.trim())}
+                sx={{ boxShadow: 'none', border: '1px solid #d5dde8', '&:before': { display: 'none' } }}
+              >
+                <AccordionSummary sx={{ minHeight: 38, '& .MuiAccordionSummary-content': { my: 0.6 } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 850, color: '#526579' }}>
+                    + Ajouter une note conseiller différente (facultatif)
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  <TextField
+                    label="Analyse ou besoin complémentaire du conseiller"
+                    value={besoinIdentifieConseiller}
+                    onChange={(event) => setBesoinIdentifieConseiller(event.target.value)}
+                    placeholder="N’écrivez ici que ce qui complète réellement la demande exprimée."
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    size="small"
+                  />
+                </AccordionDetails>
+              </Accordion>
               <Paper
                 id="parcours-multiselection"
                 variant="outlined"
@@ -3013,6 +3059,268 @@ function AssistantMissionPage() {
                 </Grid>
               </Paper>
             </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' && demandeRenseignee ? (
+          <CockpitBlockCard
+            title="2. Copilote ADVP automatique"
+            subtitle="Le logiciel repère l’étape du projet, explique son raisonnement et propose les prochaines questions."
+            sx={{ minHeight: 0, borderTop: '4px solid #7b1fa2', bgcolor: '#fcf9ff' }}
+          >
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1} alignItems={{ lg: 'center' }} justifyContent="space-between">
+                <Box>
+                  <Typography variant="overline" sx={{ fontWeight: 950, color: '#7b1fa2', letterSpacing: 1 }}>
+                    ÉTAPE DÉTECTÉE · CONFIANCE {advpAnalyse.confiance.toUpperCase()}
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 950, color: '#3e1757' }}>
+                    {advpAnalyse.phase} — {advpAnalyse.objectif}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Pourquoi : {advpAnalyse.raison}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                  {ADVP_STEPS.map((step, index) => (
+                    <Chip
+                      key={step}
+                      size="small"
+                      label={`${index + 1}. ${step}`}
+                      color={step === advpAnalyse.phase ? 'secondary' : 'default'}
+                      variant={step === advpAnalyse.phase ? 'filled' : 'outlined'}
+                      sx={{ fontWeight: step === advpAnalyse.phase ? 950 : 700 }}
+                    />
+                  ))}
+                </Stack>
+              </Stack>
+
+              <Grid container spacing={1}>
+                <Grid size={{ xs: 12, lg: 4 }}>
+                  <Paper variant="outlined" sx={{ height: '100%', p: 1.25, borderTop: '3px solid #1565c0' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#174f7f', mb: 0.75 }}>
+                      Questions prioritaires
+                    </Typography>
+                    <Stack spacing={0.6}>
+                      {advpAnalyse.questions.map((question, index) => (
+                        <Typography key={question} variant="body2"><strong>{index + 1}.</strong> {question}</Typography>
+                      ))}
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 4 }}>
+                  <Paper variant="outlined" sx={{ height: '100%', p: 1.25, borderTop: '3px solid #2e7d32' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#23652a', mb: 0.75 }}>
+                      Pistes de travail
+                    </Typography>
+                    <Stack spacing={0.6}>
+                      {advpAnalyse.pistes.map((piste) => (
+                        <Typography key={piste} variant="body2">✓ {piste}</Typography>
+                      ))}
+                    </Stack>
+                  </Paper>
+                </Grid>
+                <Grid size={{ xs: 12, lg: 4 }}>
+                  <Paper variant="outlined" sx={{ height: '100%', p: 1.25, borderTop: '3px solid #ed6c02' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#a64b00', mb: 0.75 }}>
+                      Services à examiner
+                    </Typography>
+                    <Stack spacing={0.6}>
+                      {advpAnalyse.services.map((service) => {
+                        const catalogue = offreServiceCorse.find((item) => item.nom === service.nom)
+                        return (
+                          <Button
+                            key={service.nom}
+                            size="small"
+                            variant="text"
+                            disabled={!catalogue}
+                            onClick={() => catalogue && ouvrirPrescriptionAdaptee(catalogue.type, catalogue.nom)}
+                            sx={{ justifyContent: 'flex-start', textAlign: 'left', px: 0.5, fontWeight: 800 }}
+                          >
+                            {service.nom} — {service.motif}
+                          </Button>
+                        )
+                      })}
+                    </Stack>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {advpAnalyse.vigilances.map((texte) => <Alert key={texte} severity="warning" sx={{ py: 0 }}>{texte}</Alert>)}
+              <Paper variant="outlined" sx={{ p: 1.1, bgcolor: '#fffaf0', borderColor: '#efc271' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#8a4f00' }}>À ne pas oublier</Typography>
+                <Stack spacing={0.25}>
+                  {advpAnalyse.rappels.map((texte) => <Typography key={texte} variant="body2">• {texte}</Typography>)}
+                </Stack>
+              </Paper>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button variant="contained" color="secondary" onClick={ajouterQuestionsAdvpAuxNotes} sx={{ fontWeight: 900 }}>
+                  Utiliser ces questions dans l’ADVP
+                </Button>
+                <Button variant="outlined" onClick={() => allerASection('section-prescriptions', 'offreServices')} sx={{ fontWeight: 800 }}>
+                  Voir toutes les propositions
+                </Button>
+              </Stack>
+            </Stack>
+          </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' ? (
+          <CockpitBlockCard
+            title="3. Contrôle intelligent de la catégorie"
+            subtitle="Les dix catégories sont comparées aux éléments du dossier. Le changement reste une décision du conseiller."
+            sx={{ minHeight: 0, borderTop: '4px solid #00796b', bgcolor: '#f4fbfa' }}
+          >
+            <Grid container spacing={1.25} alignItems="flex-start">
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Catégorie actuellement déclarée"
+                  value={categorieActuelle}
+                  onChange={(event) => setCategorieActuelle(event.target.value)}
+                >
+                  <MenuItem value="">Non renseignée</MenuItem>
+                  {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
+                    <MenuItem key={cat.numero} value={String(cat.numero)}>
+                      Catégorie {cat.numero} — {cat.libelle}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Alert severity={coherenceCategorie.changementAEnvisager ? 'warning' : coherenceCategorie.categorieActuelleCompatible ? 'success' : 'info'} sx={{ py: 0.25 }}>
+                  <strong>{coherenceCategorie.changementAEnvisager ? 'Changement de catégorie à examiner. ' : ''}</strong>
+                  {coherenceCategorie.message}
+                </Alert>
+              </Grid>
+            </Grid>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#00695c', mb: 0.75 }}>
+                Catégories compatibles à vérifier selon la situation
+              </Typography>
+              {coherenceCategorie.candidats.length > 0 ? (
+                <Grid container spacing={1}>
+                  {coherenceCategorie.candidats.map((candidat) => (
+                    <Grid key={candidat.numero} size={{ xs: 12, md: 6, xl: 4 }}>
+                      <Paper variant="outlined" sx={{ height: '100%', p: 1.1, borderLeft: `5px solid ${String(candidat.numero) === String(categorieActuelle) ? '#2e7d32' : '#00796b'}` }}>
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                          <Chip size="small" color={String(candidat.numero) === String(categorieActuelle) ? 'success' : 'primary'} label={`Catégorie ${candidat.numero}`} sx={{ fontWeight: 950 }} />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{candidat.reference?.libelle}</Typography>
+                        </Stack>
+                        {candidat.raisons.map((raison) => <Typography key={raison} variant="body2">✓ {raison}</Typography>)}
+                        {candidat.aVerifier.map((point) => <Typography key={point} variant="caption" sx={{ display: 'block', mt: 0.4, color: '#9a5900', fontWeight: 700 }}>À vérifier : {point}</Typography>)}
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Alert severity="info" sx={{ py: 0 }}>
+                  Précisez au minimum l’emploi actuel, la disponibilité, le contrat recherché et, si nécessaire, la situation RSA ou l’accompagnement social.
+                </Alert>
+              )}
+            </Box>
+
+            <Accordion disableGutters sx={{ boxShadow: 'none', border: '1px solid #b9d7d3', '&:before': { display: 'none' } }}>
+              <AccordionSummary sx={{ minHeight: 38, '& .MuiAccordionSummary-content': { my: 0.6 } }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>Voir les 10 catégories et leurs critères</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Grid container spacing={1}>
+                  {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
+                    <Grid key={cat.numero} size={{ xs: 12, md: 6 }}>
+                      <Paper variant="outlined" sx={{ height: '100%', p: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>Catégorie {cat.numero} — {cat.libelle}</Typography>
+                        <Typography variant="body2" color="text.secondary">{cat.description}</Typography>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
+            <Typography variant="caption" color="text.secondary">
+              Source officielle : <Box component="a" href={SOURCE_OFFICIELLE_CATEGORIES.url} target="_blank" rel="noreferrer">{SOURCE_OFFICIELLE_CATEGORIES.titre}</Box>, en vigueur depuis le {SOURCE_OFFICIELLE_CATEGORIES.entreeEnVigueur}. Confirmer tout changement dans la procédure interne France Travail.
+            </Typography>
+          </CockpitBlockCard>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' ? (
+          <CockpitBlockCard
+            title="4. Conseil sur le portefeuille de suivi"
+            subtitle="Le suivi conseillé est calculé à partir de l’autonomie, du projet, des freins et du besoin de coordination."
+            sx={{ minHeight: 0, borderTop: '4px solid #2e7d32', bgcolor: '#f7fbf7' }}
+          >
+            {conseilSuiviAccompagnement.reference ? (
+              <Stack spacing={1.25}>
+                <Paper variant="outlined" sx={{ p: 1.5, borderLeft: `7px solid ${conseilSuiviAccompagnement.reference.couleur}`, bgcolor: '#fff' }}>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} justifyContent="space-between">
+                    <Box>
+                      <Typography variant="overline" sx={{ fontWeight: 950, color: conseilSuiviAccompagnement.reference.couleur }}>
+                        SUIVI CONSEILLÉ PAR LE LOGICIEL
+                      </Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 950 }}>{conseilSuiviAccompagnement.reference.label}</Typography>
+                      <Typography variant="body2" color="text.secondary">{conseilSuiviAccompagnement.motif}</Typography>
+                    </Box>
+                    <Button
+                      variant={suiviAccompagnementChoisi === conseilSuiviAccompagnement.conseille ? 'outlined' : 'contained'}
+                      color="success"
+                      onClick={() => setSuiviAccompagnementChoisi(conseilSuiviAccompagnement.conseille)}
+                      sx={{ fontWeight: 950, whiteSpace: 'nowrap' }}
+                    >
+                      {suiviAccompagnementChoisi === conseilSuiviAccompagnement.conseille ? 'Suivi retenu ✓' : 'Retenir ce suivi'}
+                    </Button>
+                  </Stack>
+                </Paper>
+
+                <Grid container spacing={1}>
+                  {SUIVIS_ACCOMPAGNEMENT.map((suivi) => (
+                    <Grid key={suivi.id} size={{ xs: 12, md: 4 }}>
+                      <Button
+                        fullWidth
+                        variant={suiviAccompagnementChoisi === suivi.id ? 'contained' : 'outlined'}
+                        onClick={() => setSuiviAccompagnementChoisi(suivi.id)}
+                        sx={{
+                          height: '100%',
+                          minHeight: 72,
+                          display: 'block',
+                          textAlign: 'left',
+                          borderColor: suivi.couleur,
+                          color: suiviAccompagnementChoisi === suivi.id ? '#fff' : suivi.couleur,
+                          bgcolor: suiviAccompagnementChoisi === suivi.id ? suivi.couleur : '#fff',
+                          '&:hover': { borderColor: suivi.couleur, bgcolor: suiviAccompagnementChoisi === suivi.id ? suivi.couleur : `${suivi.couleur}0D` },
+                        }}
+                      >
+                        <Typography component="span" variant="subtitle2" sx={{ display: 'block', fontWeight: 950 }}>{suivi.label}</Typography>
+                        <Typography component="span" variant="caption" sx={{ display: 'block', opacity: 0.85 }}>{suivi.description}</Typography>
+                      </Button>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                {conseilSuiviAccompagnement.ecart ? (
+                  <Alert severity="warning"><strong>Écart à justifier.</strong> {conseilSuiviAccompagnement.messageEcart}</Alert>
+                ) : suiviAccompagnementChoisi ? (
+                  <Alert severity="success" sx={{ py: 0 }}>Le suivi retenu est cohérent avec la proposition actuelle.</Alert>
+                ) : (
+                  <Alert severity="info" sx={{ py: 0 }}>Le logiciel conseille ; cliquez sur le suivi que vous retenez après vérification.</Alert>
+                )}
+
+                {conseilSuiviAccompagnement.sousPistes.length > 0 ? (
+                  <Paper variant="outlined" sx={{ p: 1.1, bgcolor: '#fffaf1' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>À préciser si vous retenez un suivi renforcé</Typography>
+                    {conseilSuiviAccompagnement.sousPistes.map((item) => <Typography key={item} variant="body2">• {item}</Typography>)}
+                  </Paper>
+                ) : null}
+                {conseilSuiviAccompagnement.aVerifier.map((item) => <Alert key={item} severity="warning" sx={{ py: 0 }}>{item}</Alert>)}
+                <Typography variant="caption" color="text.secondary">
+                  Le portefeuille mutualisé reste votre organisation de travail. Le choix ci-dessus décrit le niveau de suivi conseillé et ne modifie jamais automatiquement le code situation OP2.
+                </Typography>
+              </Stack>
+            ) : (
+              <Alert severity="info">Complétez la demande, le parcours, l’autonomie et les freins pour obtenir un conseil de suivi.</Alert>
+            )}
+          </CockpitBlockCard>
         ) : null}
 
         {workspaceTab !== 'sauvegardes' && !ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim() ? (
@@ -4236,41 +4544,6 @@ function AssistantMissionPage() {
                     </AccordionDetails>
                   </Accordion>
                 </CockpitBlockCard>
-
-              <CockpitBlockCard
-                title="Catégorie France Travail"
-                sx={{ minHeight: 'auto', borderTop: '3px solid #01696F', bgcolor: '#eefaf9' }}
-              >
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    Choisissez la catégorie administrative déclarée (1 à 10) : le logiciel vérifie sa cohérence avec la situation décrite et vous alerte en cas d'écart.
-                  </Typography>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label="Catégorie actuelle de la personne accompagnée"
-                    value={categorieActuelle}
-                    onChange={(event) => setCategorieActuelle(event.target.value)}
-                  >
-                    <MenuItem value="">Non renseignée</MenuItem>
-                    {CATEGORIES_DEMANDEURS_EMPLOI.map((cat) => (
-                      <MenuItem key={cat.numero} value={String(cat.numero)}>
-                        Catégorie {cat.numero} — {cat.libelle}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  {coherenceCategorie.alerte ? (
-                    <Alert severity="warning" sx={{ mt: 1 }}>
-                      <strong>Incohérence de catégorie détectée</strong> — catégorie {coherenceCategorie.reference?.numero} déclarée.
-                      {' '}
-                      {coherenceCategorie.alerte}
-                    </Alert>
-                  ) : categorieActuelle ? (
-                    <Alert severity="success" sx={{ mt: 1 }}>
-                      Aucune incohérence détectée entre la catégorie {coherenceCategorie.reference?.numero} déclarée et la situation décrite.
-                    </Alert>
-                  ) : null}
-              </CockpitBlockCard>
 
               <CockpitBlockCard title="3. Freins identifiés" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #ed6c02', bgcolor: '#fffaf2' }}>
                   <CockpitBadgeGroup

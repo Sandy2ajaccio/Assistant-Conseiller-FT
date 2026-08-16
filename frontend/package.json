@@ -17,6 +17,7 @@
     "check:mutualise": "node scripts/check-portefeuille-mutualise.mjs",
     "check:remobilisation": "node scripts/check-remobilisation.mjs",
     "check:multi-select": "node scripts/check-multi-select.mjs",
+    "check:intelligence": "node scripts/check-intelligent-guidance.mjs",
     "check:excel": "node scripts/check-excel-roundtrip.mjs",
     "check:auth": "node scripts/check-auth-flow.mjs"
   },
