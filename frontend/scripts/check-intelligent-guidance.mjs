@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { analyserAdvpAutomatique } from '../src/services/advpAssistantService.js'
 import { analyserCoherenceCategorie, CATEGORIES_DEMANDEURS_EMPLOI } from '../src/data/categoriesDemandeursEmploi.js'
 import { analyserSuiviAccompagnement } from '../src/services/suiviAccompagnementService.js'
+import { analyserControlesAutomatiquesDossier } from '../src/services/controlesAutomatiquesDossierService.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const sourcePage = fs.readFileSync(path.join(here, '../src/pages/AssistantMissionPage.jsx'), 'utf8')
@@ -66,12 +67,40 @@ const suiviIa = analyserSuiviAccompagnement({
 })
 assert.ok(suiviIa.aVerifier.some((item) => /ne pas convoquer/i.test(item)))
 
+const controlesSansSignal = analyserControlesAutomatiquesDossier({
+  record: { identifiant: 'TEST001', profils: ['are'] },
+})
+assert.equal(controlesSansSignal.obligations.statut, 'ok')
+assert.equal(controlesSansSignal.obligations.situationDroitsSuggeree, 'droit-ouvert')
+assert.equal(controlesSansSignal.cre.faisceauAExaminer, false)
+
+const controlesAvertissement = analyserControlesAutomatiquesDossier({
+  record: {
+    identifiant: 'TEST002',
+    profils: ['mobilite', 'projet_a_confirmer'],
+    alerte: 'Avertissement après absence à un rendez-vous',
+    dateInscription: '2024-01-10',
+  },
+})
+assert.equal(controlesAvertissement.obligations.faitSuggere, 'obligations-contrat')
+assert.equal(controlesAvertissement.obligations.statut, 'a-verifier')
+assert.equal(controlesAvertissement.cre.faisceauAExaminer, true)
+assert.ok(controlesAvertissement.cre.indices.length >= 2)
+
+const controlesIa = analyserControlesAutomatiquesDossier({
+  record: { identifiant: 'TEST003' },
+  dossier: { codeSituationOp2: 'IA' },
+})
+assert.equal(controlesIa.nePasConvoquer, true)
+
 assert.ok(sourcePage.includes('+ Ajouter une note conseiller différente (facultatif)'))
 assert.ok(!sourcePage.includes('setBesoinIdentifieConseiller(nextValue)'))
 assert.ok(sourcePage.includes('Copilote ADVP automatique'))
 assert.ok(sourcePage.includes('Contrôle intelligent de la catégorie'))
 assert.ok(sourcePage.includes('Conseil sur le portefeuille de suivi'))
+assert.ok(sourcePage.includes('ControlesAutomatiquesDossierCard'))
+assert.ok(sourcePage.includes('Suivi obligations · détail à confirmer'))
 assert.ok(sourcePortefeuille.includes('IA — ne pas convoquer'))
 assert.ok(sourcePortefeuille.includes('disabled={dossierInscriptionAdministrative}'))
 
-console.log('Copilote ADVP, catégories, suivi conseillé, règle IA et anti-redondance vérifiés.')
+console.log('Copilote ADVP, catégories, suivi conseillé, contrôles automatiques M6/CRE, règle IA et anti-redondance vérifiés.')

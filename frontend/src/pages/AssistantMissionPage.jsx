@@ -37,6 +37,7 @@ import {
 import CockpitBadgeGroup from '../components/CockpitBadgeGroup'
 import CockpitBlockCard from '../components/CockpitBlockCard'
 import CockpitRecommendationCard from '../components/CockpitRecommendationCard'
+import ControlesAutomatiquesDossierCard from '../components/ControlesAutomatiquesDossierCard'
 import OrientationReseauCard from '../components/OrientationReseauCard'
 import PortefeuilleMutualiseCard from '../components/PortefeuilleMutualiseCard'
 import PortefeuilleMissionStart from '../components/PortefeuilleMissionStart'
@@ -51,6 +52,7 @@ import {
 } from '../data/categoriesDemandeursEmploi'
 import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnosticReseauEmploi'
 import { analyserAdvpAutomatique } from '../services/advpAssistantService'
+import { analyserControlesAutomatiquesDossier } from '../services/controlesAutomatiquesDossierService'
 import { analyserSuiviAccompagnement, SUIVIS_ACCOMPAGNEMENT } from '../services/suiviAccompagnementService'
 import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
 import {
@@ -648,6 +650,42 @@ function AssistantMissionPage() {
     () => compterAlertesRemobilisation(suiviRemobilisation),
     [suiviRemobilisation],
   )
+  const demandeurDuPortefeuille = useMemo(() => {
+    const identifiantNormalise = identifiantDemandeur.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!identifiantNormalise) return null
+    return listPortfolioRecords().find((item) => (
+      String(item.identifiant || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === identifiantNormalise
+    )) || null
+  }, [identifiantDemandeur, portfolioImportStatus])
+  const controlesAutomatiquesDossier = useMemo(() => analyserControlesAutomatiquesDossier({
+    record: demandeurDuPortefeuille || {},
+    dossier: {
+      demande: ceQueDitLaPersonne,
+      besoin: besoinIdentifieConseiller,
+      situationAdministrative,
+      situationPersonnelle,
+      parcoursProfessionnel,
+      projet,
+      formation,
+      freins: freinsSelectionnes,
+      notes,
+      codeSituationOp2,
+      suiviObligations,
+    },
+  }), [
+    demandeurDuPortefeuille,
+    ceQueDitLaPersonne,
+    besoinIdentifieConseiller,
+    situationAdministrative,
+    situationPersonnelle,
+    parcoursProfessionnel,
+    projet,
+    formation,
+    freinsSelectionnes,
+    notes,
+    codeSituationOp2,
+    suiviObligations,
+  ])
   const resumeAlertesEnregistrement = useMemo(() => {
     const alertes = []
     if (nombreAlertesPortefeuille > 0) alertes.push(`${nombreAlertesPortefeuille} portefeuille`)
@@ -2825,6 +2863,15 @@ function AssistantMissionPage() {
         ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
+          <ControlesAutomatiquesDossierCard
+            identifiant={identifiantDemandeur}
+            analyse={controlesAutomatiquesDossier}
+            onOpenObligations={() => allerASection('section-suivi-obligations', 'suiviObligations')}
+            onOpenCre={() => allerASection('section-remobilisation', 'faisceauCre')}
+          />
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' ? (
           <Paper
             id="section-entretien"
             sx={{
@@ -3892,7 +3939,7 @@ function AssistantMissionPage() {
         <Box id="section-suivi-obligations" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="suiviObligations"
-            title="Suivi obligations"
+            title="Suivi obligations · détail à confirmer"
             expanded={sectionsOuvertes.suiviObligations}
             onChange={basculerSection('suiviObligations')}
           >
@@ -3903,7 +3950,7 @@ function AssistantMissionPage() {
         <Box id="section-remobilisation" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="faisceauCre"
-            title="Faisceau CRE"
+            title="Faisceau CRE · détail à confirmer"
             expanded={sectionsOuvertes.faisceauCre}
             onChange={basculerSection('faisceauCre')}
           >
