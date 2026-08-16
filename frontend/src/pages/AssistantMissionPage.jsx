@@ -555,6 +555,7 @@ function AssistantMissionPage() {
   const [situationAdministrative, setSituationAdministrative] = useState('')
   const [categorieActuelle, setCategorieActuelle] = useState('')
   const [categorieDemandee, setCategorieDemandee] = useState('')
+  const [controleCategorieOuvert, setControleCategorieOuvert] = useState(false)
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
   const [ceQueDitLaPersonne, setCeQueDitLaPersonne] = useState('')
@@ -1023,6 +1024,24 @@ function AssistantMissionPage() {
     freinsSelectionnes,
     analyseDemandeAutomatique.freins,
   ])
+  const categorieIssueImport = Boolean(
+    demandeurDuPortefeuille?.appartientMonPortefeuille
+    && demandeurDuPortefeuille?.categorieActuelle
+    && String(demandeurDuPortefeuille.categorieActuelle) === String(categorieActuelle),
+  )
+  const referenceCategorieActuelle = CATEGORIES_DEMANDEURS_EMPLOI.find(
+    (categorie) => String(categorie.numero) === String(categorieActuelle),
+  )
+  const afficherCategorieCompacte = Boolean(
+    categorieIssueImport
+    && !controleCategorieOuvert
+    && !coherenceCategorie.changementAEnvisager
+    && !categorieDemandee,
+  )
+
+  useEffect(() => {
+    setControleCategorieOuvert(false)
+  }, [identifiantDemandeur])
 
   const conseilSuiviAccompagnement = useMemo(() => analyserSuiviAccompagnement({
     demande: ceQueDitLaPersonne,
@@ -3422,10 +3441,27 @@ function AssistantMissionPage() {
 
         {workspaceTab !== 'sauvegardes' ? (
           <CockpitBlockCard
-            title="3. Contrôle intelligent de la catégorie"
-            subtitle="Les dix catégories sont comparées aux éléments du dossier. Le changement reste une décision du conseiller."
+            title="3. Catégorie du DE"
+            subtitle={afficherCategorieCompacte
+              ? 'La catégorie du fichier importé est reprise automatiquement. Aucune ressaisie nécessaire.'
+              : 'Le contrôle détaillé ne s’affiche que pour vérifier une incohérence ou un changement possible.'}
             sx={{ minHeight: 0, borderTop: '4px solid #00796b', bgcolor: '#f4fbfa' }}
           >
+            {afficherCategorieCompacte ? (
+              <Alert severity="success" sx={{ py: 0.45 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <strong>Catégorie {categorieActuelle} importée</strong>
+                    {referenceCategorieActuelle?.libelle ? ` — ${referenceCategorieActuelle.libelle}` : ''}.
+                    {' '}Aucun changement n’est demandé. Le logiciel vous alertera seulement si les informations du dossier indiquent un écart à vérifier.
+                  </Box>
+                  <Button size="small" variant="outlined" onClick={() => setControleCategorieOuvert(true)} sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>
+                    Vérifier ou modifier
+                  </Button>
+                </Stack>
+              </Alert>
+            ) : (
+              <>
             <Grid container spacing={1.25} alignItems="flex-start">
               <Grid size={{ xs: 12, md: 4 }}>
                 <TextField
@@ -3512,6 +3548,8 @@ function AssistantMissionPage() {
                 </Grid>
               </AccordionDetails>
             </Accordion>
+              </>
+            )}
             <Typography variant="caption" color="text.secondary">
               Source officielle : <Box component="a" href={SOURCE_OFFICIELLE_CATEGORIES.url} target="_blank" rel="noreferrer">{SOURCE_OFFICIELLE_CATEGORIES.titre}</Box>, en vigueur depuis le {SOURCE_OFFICIELLE_CATEGORIES.entreeEnVigueur}. Confirmer tout changement dans la procédure interne France Travail.
             </Typography>
