@@ -15,6 +15,7 @@ const exploration = analyserAdvpAutomatique({
   parcoursProfessionnel: 'Projet professionnel à préciser',
 })
 assert.equal(exploration.phase, 'Explorer')
+assert.notEqual(exploration.confiance, 'Prudente')
 assert.ok(exploration.questions.length >= 3)
 assert.ok(exploration.services.some((item) => item.nom === "Activ'Projet"))
 
@@ -52,6 +53,12 @@ const suiviEssentiel = analyserSuiviAccompagnement({
   ressources: ['Autonomie', 'Motivation'],
 })
 assert.equal(suiviEssentiel.conseille, 'essentiel')
+
+const suiviProjetFlou = analyserSuiviAccompagnement({
+  demande: 'Personne autonome mais n’a pas encore de projet défini et souhaite se reconvertir',
+  ressources: ['Autonomie'],
+})
+assert.equal(suiviProjetFlou.conseille, 'renforce')
 
 const suiviIa = analyserSuiviAccompagnement({
   demande: 'Inscription administrative à vérifier',

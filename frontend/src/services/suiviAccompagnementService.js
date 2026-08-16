@@ -50,7 +50,7 @@ export const analyserSuiviAccompagnement = ({
   const contexteSuffisant = texte.trim().length >= 12
   const autonome = /autonom|recherche active|projet professionnel defini|disponible immediatement/.test(texte)
     || ressources.some((item) => ['Autonomie', 'Motivation', 'Disponibilite'].includes(item))
-  const projetFlou = /projet (?:a|à) preciser|sans projet|projet flou|ne sait (?:pas|plus)|hesit|reconversion/.test(texte)
+  const projetFlou = /projet (?:a|à) preciser|sans projet|aucun projet|pas (?:encore )?de projet|n.a pas (?:encore )?de projet|projet flou|ne sait (?:pas|plus)|hesit|reconversion/.test(texte)
   const besoinCoordination = /accompagnement social|travailleur social|coordination|logement instable|isolement social/.test(texte)
   const freinsNombreux = freins.length >= 2
   const freinsTresStructurants = /logement|sante|handicap|financ|garde d.enfant/.test(texte)

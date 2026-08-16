@@ -116,7 +116,7 @@ export const analyserAdvpAutomatique = (input = {}) => {
     if (motif) indices.push({ phase, motif })
   }
 
-  if (contient(texte, /sans projet|projet (?:a|à) (?:definir|préciser)|projet flou|ne sait (?:pas|plus)|hesit|decouvrir.*metier|premiere recherche|reconversion|transition professionnelle/)) {
+  if (contient(texte, /sans projet|aucun projet|pas (?:encore )?de projet|n.a pas (?:encore )?de projet|projet (?:a|à) (?:definir|préciser)|projet flou|ne sait (?:pas|plus)|hesit|decouvrir.*metier|premiere recherche|reconversion|transition professionnelle/)) {
     ajouter('Explorer', 5, 'Le projet reste à découvrir ou à clarifier.')
   }
   if (contient(texte, /plusieurs pistes|plusieurs metiers|choisir|comparer|preference|competences transferables|idee de metier|pistes? professionnelles?/)) {
@@ -136,7 +136,7 @@ export const analyserAdvpAutomatique = (input = {}) => {
 
   // Une incertitude explicite prime sur les mots « emploi », « CV » ou « formation » qui
   // peuvent être présents dans le récit sans signifier que la personne est prête à agir.
-  const incertitudeForte = contient(texte, /sans projet|projet (?:a|à) (?:definir|preciser)|projet flou|ne sait (?:pas|plus)|hesit/)
+  const incertitudeForte = contient(texte, /sans projet|aucun projet|pas (?:encore )?de projet|n.a pas (?:encore )?de projet|projet (?:a|à) (?:definir|preciser)|projet flou|ne sait (?:pas|plus)|hesit/)
   const phase = incertitudeForte
     ? 'Explorer'
     : PHASES.reduce((best, candidate) => (scores[candidate] > scores[best] ? candidate : best), 'Explorer')
