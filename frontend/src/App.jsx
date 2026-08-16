@@ -14,6 +14,7 @@ import MissionWorkflowPage from './pages/MissionWorkflowPage'
 import ParametresPage from './pages/ParametresPage'
 import PreparationEntretienPage from './pages/PreparationEntretienPage'
 import VeilleOfficiellePage from './pages/VeilleOfficiellePage'
+import UrgencyCalendarPage from './pages/UrgencyCalendarPage'
 
 export default function App() {
   useEffect(() => {
@@ -112,6 +113,11 @@ export default function App() {
             <Route
               path="/veille-officielle"
               element={<VeilleOfficiellePage />}
+            />
+
+            <Route
+              path="/agenda"
+              element={<UrgencyCalendarPage />}
             />
 
             <Route

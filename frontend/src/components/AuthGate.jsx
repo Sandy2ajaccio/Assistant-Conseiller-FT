@@ -16,7 +16,10 @@ import {
 } from 'firebase/auth'
 
 import { auth } from '../services/firebaseClient'
-import { clearSensitiveLocalData } from '../services/cloudPersistenceService'
+import {
+  clearSensitiveLocalData,
+  hydrateLocalDataFromCloud,
+} from '../services/cloudPersistenceService'
 
 const OWNER_EMAIL = 's.marchasson.cip@gmail.com'
 
@@ -80,6 +83,14 @@ const AuthGate = ({ children }) => {
           localStorage.setItem(
             CLEAN_START_KEY,
             'oui',
+          )
+        }
+
+        try {
+          await hydrateLocalDataFromCloud()
+        } catch {
+          setMessage(
+            'La synchronisation en ligne est momentanément indisponible. Les données présentes sur cet appareil restent utilisables.',
           )
         }
       }

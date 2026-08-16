@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import DailyAgendaDialog from './DailyAgendaDialog'
 
 function Layout({ children }) {
   const [menuOuvert, setMenuOuvert] = useState(false)
@@ -35,6 +36,8 @@ function Layout({ children }) {
 
         <main className="app-content">{children}</main>
       </div>
+
+      <DailyAgendaDialog />
     </div>
   )
 }

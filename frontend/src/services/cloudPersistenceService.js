@@ -12,6 +12,8 @@ import { auth, db } from './firebaseClient.js'
 
 const PORTFOLIO_STORAGE_KEY = 'cap-decision:portefeuille-imports'
 const TRAINING_STORAGE_KEY = 'cap-decision:formations'
+const AGENDA_STORAGE_KEY = 'cap-decision:agenda-urgences'
+const AGENDA_REVIEW_KEY = 'cap-decision:agenda-derniere-revue'
 const DOSSIER_STORAGE_PREFIX = 'assistant-mission-analyse:'
 const LAST_OPENED_DOSSIER_KEY = 'assistant:last-opened-id'
 const ENTRETIEN_DRAFT_KEY = 'cap-decision-ft-entretien-en-cours'
@@ -112,14 +114,24 @@ export const syncTrainingsToCloud = async (records) => {
   })
 }
 
+export const syncAgendaToCloud = async (records) => {
+  const user = currentUser()
+  if (!user) return
+  await setDoc(doc(db, 'private', user.uid, 'configuration', 'agenda'), {
+    items: records,
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export const hydrateLocalDataFromCloud = async () => {
   const user = currentUser()
   if (!user) return { dossiers: 0, portfolio: 0 }
 
-  const [dossierSnapshot, portfolioSnapshot, trainingSnapshot] = await Promise.all([
+  const [dossierSnapshot, portfolioSnapshot, trainingSnapshot, agendaSnapshot] = await Promise.all([
     getDocs(collection(db, 'private', user.uid, 'dossiers')),
     getDocs(collection(db, 'private', user.uid, 'portfolioChunks')),
     getDoc(doc(db, 'private', user.uid, 'configuration', 'formations')),
+    getDoc(doc(db, 'private', user.uid, 'configuration', 'agenda')),
   ])
 
   const pendingDeletions = readPendingDeletions()
@@ -136,8 +148,32 @@ export const hydrateLocalDataFromCloud = async () => {
   if (portfolio.length) localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(portfolio))
   const trainings = trainingSnapshot.data()?.items
   if (Array.isArray(trainings)) localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(trainings))
+  const remoteAgenda = agendaSnapshot.data()?.items
+  let localAgenda = []
+  try {
+    const parsedAgenda = JSON.parse(localStorage.getItem(AGENDA_STORAGE_KEY) || '[]')
+    localAgenda = Array.isArray(parsedAgenda) ? parsedAgenda : []
+  } catch {
+    localAgenda = []
+  }
+  const agendaById = new Map()
+  ;[...(Array.isArray(remoteAgenda) ? remoteAgenda : []), ...localAgenda].forEach((item) => {
+    if (!item?.id) return
+    const existing = agendaById.get(item.id)
+    if (!existing || String(item.updatedAt || '') >= String(existing.updatedAt || '')) {
+      agendaById.set(item.id, item)
+    }
+  })
+  const agenda = [...agendaById.values()]
+  localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(agenda))
+  if (agenda.length) await syncAgendaToCloud(agenda)
 
-  return { dossiers: dossierSnapshot.size, portfolio: portfolio.length, trainings: Array.isArray(trainings) ? trainings.length : 0 }
+  return {
+    dossiers: dossierSnapshot.size,
+    portfolio: portfolio.length,
+    trainings: Array.isArray(trainings) ? trainings.length : 0,
+    agenda: agenda.length,
+  }
 }
 
 export const backupAllLocalData = async () => {
@@ -149,6 +185,8 @@ export const backupAllLocalData = async () => {
   await syncPortfolioToCloud(Array.isArray(portfolio) ? portfolio : [])
   const trainings = JSON.parse(localStorage.getItem(TRAINING_STORAGE_KEY) || '[]')
   await syncTrainingsToCloud(Array.isArray(trainings) ? trainings : [])
+  const agenda = JSON.parse(localStorage.getItem(AGENDA_STORAGE_KEY) || '[]')
+  await syncAgendaToCloud(Array.isArray(agenda) ? agenda : [])
 
   const saves = []
   const pendingDeletions = readPendingDeletions()
@@ -167,6 +205,8 @@ export const clearSensitiveLocalData = () => {
   const keysToRemove = [
     PORTFOLIO_STORAGE_KEY,
     TRAINING_STORAGE_KEY,
+    AGENDA_STORAGE_KEY,
+    AGENDA_REVIEW_KEY,
     LAST_OPENED_DOSSIER_KEY,
     ENTRETIEN_DRAFT_KEY,
     PENDING_DELETIONS_KEY,

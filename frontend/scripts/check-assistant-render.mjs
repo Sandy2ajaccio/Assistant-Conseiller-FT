@@ -59,6 +59,7 @@ const pages = [
   ['/formations', '/src/pages/FormationsPage.jsx'],
   ['/parametres', '/src/pages/ParametresPage.jsx'],
   ['/demandeurs', '/src/pages/DemandeurPage.jsx'],
+  ['/agenda', '/src/pages/UrgencyCalendarPage.jsx'],
 ]
 
 try {

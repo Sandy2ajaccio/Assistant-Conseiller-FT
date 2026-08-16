@@ -9,6 +9,7 @@ const TITLES = {
   '/connaissances': 'Centre de connaissances',
   '/formations': 'Formations à venir',
   '/veille-officielle': 'Veille officielle',
+  '/agenda': 'Agenda et urgences',
   '/parametres': 'Paramètres',
 }
 

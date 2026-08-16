@@ -85,6 +85,9 @@ button {
 }
 
 .nav-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: #d1d5db;
   text-decoration: none;
   padding: 0.9rem 1rem;

@@ -1,6 +1,11 @@
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 
+import { dateId, summarizeUrgencies } from '../services/urgencyCalendarRules.js'
+import { loadUrgencies, subscribeUrgencies } from '../services/urgencyCalendarService.js'
+
 const navItems = [
+  { label: '📅 Agenda et urgences', to: '/agenda', agenda: true },
   { label: '🚀 Assistant de mission', to: '/assistant' },
   { label: '👥 Demandeurs', to: '/demandeurs' },
   { label: '📚 Centre de connaissances', to: '/connaissances' },
@@ -10,6 +15,14 @@ const navItems = [
 ]
 
 function Sidebar({ onNavigate }) {
+  const [urgencies, setUrgencies] = useState(() => loadUrgencies())
+  useEffect(() => subscribeUrgencies(setUrgencies), [])
+
+  const alertCount = useMemo(() => {
+    const summary = summarizeUrgencies(urgencies, dateId())
+    return summary.overdue.length + summary.today.length
+  }, [urgencies])
+
   return (
     <div>
       <div className="brand">
@@ -26,7 +39,24 @@ function Sidebar({ onNavigate }) {
             end={item.to === '/'}
             onClick={onNavigate}
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.agenda && alertCount ? (
+              <span
+                aria-label={`${alertCount} urgence(s) à traiter`}
+                style={{
+                  marginLeft: 'auto',
+                  minWidth: 24,
+                  padding: '2px 7px',
+                  borderRadius: 999,
+                  background: '#d32f2f',
+                  color: 'white',
+                  fontWeight: 900,
+                  textAlign: 'center',
+                }}
+              >
+                {alertCount}
+              </span>
+            ) : null}
           </NavLink>
         ))}
       </nav>
