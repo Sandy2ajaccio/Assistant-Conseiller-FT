@@ -102,6 +102,9 @@ export const analyserSuiviAccompagnement = ({
   if (categorieNumero === 10) {
     aVerifier.push('Catégorie 10 : confirmer l’orientation après le diagnostic global, le contrat et l’organisme référent.')
   }
+  if (contexteSuffisant) {
+    aVerifier.push('Portefeuille mutualisé : confirmer son utilisation comme portefeuille d’attente uniquement lorsqu’aucune place n’est disponible dans le portefeuille cible.')
+  }
   if (/rqth|handicap/.test(texte)) {
     aVerifier.push('La RQTH seule ne détermine pas le suivi : vérifier ses conséquences professionnelles et les besoins de compensation.')
   }

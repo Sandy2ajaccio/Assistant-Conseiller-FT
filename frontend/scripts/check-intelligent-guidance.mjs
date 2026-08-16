@@ -56,6 +56,7 @@ const suiviEssentiel = analyserSuiviAccompagnement({
   ressources: ['Autonomie', 'Motivation'],
 })
 assert.equal(suiviEssentiel.conseille, 'essentiel')
+assert.ok(suiviEssentiel.aVerifier.some((item) => /portefeuille d’attente/.test(item)))
 
 const suiviProjetFlou = analyserSuiviAccompagnement({
   demande: 'Personne autonome mais n’a pas encore de projet défini et souhaite se reconvertir',
