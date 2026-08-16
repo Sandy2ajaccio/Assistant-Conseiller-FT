@@ -2520,6 +2520,7 @@ function AssistantMissionPage() {
       setPortfolioImportStatus(
         `${result.total} personnes uniques traitées : ${result.created} ajoutée(s), ${result.updated} mise(s) à jour, `
         + `${result.unchanged} inchangée(s), ${result.duplicatesMerged} doublon(s) fusionné(s).`
+        + ` ${result.rattachesPortefeuille} dossier(s) rattaché(s) à votre portefeuille.`
         + (result.cloudSynced ? ' Sauvegarde en ligne effectuée.' : ' Sauvegarde locale effectuée ; synchronisation en ligne à reprendre.'),
       )
     } catch (error) {
@@ -2946,8 +2947,11 @@ function AssistantMissionPage() {
               {workspaceTab === 'sauvegardes' ? 'Retour au dossier' : 'Ouvrir mes sauvegardes'}
             </Button>
             <Typography variant="caption" sx={{ ml: { sm: 'auto' }, color: '#41637e', fontWeight: 800 }}>
-              Import anonymisé : aucun nom ni prénom conservé
+              Import anonymisé · tous les DE importés sont rattachés à votre portefeuille
             </Typography>
+            {demandeurDuPortefeuille?.appartientMonPortefeuille ? (
+              <Chip size="small" color="success" label="DE de mon portefeuille" sx={{ fontWeight: 900 }} />
+            ) : null}
           </Stack>
           {storageStatus || portfolioImportStatus ? (
             <Typography variant="caption" sx={{ display: 'block', mt: 0.6, color: '#173f67', fontWeight: 800 }}>

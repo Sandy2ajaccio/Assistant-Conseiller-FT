@@ -170,7 +170,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             </Button>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-            Import Excel anonymisé : seules les données de suivi rattachées au numéro FT sont conservées. Les colonnes « Nom » et « Prénom » sont ignorées.
+            Import Excel anonymisé : tous les DE importés sont rattachés à votre portefeuille. Seules les données de suivi rattachées au numéro FT sont conservées ; les colonnes « Nom » et « Prénom » sont ignorées.
           </Typography>
           {saveError ? <Alert severity="error" sx={{ mt: 1 }}>{saveError}</Alert> : null}
           {saveStatus ? <Alert severity="success" sx={{ mt: 1 }}>{saveStatus}</Alert> : null}
@@ -258,6 +258,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800 }}>N° France Travail</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Rattachement</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Civilité</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Âge</TableCell>
                   <TableCell sx={{ fontWeight: 800 }}>Retraite prévisionnelle</TableCell>
@@ -271,6 +272,11 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                   return (
                     <TableRow key={item.identifiant}>
                       <TableCell>{item.identifiant}</TableCell>
+                      <TableCell>
+                        {item.appartientMonPortefeuille ? (
+                          <Chip size="small" color="success" label="Mon portefeuille" sx={{ fontWeight: 800 }} />
+                        ) : '—'}
+                      </TableCell>
                       <TableCell>{item.civilite || '—'}</TableCell>
                       <TableCell>{item.age || '—'}</TableCell>
                       <TableCell>{item.dateRetraitePrevisionnelle || '—'}</TableCell>

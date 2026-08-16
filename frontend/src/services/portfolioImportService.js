@@ -4,6 +4,14 @@ import { syncPortfolioToCloud } from './cloudPersistenceService.js'
 const IMPORT_STORAGE_KEY = 'cap-decision:portefeuille-imports'
 const portefeuilleInitial = []
 
+export const MON_PORTEFEUILLE_LABEL = 'Mon portefeuille'
+
+const rattacherAMonPortefeuille = (record = {}) => ({
+  ...record,
+  appartientMonPortefeuille: true,
+  portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
+})
+
 export const PORTFOLIO_PROFILE_OPTIONS = [
   { id: 'rqth', label: 'RQTH / situation de handicap', group: 'Statuts et indemnisation' },
   { id: 'rsa', label: 'Bénéficiaire du RSA', group: 'Statuts et indemnisation' },
@@ -157,6 +165,8 @@ const normaliserCivilite = (value) => {
 }
 
 export const mapPortfolioRow = (row) => ({
+  appartientMonPortefeuille: true,
+  portefeuilleRattachement: MON_PORTEFEUILLE_LABEL,
   priorite: readValue(row, 'Priorité'),
   civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
   identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
@@ -216,7 +226,14 @@ const deduplicateRecords = (records) => {
 const readImportedRecords = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem(IMPORT_STORAGE_KEY) || '[]')
-    return Array.isArray(parsed) ? parsed.map(anonymiserPortfolioRecord) : []
+    return Array.isArray(parsed)
+      ? parsed.map((record) => {
+        const recordAnonymise = anonymiserPortfolioRecord(record)
+        return recordAnonymise.importedAt
+          ? rattacherAMonPortefeuille(recordAnonymise)
+          : recordAnonymise
+      })
+      : []
   } catch {
     return []
   }
@@ -433,11 +450,12 @@ export const importPortfolioWorkbook = async (file) => {
     else if (hasUsefulChange(existing, record)) updated += 1
     else unchanged += 1
 
-    byId.set(record.identifiant, {
+    byId.set(record.identifiant, rattacherAMonPortefeuille({
       ...mergeNonEmptyFields(existing, record),
       identifiant: record.identifiant,
       importedAt: new Date().toISOString(),
-    })
+      source: 'import-excel',
+    }))
   })
   const mergedRecords = deduplicateRecords([...byId.values()])
   localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify(mergedRecords))
@@ -457,11 +475,14 @@ export const importPortfolioWorkbook = async (file) => {
     ignored: rows.length - mapped.length,
     sheetName,
     cloudSynced,
+    rattachesPortefeuille: incomingById.size,
   }
 }
 
 export const portfolioRecordToDossier = (record) => ({
   ...anonymiserPortfolioRecord(record),
+  appartientMonPortefeuille: Boolean(record?.appartientMonPortefeuille),
+  portefeuilleRattachement: record?.appartientMonPortefeuille ? MON_PORTEFEUILLE_LABEL : '',
   dossierStatut: record.statut || 'importé',
   besoinIdentifieConseiller: [record.prestation, record.atelier, record.formation].filter(Boolean).join(' · '),
   ceQueDitLaPersonne: record.commentaires || record.motif || '',

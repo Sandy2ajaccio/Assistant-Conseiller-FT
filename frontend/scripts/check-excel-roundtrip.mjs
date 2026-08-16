@@ -30,8 +30,10 @@ const mapped = mapPortfolioRow(parsedRows[0])
 assert.equal(mapped.identifiant, 'TEST123')
 assert.equal(mapped.nom, undefined)
 assert.equal(mapped.prenom, undefined)
+assert.equal(mapped.appartientMonPortefeuille, true)
+assert.equal(mapped.portefeuilleRattachement, 'Mon portefeuille')
 
 const anonymised = anonymiserPortfolioRecord({ identifiant: 'TEST123', nom: 'EXEMPLE', prenom: 'Camille', age: 42 })
 assert.deepEqual(anonymised, { identifiant: 'TEST123', age: 42 })
 
-console.log('Import/export Excel vérifié avec anonymisation Nom/Prénom et identifiant FT conservé.')
+console.log('Import/export Excel vérifié avec anonymisation Nom/Prénom, identifiant FT conservé et rattachement à Mon portefeuille.')
