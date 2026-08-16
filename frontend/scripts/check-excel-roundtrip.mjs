@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import * as XLSX from 'xlsx'
-import { anonymiserPortfolioRecord, mapPortfolioRow } from '../src/services/portfolioImportService.js'
+import {
+  anonymiserPortfolioRecord,
+  buildPortfolioPatchFromDossier,
+  mapPortfolioRow,
+  portfolioRecordToDossier,
+} from '../src/services/portfolioImportService.js'
 
 const workbook = XLSX.utils.book_new()
 const worksheet = XLSX.utils.json_to_sheet([
@@ -33,7 +38,26 @@ assert.equal(mapped.prenom, undefined)
 assert.equal(mapped.appartientMonPortefeuille, true)
 assert.equal(mapped.portefeuilleRattachement, 'Mon portefeuille')
 
+const dossierModifie = {
+  situationAdministrative: 'Sans emploi',
+  situationPersonnelle: 'Difficulté de mobilité',
+  parcoursProfessionnel: 'Projet de reconversion',
+  ceQueDitLaPersonne: 'Souhaite changer de métier',
+  projet: 'Explorer deux pistes métier',
+  formation: 'À vérifier',
+  freinsSelectionnes: ['Mobilite'],
+  ressourcesSelectionnees: ['Experience'],
+}
+const patchPortefeuille = buildPortfolioPatchFromDossier(dossierModifie)
+assert.equal(patchPortefeuille.parcoursProfessionnel, 'Projet de reconversion')
+assert.deepEqual(patchPortefeuille.freinsSelectionnes, ['Mobilite'])
+
+const dossierRecharge = portfolioRecordToDossier({ ...mapped, ...patchPortefeuille })
+assert.equal(dossierRecharge.ceQueDitLaPersonne, 'Souhaite changer de métier')
+assert.equal(dossierRecharge.projet, 'Explorer deux pistes métier')
+assert.deepEqual(dossierRecharge.ressourcesSelectionnees, ['Experience'])
+
 const anonymised = anonymiserPortfolioRecord({ identifiant: 'TEST123', nom: 'EXEMPLE', prenom: 'Camille', age: 42 })
 assert.deepEqual(anonymised, { identifiant: 'TEST123', age: 42 })
 
-console.log('Import/export Excel vérifié avec anonymisation Nom/Prénom, identifiant FT conservé et rattachement à Mon portefeuille.')
+console.log('Import/export Excel vérifié : anonymisation, rattachement au portefeuille et modifications du parcours persistantes.')

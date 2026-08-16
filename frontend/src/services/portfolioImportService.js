@@ -199,6 +199,12 @@ export const mapPortfolioRow = (row) => ({
   statut: readValue(row, 'Statut'),
   decision: readValue(row, 'Décision'),
   commentaires: readValue(row, 'Commentaires'),
+  ceQueDitLaPersonne: readValue(row, 'Demande exprimée') || readValue(row, 'Demande du DE'),
+  besoinIdentifieConseiller: readValue(row, 'Besoin conseiller') || readValue(row, 'Besoin identifié'),
+  situationAdministrative: readValue(row, 'Situation administrative'),
+  situationPersonnelle: readValue(row, 'Situation personnelle'),
+  parcoursProfessionnel: readValue(row, 'Parcours professionnel') || readValue(row, 'Parcours'),
+  projet: readValue(row, 'Projet professionnel') || readValue(row, 'Projet'),
 })
 
 const mergeNonEmptyFields = (existing = {}, incoming = {}) => {
@@ -281,6 +287,52 @@ export const savePortfolioRecord = async (record) => {
   }
 
   return { record: savedRecord, created: !existing, cloudSynced }
+}
+
+export const buildPortfolioPatchFromDossier = (dossier = {}) => ({
+  situationAdministrative: text(dossier.situationAdministrative),
+  situationPersonnelle: text(dossier.situationPersonnelle),
+  parcoursProfessionnel: text(dossier.parcoursProfessionnel),
+  ceQueDitLaPersonne: text(dossier.ceQueDitLaPersonne),
+  besoinIdentifieConseiller: text(dossier.besoinIdentifieConseiller),
+  projet: text(dossier.projet),
+  formation: text(dossier.formation),
+  freinsSelectionnes: Array.isArray(dossier.freinsSelectionnes) ? dossier.freinsSelectionnes : [],
+  ressourcesSelectionnees: Array.isArray(dossier.ressourcesSelectionnees) ? dossier.ressourcesSelectionnees : [],
+  categorieActuelle: text(dossier.categorieActuelle),
+  categorieDemandee: text(dossier.categorieDemandee),
+  codeSituationOp2: text(dossier.codeSituationOp2),
+  suiviAccompagnementChoisi: text(dossier.suiviAccompagnementChoisi),
+})
+
+export const updatePortfolioRecordFromDossier = async (identifiantSource, dossier = {}) => {
+  const identifiant = normalizeIdentifier(identifiantSource)
+  if (!identifiant) return { updated: false, reason: 'missing-id' }
+
+  const previous = deduplicateRecords(readImportedRecords())
+  const byId = new Map(previous.map((item) => [item.identifiant, item]))
+  const existing = byId.get(identifiant)
+  if (!existing?.appartientMonPortefeuille) return { updated: false, reason: 'not-imported' }
+
+  const updatedRecord = rattacherAMonPortefeuille({
+    ...existing,
+    ...buildPortfolioPatchFromDossier(dossier),
+    identifiant,
+    source: existing.source || 'import-excel',
+    parcoursUpdatedAt: new Date().toISOString(),
+  })
+  byId.set(identifiant, anonymiserPortfolioRecord(updatedRecord))
+
+  const mergedRecords = deduplicateRecords([...byId.values()])
+  localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify(mergedRecords))
+  let cloudSynced = true
+  try {
+    await syncPortfolioToCloud(mergedRecords)
+  } catch {
+    cloudSynced = false
+  }
+
+  return { updated: true, record: updatedRecord, cloudSynced }
 }
 
 const parseDate = (value) => {
@@ -484,9 +536,16 @@ export const portfolioRecordToDossier = (record) => ({
   appartientMonPortefeuille: Boolean(record?.appartientMonPortefeuille),
   portefeuilleRattachement: record?.appartientMonPortefeuille ? MON_PORTEFEUILLE_LABEL : '',
   dossierStatut: record.statut || 'importé',
-  besoinIdentifieConseiller: [record.prestation, record.atelier, record.formation].filter(Boolean).join(' · '),
-  ceQueDitLaPersonne: record.commentaires || record.motif || '',
-  projet: record.action || record.decision || '',
-  freinsSelectionnes: record.alerte ? [record.alerte] : [],
-  ressourcesSelectionnees: [],
+  situationAdministrative: record.situationAdministrative || '',
+  situationPersonnelle: record.situationPersonnelle || '',
+  parcoursProfessionnel: record.parcoursProfessionnel || '',
+  besoinIdentifieConseiller: record.besoinIdentifieConseiller
+    || [record.prestation, record.atelier, record.formation].filter(Boolean).join(' · '),
+  ceQueDitLaPersonne: record.ceQueDitLaPersonne || record.commentaires || record.motif || '',
+  projet: record.projet || record.action || record.decision || '',
+  formation: record.formation || '',
+  freinsSelectionnes: Array.isArray(record.freinsSelectionnes)
+    ? record.freinsSelectionnes
+    : record.alerte ? [record.alerte] : [],
+  ressourcesSelectionnees: Array.isArray(record.ressourcesSelectionnees) ? record.ressourcesSelectionnees : [],
 })

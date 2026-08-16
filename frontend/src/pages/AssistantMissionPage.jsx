@@ -54,7 +54,11 @@ import { analyserAvecReferentielReseauEmploi } from '../data/referentielDiagnost
 import { analyserAdvpAutomatique } from '../services/advpAssistantService'
 import { analyserControlesAutomatiquesDossier } from '../services/controlesAutomatiquesDossierService'
 import { analyserSuiviAccompagnement, SUIVIS_ACCOMPAGNEMENT } from '../services/suiviAccompagnementService'
-import { importPortfolioWorkbook, listPortfolioRecords } from '../services/portfolioImportService'
+import {
+  importPortfolioWorkbook,
+  listPortfolioRecords,
+  updatePortfolioRecordFromDossier,
+} from '../services/portfolioImportService'
 import {
   buildFormalitesSynthese,
   DEFAULT_FORMALITES_ENTRETIEN,
@@ -2416,11 +2420,17 @@ function AssistantMissionPage() {
     chronoActif,
   ])
 
-  const enregistrerAnalyse = () => {
-    const result = saveStoredDossier(identifiantDemandeur, buildSnapshot())
+  const enregistrerAnalyse = async () => {
+    const snapshot = buildSnapshot()
+    const result = saveStoredDossier(identifiantDemandeur, snapshot)
+    const portfolioResult = result.ok
+      ? await updatePortfolioRecordFromDossier(identifiantDemandeur, snapshot)
+      : { updated: false }
     setStorageStatus(
       result.ok
-        ? `Analyse enregistrée pour ${identifiantDemandeur}. ${resumeAlertesEnregistrement}`
+        ? `Analyse enregistrée pour ${identifiantDemandeur}.`
+          + (portfolioResult.updated ? ' Parcours et renseignements du portefeuille actualisés.' : '')
+          + ` ${resumeAlertesEnregistrement}`
         : result.message || 'Erreur enregistrement.',
     )
   }
@@ -2634,15 +2644,17 @@ function AssistantMissionPage() {
     setAnalysesEnregistrees((items) => items.filter((item) => item.identifiant !== id))
   }
 
-  const enregistrerEtPasserAuSuivant = () => {
-    const result = saveStoredDossier(identifiantDemandeur, {
+  const enregistrerEtPasserAuSuivant = async () => {
+    const snapshot = {
       ...buildSnapshot(),
       chronoActif: false,
-    })
+    }
+    const result = saveStoredDossier(identifiantDemandeur, snapshot)
     if (!result.ok) {
       setStorageStatus(result.message || 'Enregistrement impossible.')
       return
     }
+    await updatePortfolioRecordFromDossier(identifiantDemandeur, snapshot)
     setChronoActif(false)
     const dossiers = listPortfolioRecords()
     const indexActuel = dossiers.findIndex((item) => item.identifiant === identifiantDemandeur)
@@ -2660,7 +2672,7 @@ function AssistantMissionPage() {
     navigate(`/assistant?dossier=${encodeURIComponent(suivant.identifiant)}`)
   }
 
-  const cloturerEtPasserAuSuivant = () => {
+  const cloturerEtPasserAuSuivant = async () => {
     if (!dossierCoherentEtComplet) {
       setStorageStatus(
         controleDecision.bloquants > 0
@@ -2669,16 +2681,18 @@ function AssistantMissionPage() {
       )
       return
     }
-    const result = saveStoredDossier(identifiantDemandeur, {
+    const snapshot = {
       ...buildSnapshot(),
       chronoActif: false,
       clotureValidee: true,
       dossierStatut: 'termine',
-    })
+    }
+    const result = saveStoredDossier(identifiantDemandeur, snapshot)
     if (!result.ok) {
       setStorageStatus(result.message || 'Clôture impossible.')
       return
     }
+    await updatePortfolioRecordFromDossier(identifiantDemandeur, snapshot)
     setChronoActif(false)
     setDecisionConseillerStatut('Acceptee')
     const dossiers = listPortfolioRecords()
@@ -3141,6 +3155,11 @@ function AssistantMissionPage() {
 
         {workspaceTab !== 'sauvegardes' ? (
           <CockpitBlockCard title="1. Demande exprimée et parcours" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
+              {demandeurDuPortefeuille?.appartientMonPortefeuille ? (
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  DE importé de votre portefeuille : modifiez librement les informations et le parcours ci-dessous. Le bouton « Enregistrer maintenant » actualise également sa fiche portefeuille.
+                </Alert>
+              ) : null}
               <TextField
                 id="demande-rendez-vous"
                 label="Demande ou objectif du rendez-vous"
