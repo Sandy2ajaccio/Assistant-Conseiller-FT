@@ -58,6 +58,7 @@ import {
   DEFAULT_FORMALITES_ENTRETIEN,
   formalitesEntretienCompletes,
   normalizeFormalitesEntretien,
+  RAPPEL_PIX_FINAL,
 } from '../services/syntheseFormalitesService'
 import {
   DEFAULT_CONTRAT_ENGAGEMENT_DETAILS,
@@ -317,6 +318,30 @@ const formatListeCourte = (items) => {
   return `${values.slice(0, -1).join(', ')} et ${values[values.length - 1]}`
 }
 
+const LIBELLES_SYNTHESE = {
+  Mobilite: 'mobilité',
+  Sante: 'santé',
+  Finances: 'finances',
+  Administratif: 'démarches administratives',
+  'Competences numeriques': 'compétences numériques',
+  'Maitrise du francais': 'maîtrise du français',
+  'Projet professionnel': 'projet professionnel',
+  'Confiance en soi': 'confiance en soi',
+  Disponibilite: 'disponibilité',
+  Experience: 'expérience',
+  Diplomes: 'diplômes',
+  Competences: 'compétences',
+  Reseau: 'réseau',
+  'Autres ressources': 'autres ressources',
+}
+
+const normaliserLibelleSynthese = (valeur) => {
+  const texte = String(valeur || '').trim().replace(/[.;:]+$/, '')
+  if (!texte) return ''
+  if (LIBELLES_SYNTHESE[texte]) return LIBELLES_SYNTHESE[texte]
+  return texte.charAt(0).toLocaleLowerCase('fr-FR') + texte.slice(1)
+}
+
 const formatDateFr = (isoLike) => {
   if (!isoLike) return 'Non renseignee'
   const d = new Date(isoLike)
@@ -343,6 +368,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
     return `vous ${radical}ez`
   })
   if (/^envisage/i.test(resultat)) return resultat.replace(/^envisage/i, 'vous envisagez')
+  if (/^ne souhaite/i.test(resultat)) return resultat.replace(/^ne souhaite/i, 'vous ne souhaitez')
   if (/^souhaite/i.test(resultat)) return resultat.replace(/^souhaite/i, 'vous souhaitez')
   if (/^recherche/i.test(resultat)) return resultat.replace(/^recherche/i, 'vous recherchez')
   if (/^ne sait plus/i.test(resultat)) return resultat.replace(/^ne sait plus/i, 'vous ne savez plus')
@@ -355,6 +381,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
+    .replace(/\s*;\s*/g, '. ')
     .split(/[.!?]+/)
     .map((phrase) => phrase.trim())
     .filter(Boolean)
@@ -384,10 +411,7 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     return propositionsReformulees.join('')
   })
 
-  if (phrasesReformulees.length <= 1) return phrasesReformulees.join('')
-  // Phrases distinctes du récit jointes par un point-virgule plutôt que par une seule
-  // phrase-fleuve en ", et " : plus lisible et plus proche d'une synthèse rédigée.
-  return phrasesReformulees.join(' ; ')
+  return phrasesReformulees.join('. ')
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
@@ -1559,7 +1583,7 @@ function AssistantMissionPage() {
       formatListeCourte(
         String(texteAvecPuces || '')
           .split('·')
-          .map((item) => item.trim())
+          .map(normaliserLibelleSynthese)
           .filter(Boolean),
       )
 
@@ -1601,22 +1625,24 @@ function AssistantMissionPage() {
     const contexteUtile = situationUtileALaSynthese(contexte)
 
     const parcoursEtProjet = [
-      parcoursProfessionnel.trim() ? `Votre parcours : ${enListeNaturelle(parcoursProfessionnel)}.` : '',
+      parcoursProfessionnel.trim() ? `Votre parcours fait ressortir ${enListeNaturelle(parcoursProfessionnel)}.` : '',
       projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
-      contexteUtile ? `Votre situation actuelle : ${enListeNaturelle(contexteUtile)}.` : '',
+      contexteUtile ? `Concernant votre situation actuelle, nous retenons ${enListeNaturelle(contexteUtile)}.` : '',
     ].filter(Boolean).join(' ')
     if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
 
-    const constats = []
     const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
     // « Autres ressources » est un libellé générique de la liste de points d'appui : il n'est
     // repris dans la synthèse que s'il accompagne au moins un point d'appui plus précis.
     const ressourcesSyntheseUtiles = ressourcesSelectionnees.length > 1
       ? ressourcesSelectionnees
       : ressourcesSelectionnees.filter((item) => item !== 'Autres ressources')
-    if (freinsSynthese.length > 0) constats.push(`les freins suivants : ${formatListeCourte(freinsSynthese)}`)
-    if (ressourcesSyntheseUtiles.length > 0) constats.push(`les points d'appui suivants : ${formatListeCourte(ressourcesSyntheseUtiles)}`)
-    if (constats.length > 0) paragraphes.push(`Nous avons identifié ${constats.join(', ainsi que ')}.`)
+    if (freinsSynthese.length > 0) {
+      paragraphes.push(`Nous avons repéré des points de vigilance concernant ${formatListeCourte(freinsSynthese.map(normaliserLibelleSynthese))}.`)
+    }
+    if (ressourcesSyntheseUtiles.length > 0) {
+      paragraphes.push(`Vos points d’appui sont ${formatListeCourte(ressourcesSyntheseUtiles.map(normaliserLibelleSynthese))}.`)
+    }
 
     const actions = [
       ...actionsImmediatesValidees,
@@ -1631,7 +1657,7 @@ function AssistantMissionPage() {
       .filter((item, index, items) => items.indexOf(item) === index)
       .slice(0, 4)
     if (actions.length > 0) {
-      paragraphes.push(`Nous convenons de réaliser les actions suivantes : ${formatListeCourte(actions)}.`)
+      paragraphes.push(`Nous convenons de ${formatListeCourte(actions.map(normaliserLibelleSynthese))}.`)
     }
 
     if (suiviPortefeuilleMutualise.commentaire?.trim()) {
@@ -1640,6 +1666,8 @@ function AssistantMissionPage() {
 
     const texteFormalites = buildFormalitesSynthese(formalitesEntretien)
     if (texteFormalites) paragraphes.push(texteFormalites)
+
+    paragraphes.push(RAPPEL_PIX_FINAL)
 
     return paragraphes.filter(Boolean).join('\n')
   }, [

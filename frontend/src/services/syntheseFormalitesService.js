@@ -5,6 +5,8 @@ export const DEFAULT_FORMALITES_ENTRETIEN = {
   contratStatut: 'a-confirmer',
 }
 
+export const RAPPEL_PIX_FINAL = 'Si vous ne l’avez pas déjà réalisé depuis chez vous, merci de réaliser le test PIX. Cela vous évitera d’être appelé(e) à venir réaliser cet atelier sur place.'
+
 export const normalizeFormalitesEntretien = (value = {}) => ({
   ...DEFAULT_FORMALITES_ENTRETIEN,
   ...(value && typeof value === 'object' ? value : {}),
@@ -29,16 +31,6 @@ export const buildFormalitesSynthese = (value = {}) => {
   if (formalites.presenceRappelee) {
     phrases.push(
       'Je vous rappelle que votre présence est obligatoire à tous les rendez-vous fixés par France Travail dans le cadre de votre accompagnement.',
-    )
-  }
-
-  if (formalites.pixStatut === 'invite') {
-    phrases.push(
-      'Dans le cas où vous ne l’auriez pas encore fait, je vous invite à réaliser à votre domicile le test PIX depuis votre espace personnel France Travail. Cela vous évitera une convocation à cet atelier, que vous pouvez réaliser depuis chez vous.',
-    )
-  } else if (formalites.pixStatut === 'deja-realise') {
-    phrases.push(
-      'Vous m’indiquez avoir déjà réalisé le test PIX depuis votre espace personnel France Travail.',
     )
   }
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   buildFormalitesSynthese,
   formalitesEntretienCompletes,
+  RAPPEL_PIX_FINAL,
 } from '../src/services/syntheseFormalitesService.js'
 
 const signeCeJour = {
@@ -13,9 +14,9 @@ const signeCeJour = {
 const texteSigneCeJour = buildFormalitesSynthese(signeCeJour)
 assert.equal(formalitesEntretienCompletes(signeCeJour), true)
 assert.match(texteSigneCeJour, /présence est obligatoire/)
-assert.match(texteSigneCeJour, /Dans le cas où vous ne l’auriez pas encore fait/)
 assert.match(texteSigneCeJour, /droits et obligations/)
 assert.ok(texteSigneCeJour.endsWith('Nous procédons à la signature du contrat d’engagement.'))
+assert.doesNotMatch(texteSigneCeJour, /test PIX/)
 
 const dejaSigne = {
   presenceRappelee: true,
@@ -25,9 +26,9 @@ const dejaSigne = {
 }
 const texteDejaSigne = buildFormalitesSynthese(dejaSigne)
 assert.equal(formalitesEntretienCompletes(dejaSigne), true)
-assert.match(texteDejaSigne, /déjà réalisé le test PIX/)
 assert.match(texteDejaSigne, /déjà signé/)
 assert.doesNotMatch(texteDejaSigne, /procédons à la signature/)
+assert.doesNotMatch(texteDejaSigne, /test PIX/)
 
 const aConfirmer = buildFormalitesSynthese({})
 assert.equal(formalitesEntretienCompletes({}), false)
@@ -42,4 +43,9 @@ const signatureAFinaliser = {
 assert.equal(formalitesEntretienCompletes(signatureAFinaliser), true)
 assert.ok(buildFormalitesSynthese(signatureAFinaliser).endsWith('La signature du contrat d’engagement reste à finaliser.'))
 
-console.log('Formalités de synthèse vérifiées : 4 scénarios réussis.')
+const syntheseFinale = [texteSigneCeJour, RAPPEL_PIX_FINAL].filter(Boolean).join('\n')
+assert.ok(syntheseFinale.endsWith(RAPPEL_PIX_FINAL))
+assert.equal((syntheseFinale.match(/test PIX/g) || []).length, 1)
+assert.match(RAPPEL_PIX_FINAL, /^Si vous ne l’avez pas déjà réalisé depuis chez vous/)
+
+console.log('Formalités et rappel PIX final vérifiés : 4 scénarios réussis.')
