@@ -431,16 +431,16 @@ function AssistantMissionPage() {
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
 
   const sectionsOuvertesParDefaut = (type) => ({
-    // En suivi, le dossier est déjà connu : on replie les sections de découverte
-    // pour aller plus vite. En DPA (premier entretien), tout reste ouvert.
+    // En DPA, seules les sections de découverte restent ouvertes. Les blocs de décision
+    // s'ouvrent à la demande depuis la barre d'accès directs afin de raccourcir la page.
     explorationGuidee: estDPA(type),
     listesDiagnostic: estDPA(type),
-    orientationReseau: true,
-    offreServices: true,
-    synthese: true,
-    portefeuilleMutualise: true,
-    suiviObligations: true,
-    faisceauCre: true,
+    orientationReseau: false,
+    offreServices: false,
+    synthese: false,
+    portefeuilleMutualise: false,
+    suiviObligations: false,
+    faisceauCre: false,
   })
 
   const [sectionsOuvertes, setSectionsOuvertes] = useState(() =>
@@ -524,6 +524,23 @@ function AssistantMissionPage() {
   const [codeSituationOp2, setCodeSituationOp2] = useState('')
   const [brouillonAutomatiquePret, setBrouillonAutomatiquePret] = useState(false)
   const [brouillonAutomatiqueStatut, setBrouillonAutomatiqueStatut] = useState('')
+
+  const allerASection = (anchorId, sectionId = '') => {
+    setWorkspaceTab('entretien')
+
+    if (sectionId) {
+      setSectionsOuvertes((previous) => ({ ...previous, [sectionId]: true }))
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById(anchorId)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      })
+    })
+  }
 
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
   const regionBaremePreferee = useMemo(() => lireRegionBaremePreferee(), [])
@@ -2673,33 +2690,99 @@ function AssistantMissionPage() {
           sx={{
             position: 'sticky',
             top: 8,
-            zIndex: 6,
+            zIndex: 20,
             bgcolor: 'rgba(255,255,255,0.97)',
             borderRadius: 2,
-            p: 1,
+            p: { xs: 0.75, md: 1 },
             boxShadow: '0 4px 16px rgba(15,35,65,0.12)',
           }}
         >
-          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
-            <Typography variant="caption" sx={{ fontWeight: 900, color: '#244d78', mr: 0.5 }}>
-              Aller à :
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} alignItems={{ md: 'center' }}>
+            <Box sx={{ minWidth: 112 }}>
+              <Typography variant="caption" sx={{ display: 'block', fontWeight: 950, color: '#173f67', lineHeight: 1.1 }}>
+                ACCÈS DIRECTS
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>
+                Toujours visibles
+              </Typography>
+            </Box>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              sx={{
+                minWidth: 0,
+                flex: 1,
+                overflowX: 'auto',
+                pb: 0.25,
+                '&::-webkit-scrollbar': { height: 4 },
+              }}
+            >
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => allerASection('section-entretien')}
+                sx={{ minWidth: 126, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
+              >
+                1 · Entretien
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                onClick={() => allerASection('section-prescriptions', 'offreServices')}
+                sx={{ minWidth: 176, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
+              >
+                2 · Offre de services
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => allerASection('section-synthese', 'synthese')}
+                sx={{
+                  minWidth: 132,
+                  flexShrink: 0,
+                  fontWeight: 900,
+                  whiteSpace: 'nowrap',
+                  bgcolor: '#6b3fa0',
+                  '&:hover': { bgcolor: '#553080' },
+                }}
+              >
+                3 · Synthèse
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => allerASection('section-cloture')}
+                sx={{ minWidth: 124, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
+              >
+                4 · Clôturer
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Stack
+            direction="row"
+            spacing={0.6}
+            useFlexGap
+            alignItems="center"
+            sx={{ mt: 0.75, overflowX: 'auto', pb: 0.25 }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 900, color: '#60758a', mr: 0.25, flexShrink: 0 }}>
+              Outils :
             </Typography>
             {[
-              ['section-entretien', 'Conduite de l’entretien'],
-              ['section-prescriptions', 'Offre de services'],
-              ['section-synthese', 'Synthèse d’entretien'],
-              ['section-portefeuille-mutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille mutualisé (${nombreAlertesPortefeuille})` : 'Portefeuille mutualisé'],
-              ['section-suivi-obligations', nombreAlertesSuivi > 0 ? `Suivi obligations (${nombreAlertesSuivi})` : 'Suivi obligations'],
-              ['section-remobilisation', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
-            ].map(([anchorId, label]) => (
+              ['section-portefeuille-mutualise', 'portefeuilleMutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille (${nombreAlertesPortefeuille})` : 'Portefeuille'],
+              ['section-suivi-obligations', 'suiviObligations', nombreAlertesSuivi > 0 ? `Suivi M6 (${nombreAlertesSuivi})` : 'Suivi M6'],
+              ['section-remobilisation', 'faisceauCre', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
+            ].map(([anchorId, sectionId, label]) => (
               <Chip
                 key={anchorId}
                 clickable
                 size="small"
-                component="a"
-                href={`#${anchorId}`}
+                onClick={() => allerASection(anchorId, sectionId)}
                 label={label}
-                sx={{ fontWeight: 700 }}
+                sx={{ fontWeight: 700, flexShrink: 0 }}
               />
             ))}
             <Chip
@@ -2707,8 +2790,8 @@ function AssistantMissionPage() {
               size="small"
               component={Link}
               to="/demandeurs"
-              label="Gestion des demandeurs"
-              sx={{ fontWeight: 700 }}
+              label="Demandeurs"
+              sx={{ fontWeight: 700, flexShrink: 0 }}
             />
             <input
               ref={portfolioFileInputRef}
@@ -2722,9 +2805,9 @@ function AssistantMissionPage() {
               variant="outlined"
               color="success"
               onClick={() => portfolioFileInputRef.current?.click()}
-              sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap' }}
+              sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap', flexShrink: 0 }}
             >
-              Importer un fichier Excel
+              Importer Excel
             </Button>
             <Button
               size="small"
@@ -2736,8 +2819,9 @@ function AssistantMissionPage() {
                   ouvrirListeAnalyses()
                 }
               }}
+              sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
             >
-              {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes automatiques'}
+              {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes'}
             </Button>
           </Stack>
           {portfolioImportStatus ? (
@@ -2777,7 +2861,7 @@ function AssistantMissionPage() {
         ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
-          <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd' }} id="section-entretien">
+          <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd', scrollMarginTop: '130px' }} id="section-entretien">
             <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
               <Chip size="small" color={missionCompletion >= 70 ? 'success' : missionCompletion >= 40 ? 'warning' : 'default'} label={`Complétude ${missionCompletion}%`} />
               <Chip size="small" variant="outlined" label={`Confiance ${niveauConfianceAffiche}`} />
@@ -3211,7 +3295,7 @@ function AssistantMissionPage() {
         ) : null}
 
         {workspaceTab === 'sauvegardes' ? null : (<>
-        <Box id="section-prescriptions" sx={{ scrollMarginTop: '90px' }}>
+        <Box id="section-prescriptions" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="offreServices"
             title="Offre de services"
@@ -3239,7 +3323,7 @@ function AssistantMissionPage() {
           </SectionRepliable>
         </Box>
 
-        <Box id="section-synthese" sx={{ scrollMarginTop: '90px' }}>
+        <Box id="section-synthese" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="synthese"
             title="Synthèse d’entretien"
@@ -3418,7 +3502,7 @@ function AssistantMissionPage() {
           </SectionRepliable>
         </Box>
 
-        <Box id="section-portefeuille-mutualise" sx={{ scrollMarginTop: '90px' }}>
+        <Box id="section-portefeuille-mutualise" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="portefeuilleMutualise"
             title="Portefeuille mutualisé"
@@ -3439,7 +3523,7 @@ function AssistantMissionPage() {
           </SectionRepliable>
         </Box>
 
-        <Box id="section-suivi-obligations" sx={{ scrollMarginTop: '90px' }}>
+        <Box id="section-suivi-obligations" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="suiviObligations"
             title="Suivi obligations"
@@ -3450,7 +3534,7 @@ function AssistantMissionPage() {
           </SectionRepliable>
         </Box>
 
-        <Box id="section-remobilisation" sx={{ scrollMarginTop: '90px' }}>
+        <Box id="section-remobilisation" sx={{ scrollMarginTop: '130px' }}>
           <SectionRepliable
             id="faisceauCre"
             title="Faisceau CRE"
@@ -3983,7 +4067,7 @@ function AssistantMissionPage() {
                   </Button>
                 </Grid>
               </Grid>
-              <Box id="section-cloture" sx={{ mt: 1.25, p: 1, borderRadius: 1.5, bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d' }}>
+              <Box id="section-cloture" sx={{ mt: 1.25, p: 1, borderRadius: 1.5, scrollMarginTop: '130px', bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6', border: '1px solid', borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d' }}>
                 <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }} justifyContent="space-between">
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 900, color: dossierCoherentEtComplet ? '#1f6b36' : '#9a5100' }}>
