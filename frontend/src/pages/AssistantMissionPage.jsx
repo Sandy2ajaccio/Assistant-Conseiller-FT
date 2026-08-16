@@ -61,6 +61,7 @@ import {
   formalitesEntretienCompletes,
   normalizeFormalitesEntretien,
   RAPPEL_PIX_FINAL,
+  retirerAgeDeSynthese,
 } from '../services/syntheseFormalitesService'
 import {
   DEFAULT_CONTRAT_ENGAGEMENT_DETAILS,
@@ -1569,7 +1570,7 @@ function AssistantMissionPage() {
   const planActionConcret = useMemo(() => {
     const premiereSolution = recommandationsMoteur.ateliers?.[0] || recommandationsMoteur.prestations?.[0]
     const premierFrein = analyseDemandeAutomatique.freins[0] || freinsSelectionnes[0]
-    const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
+    const demande = retirerAgeDeSynthese(ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim())
     const plusieursFreins = analyseDemandeAutomatique.freins.length >= 2
     const rqthDetectee = analyseDemandeAutomatique.freins.includes('Santé / RQTH')
     const formationDemandee = analyseDemandeAutomatique.objectifs.includes('Formation')
@@ -1674,7 +1675,7 @@ function AssistantMissionPage() {
 
     const parcoursEtProjet = [
       parcoursProfessionnel.trim() ? `Votre parcours fait ressortir ${enListeNaturelle(parcoursProfessionnel)}.` : '',
-      projet.trim() ? `Votre projet est de ${projet.trim().replace(/[.]+$/, '')}.` : '',
+      projet.trim() ? `Votre projet est de ${retirerAgeDeSynthese(projet.trim()).replace(/[.]+$/, '')}.` : '',
       contexteUtile ? `Concernant votre situation actuelle, nous retenons ${enListeNaturelle(contexteUtile)}.` : '',
     ].filter(Boolean).join(' ')
     if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
@@ -1712,12 +1713,12 @@ function AssistantMissionPage() {
       paragraphes.push(`Suivi et prochaine action convenus : ${suiviPortefeuilleMutualise.commentaire.trim()}`)
     }
 
+    paragraphes.push(RAPPEL_PIX_FINAL)
+
     const texteFormalites = buildFormalitesSynthese(formalitesEntretien)
     if (texteFormalites) paragraphes.push(texteFormalites)
 
-    paragraphes.push(RAPPEL_PIX_FINAL)
-
-    return paragraphes.filter(Boolean).join('\n')
+    return retirerAgeDeSynthese(paragraphes.filter(Boolean).join('\n'))
   }, [
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,

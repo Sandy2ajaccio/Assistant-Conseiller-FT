@@ -11,11 +11,6 @@ const formatList = (items, fallback = 'Aucun élément renseigné') => {
 
 const getIdentiteResume = (dossier = {}) => {
   const identifiant = asString(dossier.identifiant || dossier.id)
-  const age = Number.isFinite(Number(dossier.age))
-    ? `${Number(dossier.age)} ans`
-    : asString(dossier.dateNaissance || dossier.date_naissance)
-      ? 'âge à calculer à partir de la date de naissance'
-      : ''
   const portefeuille = asString(dossier.portefeuille)
   const categorie = asString(dossier.categorie)
   const projet = asString(dossier.projetProfessionnel || dossier.projet)
@@ -24,7 +19,6 @@ const getIdentiteResume = (dossier = {}) => {
     identifiant ? `Dossier ${identifiant}` : 'Dossier conseiller',
     categorie ? `catégorie ${categorie}` : '',
     portefeuille ? `portefeuille ${portefeuille}` : '',
-    age ? age : '',
     projet ? `projet : ${projet}` : 'projet à préciser',
   ].filter(Boolean)
 

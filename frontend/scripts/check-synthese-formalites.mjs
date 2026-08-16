@@ -3,6 +3,7 @@ import {
   buildFormalitesSynthese,
   formalitesEntretienCompletes,
   RAPPEL_PIX_FINAL,
+  retirerAgeDeSynthese,
 } from '../src/services/syntheseFormalitesService.js'
 
 const signeCeJour = {
@@ -13,7 +14,8 @@ const signeCeJour = {
 }
 const texteSigneCeJour = buildFormalitesSynthese(signeCeJour)
 assert.equal(formalitesEntretienCompletes(signeCeJour), true)
-assert.match(texteSigneCeJour, /présence est obligatoire/)
+assert.match(texteSigneCeJour, /loi pour le plein emploi/)
+assert.match(texteSigneCeJour, /assiduité et votre participation active/)
 assert.match(texteSigneCeJour, /droits et obligations/)
 assert.ok(texteSigneCeJour.endsWith('Nous procédons à la signature du contrat d’engagement.'))
 assert.doesNotMatch(texteSigneCeJour, /test PIX/)
@@ -43,9 +45,13 @@ const signatureAFinaliser = {
 assert.equal(formalitesEntretienCompletes(signatureAFinaliser), true)
 assert.ok(buildFormalitesSynthese(signatureAFinaliser).endsWith('La signature du contrat d’engagement reste à finaliser.'))
 
-const syntheseFinale = [texteSigneCeJour, RAPPEL_PIX_FINAL].filter(Boolean).join('\n')
-assert.ok(syntheseFinale.endsWith(RAPPEL_PIX_FINAL))
+const syntheseFinale = [RAPPEL_PIX_FINAL, texteSigneCeJour].filter(Boolean).join('\n')
+assert.ok(syntheseFinale.indexOf(RAPPEL_PIX_FINAL) < syntheseFinale.indexOf('loi pour le plein emploi'))
 assert.equal((syntheseFinale.match(/test PIX/g) || []).length, 1)
 assert.match(RAPPEL_PIX_FINAL, /^Si vous ne l’avez pas déjà réalisé depuis chez vous/)
 
-console.log('Formalités et rappel PIX final vérifiés : 4 scénarios réussis.')
+const texteSansAge = retirerAgeDeSynthese('20 ans dans la boulangerie, ne souhaite plus exercer ce métier, à 56 ans, sans projet défini.')
+assert.match(texteSansAge, /20 ans dans la boulangerie/)
+assert.doesNotMatch(texteSansAge, /56 ans/)
+
+console.log('Formalités, ordre PIX et retrait de l’âge vérifiés : 5 scénarios réussis.')
