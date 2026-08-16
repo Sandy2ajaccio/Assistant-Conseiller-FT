@@ -6,7 +6,6 @@ import {
   CircularProgress,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import {
@@ -26,23 +25,11 @@ const GOOGLE_CLIENT_ID =
 
 const CLEAN_START_KEY = 'cap-decision:portefeuille-vide-initialise'
 
-const CODE_VERIFIE_KEY = 'cap-decision:code-connexion-verifie'
-
-const WORKER_URL = 'https://broken-snow-067e.s-marchasson-cip.workers.dev'
-
 const AuthGate = ({ children }) => {
   const [user, setUser] = useState(null)
   const [checking, setChecking] = useState(true)
   const [message, setMessage] = useState('')
   const googleButtonRef = useRef(null)
-
-  const [codeVerifie, setCodeVerifie] = useState(
-    () => sessionStorage.getItem(CODE_VERIFIE_KEY) === 'oui',
-  )
-  const [codeSaisi, setCodeSaisi] = useState('')
-  const [codeEnvoye, setCodeEnvoye] = useState(false)
-  const [codeEnCours, setCodeEnCours] = useState(false)
-  const [codeMessage, setCodeMessage] = useState('')
 
   const authErrorMessage = (error) => {
     if (error?.code === 'auth/unauthorized-domain') {
@@ -244,84 +231,10 @@ const AuthGate = ({ children }) => {
     try {
       await signOut(auth)
       clearSensitiveLocalData()
-      sessionStorage.removeItem(CODE_VERIFIE_KEY)
-      setCodeVerifie(false)
-      setCodeSaisi('')
-      setCodeEnvoye(false)
-      setCodeMessage('')
     } catch {
       setMessage(
         'La déconnexion n’a pas pu être terminée.',
       )
-    }
-  }
-
-  const demanderCode = async () => {
-    setCodeEnCours(true)
-    setCodeMessage('')
-
-    try {
-      const reponse = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'demander',
-          email: OWNER_EMAIL,
-        }),
-      })
-
-      if (!reponse.ok) {
-        throw new Error('echec')
-      }
-
-      setCodeEnvoye(true)
-      setCodeMessage(
-        'Un code à 6 chiffres vient de vous être envoyé par email. Il est valable 5 minutes.',
-      )
-    } catch {
-      setCodeMessage(
-        'L’envoi du code a échoué. Vérifiez la connexion internet puis réessayez.',
-      )
-    } finally {
-      setCodeEnCours(false)
-    }
-  }
-
-  const verifierCode = async () => {
-    if (!codeSaisi.trim()) {
-      setCodeMessage('Saisissez le code reçu par email.')
-      return
-    }
-
-    setCodeEnCours(true)
-    setCodeMessage('')
-
-    try {
-      const reponse = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'verifier',
-          email: OWNER_EMAIL,
-          code: codeSaisi.trim(),
-        }),
-      })
-
-      const donnees = await reponse.json()
-
-      if (!reponse.ok || !donnees.ok) {
-        setCodeMessage('Code incorrect ou expiré. Demandez un nouveau code.')
-        return
-      }
-
-      sessionStorage.setItem(CODE_VERIFIE_KEY, 'oui')
-      setCodeVerifie(true)
-    } catch {
-      setCodeMessage(
-        'La vérification a échoué. Vérifiez la connexion internet puis réessayez.',
-      )
-    } finally {
-      setCodeEnCours(false)
     }
   }
 
@@ -408,117 +321,6 @@ const AuthGate = ({ children }) => {
               <Alert severity="warning">
                 {message}
               </Alert>
-            ) : null}
-          </Stack>
-        </Paper>
-      </Box>
-    )
-  }
-
-  if (!codeVerifie) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          placeItems: 'center',
-          p: 2,
-          bgcolor: '#0d1b2d',
-        }}
-      >
-        <Paper
-          sx={{
-            width: '100%',
-            maxWidth: 460,
-            p: 4,
-            borderTop: '8px solid #1976d2',
-          }}
-        >
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 900,
-              color: '#123d64',
-            }}
-          >
-            Cap Décision FT
-          </Typography>
-
-          <Typography
-            sx={{ mt: 1, mb: 3 }}
-            color="text.secondary"
-          >
-            Dernière étape : un code de vérification
-            à usage unique vous est envoyé par email
-            pour confirmer votre identité.
-          </Typography>
-
-          <Stack spacing={2}>
-            {!codeEnvoye ? (
-              <Button
-                variant="contained"
-                size="large"
-                disabled={codeEnCours}
-                onClick={demanderCode}
-              >
-                {codeEnCours
-                  ? 'Envoi en cours…'
-                  : 'Recevoir mon code par email'}
-              </Button>
-            ) : (
-              <>
-                <TextField
-                  label="Code reçu par email"
-                  value={codeSaisi}
-                  onChange={(event) =>
-                    setCodeSaisi(
-                      event.target.value.replace(/\D/g, '').slice(0, 6),
-                    )
-                  }
-                  inputProps={{
-                    inputMode: 'numeric',
-                    maxLength: 6,
-                    style: {
-                      letterSpacing: 6,
-                      fontSize: 22,
-                      textAlign: 'center',
-                    },
-                  }}
-                  autoFocus
-                />
-
-                <Button
-                  variant="contained"
-                  size="large"
-                  disabled={codeEnCours}
-                  onClick={verifierCode}
-                >
-                  {codeEnCours ? 'Vérification…' : 'Valider le code'}
-                </Button>
-
-                <Button
-                  variant="text"
-                  size="small"
-                  disabled={codeEnCours}
-                  onClick={demanderCode}
-                >
-                  Renvoyer un nouveau code
-                </Button>
-              </>
-            )}
-
-            <Button
-              variant="text"
-              size="small"
-              color="inherit"
-              onClick={disconnectFromGoogle}
-            >
-              Se déconnecter
-            </Button>
-
-            {codeMessage ? (
-              <Alert severity="info">{codeMessage}</Alert>
             ) : null}
           </Stack>
         </Paper>

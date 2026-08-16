@@ -31,6 +31,11 @@ assert.doesNotMatch(
   /signInWithPopup|signInWithRedirect|getRedirectResult/,
   'Les parcours Firebase avec fenêtre ou retour de page ne doivent plus être utilisés.',
 )
+assert.doesNotMatch(
+  authGate,
+  /WORKER_URL|CODE_VERIFIE_KEY|demanderCode|verifierCode/,
+  'La connexion ne doit pas dépendre d\'un second code externe bloquable sur le réseau professionnel.',
+)
 assert.equal(
   firebaseHosting.auth?.providers?.emailPassword,
   undefined,
@@ -55,6 +60,11 @@ assert.match(
   contentSecurityPolicy,
   /script-src[^;]*https:\/\/accounts\.google\.com/,
   'La CSP doit autoriser le bouton officiel Google.',
+)
+assert.doesNotMatch(
+  contentSecurityPolicy,
+  /workers\.dev/,
+  'La CSP ne doit plus dépendre du Worker de code à usage unique.',
 )
 assert.match(
   contentSecurityPolicy,
