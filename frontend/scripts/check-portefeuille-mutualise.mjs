@@ -18,7 +18,7 @@ import {
 assert.equal(NOM_PORTEFEUILLE_MUTUALISE, 'Mutualisé')
 assert.deepEqual(CODES_SITUATION_OP2.map((item) => item.code), ['EM', 'SP', 'PP', 'RE', 'CE', 'SA', 'IA', 'RT', 'DS'])
 assert.equal(normaliserCodeSituationOp2('em'), 'EM')
-assert.equal(formatCodeSituationOp2('DS'), 'DS — Suivi délégué (AEJ, CEJ, STF)')
+assert.equal(formatCodeSituationOp2('DS'), 'DS — Suivi délégué (AIJ, CEJ, intensif FSE)')
 assert.equal(compterAlertesPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE), 1)
 assert.equal(genererAlertesPortefeuilleMutualise(DEFAULT_SUIVI_PORTEFEUILLE_MUTUALISE)[0].id, 'file-a-definir')
 

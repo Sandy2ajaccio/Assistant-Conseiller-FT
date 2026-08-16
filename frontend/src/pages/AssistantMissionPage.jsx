@@ -336,6 +336,9 @@ const LIBELLES_SYNTHESE = {
   Competences: 'compétences',
   Reseau: 'réseau',
   'Autres ressources': 'autres ressources',
+  'Expérience professionnelle significative': 'une expérience professionnelle significative',
+  'Besoin de travailler le CV': 'la nécessité d’actualiser votre CV',
+  'Projet professionnel à préciser': 'la nécessité de clarifier votre projet professionnel',
 }
 
 const normaliserLibelleSynthese = (valeur) => {
@@ -344,6 +347,11 @@ const normaliserLibelleSynthese = (valeur) => {
   if (LIBELLES_SYNTHESE[texte]) return LIBELLES_SYNTHESE[texte]
   return texte.charAt(0).toLocaleLowerCase('fr-FR') + texte.slice(1)
 }
+
+const normaliserPourComparaison = (valeur) => String(valeur || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
 
 const ORIENTATIONS_SUIVI_SYNTHESE = {
   essentiel: 'Je vous oriente vers le suivi Essentiel de France Travail afin de soutenir vos démarches tout en maintenant votre autonomie.',
@@ -404,6 +412,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
   if (/^souhaite/i.test(resultat)) return resultat.replace(/^souhaite/i, 'vous souhaitez')
   if (/^recherche/i.test(resultat)) return resultat.replace(/^recherche/i, 'vous recherchez')
   if (/^ne sait plus/i.test(resultat)) return resultat.replace(/^ne sait plus/i, 'vous ne savez plus')
+  if (/^ne sait pas encore où il en est/i.test(resultat)) return resultat.replace(/^ne sait pas encore où il en est/i, 'vous ne savez pas encore où vous en êtes')
   if (/^ne sait pas/i.test(resultat)) return resultat.replace(/^ne sait pas/i, 'vous ne savez pas')
   if (/^pas de/i.test(resultat)) return resultat.replace(/^pas de/i, "vous n'avez pas de")
 
@@ -413,6 +422,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
+    .replace(/\bne sais pas où il en (?:ai|est)\b/gi, 'ne sait pas encore où il en est')
     .replace(/\s*;\s*/g, ', ')
     .split(/[.!?]+/)
     .map((phrase) => phrase.trim())
@@ -437,6 +447,7 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       // Les séparateurs capturés (indices impairs) sont réinjectés tels quels.
       if (index % 2 === 1) return partie
       const debutMinuscule = partie.charAt(0).toLowerCase() + partie.slice(1)
+      if (/^\d+\s*ans?\s+dans\b/i.test(debutMinuscule)) return `vous avez travaillé ${debutMinuscule}`
       if (/^\d+\s*ans?\b/i.test(debutMinuscule)) return `vous disposez de ${debutMinuscule}`
       if (/^(disponible|indisponible|autonome)\b/i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
       if (/^avec\s+une?\b/i.test(debutMinuscule)) return debutMinuscule.replace(/^avec\s+/i, 'vous avez ')
@@ -453,6 +464,7 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       index === 0 ? phrase : phrase.charAt(0).toLocaleUpperCase('fr-FR') + phrase.slice(1)
     ))
     .join('. ')
+    .replace(/vous n'avez pas de projet,\s*vous ne savez pas encore où vous en êtes,\s*vous avez besoin de réfléchir/gi, "vous n'avez pas encore de projet défini et vous avez besoin de temps pour y réfléchir")
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
@@ -1702,8 +1714,17 @@ function AssistantMissionPage() {
 
     const contexteUtile = situationUtileALaSynthese(contexte)
 
+    const demandeNormalisee = normaliserPourComparaison(ceQueDitLaPersonne)
+    const parcoursUtile = String(parcoursProfessionnel || '')
+      .split('·')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item) => !(/experience professionnelle significative/i.test(item) && /\d+\s*ans|experience|parcours/.test(demandeNormalisee)))
+      .filter((item) => !(/projet professionnel a preciser/i.test(normaliserPourComparaison(item)) && /sans projet|pas de projet|projet.*(?:definir|preciser)/.test(demandeNormalisee)))
+      .join(' · ')
+
     const parcoursEtProjet = [
-      parcoursProfessionnel.trim() ? `Votre parcours fait ressortir ${enListeNaturelle(parcoursProfessionnel)}.` : '',
+      parcoursUtile ? `Votre parcours fait ressortir ${enListeNaturelle(parcoursUtile)}.` : '',
       projet.trim() ? `Votre projet est de ${retirerAgeDeSynthese(projet.trim()).replace(/[.]+$/, '')}.` : '',
       contexteUtile ? `Concernant votre situation actuelle, nous retenons ${enListeNaturelle(contexteUtile)}.` : '',
     ].filter(Boolean).join(' ')
@@ -1715,8 +1736,23 @@ function AssistantMissionPage() {
     const ressourcesSyntheseUtiles = ressourcesSelectionnees.length > 1
       ? ressourcesSelectionnees
       : ressourcesSelectionnees.filter((item) => item !== 'Autres ressources')
-    if (freinsSynthese.length > 0) {
-      paragraphes.push(`Nous avons repéré des points de vigilance concernant ${formatListeCourte(freinsSynthese.map(normaliserLibelleSynthese))}.`)
+    const texteDejaExpose = normaliserPourComparaison(`${demande} ${contexteUtile} ${parcoursProfessionnel}`)
+    const motsClesFreins = {
+      mobilite: ['mobilite', 'transport'],
+      sante: ['sante', 'rqth', 'handicap'],
+      'sante / rqth': ['sante', 'rqth', 'handicap'],
+      finances: ['financ', 'budget', 'dette'],
+      'projet professionnel': ['projet'],
+      disponibilite: ['disponibilite', 'disponible'],
+      'competences numeriques': ['numerique', 'informatique'],
+    }
+    const freinsNonDejaCites = freinsSynthese.filter((frein) => {
+      const freinNormalise = normaliserPourComparaison(frein)
+      const cles = motsClesFreins[freinNormalise] || [freinNormalise]
+      return !cles.some((cle) => texteDejaExpose.includes(normaliserPourComparaison(cle)))
+    })
+    if (freinsNonDejaCites.length > 0) {
+      paragraphes.push(`Nous avons également repéré des points de vigilance concernant ${formatListeCourte(freinsNonDejaCites.map(normaliserLibelleSynthese))}.`)
     }
     if (ressourcesSyntheseUtiles.length > 0) {
       paragraphes.push(`Vos points d’appui sont ${formatListeCourte(ressourcesSyntheseUtiles.map(normaliserLibelleSynthese))}.`)
@@ -1742,10 +1778,6 @@ function AssistantMissionPage() {
       .filter(Boolean)
       .forEach((orientation) => paragraphes.push(orientation))
 
-    if (suiviPortefeuilleMutualise.commentaire?.trim()) {
-      paragraphes.push(`Suivi et prochaine action convenus : ${suiviPortefeuilleMutualise.commentaire.trim()}`)
-    }
-
     paragraphes.push(RAPPEL_PIX_FINAL)
 
     const texteFormalites = buildFormalitesSynthese(formalitesEntretien)
@@ -1766,7 +1798,6 @@ function AssistantMissionPage() {
     actionsRetenues,
     suiviAccompagnementChoisi,
     formalitesEntretien,
-    suiviPortefeuilleMutualise.commentaire,
   ])
 
   const formalitesCompletes = formalitesEntretienCompletes(formalitesEntretien)

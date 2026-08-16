@@ -7,7 +7,7 @@ export const CODES_SITUATION_OP2 = [
   { code: 'SA', label: 'Saisonnier' },
   { code: 'IA', label: 'Inscription administrative' },
   { code: 'RT', label: 'Retraité de 6 mois à 1 an' },
-  { code: 'DS', label: 'Suivi délégué (AEJ, CEJ, STF)' },
+  { code: 'DS', label: 'Suivi délégué (AIJ, CEJ, intensif FSE)' },
 ]
 
 export const normaliserCodeSituationOp2 = (value) => {

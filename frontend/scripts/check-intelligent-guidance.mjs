@@ -48,6 +48,7 @@ const suiviGlobal = analyserSuiviAccompagnement({
 })
 assert.equal(suiviGlobal.conseille, 'global')
 assert.ok(suiviGlobal.pistesSpecialisees.some((item) => item.id === 'glo'))
+assert.ok(suiviGlobal.aVerifier.some((item) => /Marie-Jeanne/.test(item)))
 
 const suiviEssentiel = analyserSuiviAccompagnement({
   demande: 'Recherche active emploi, disponible immédiatement et autonome',
@@ -73,7 +74,28 @@ const suiviIa = analyserSuiviAccompagnement({
   demande: 'Inscription administrative à vérifier',
   codeSituationOp2: 'IA',
 })
-assert.ok(suiviIa.aVerifier.some((item) => /ne pas convoquer/i.test(item)))
+assert.ok(suiviIa.aVerifier.some((item) => /ne (?:pas|jamais) convoquer/i.test(item)))
+
+const suiviRe = analyserSuiviAccompagnement({
+  demande: 'Recherche active et autonome',
+  projet: 'Employé administratif',
+  codeSituationOp2: 'RE',
+})
+assert.equal(suiviRe.conseille, 'essentiel')
+assert.ok(suiviRe.aVerifier.some((item) => /techniques de recherche d’emploi/.test(item)))
+
+const suiviPp = analyserSuiviAccompagnement({
+  demande: 'Projet professionnel à construire',
+  codeSituationOp2: 'PP',
+})
+assert.equal(suiviPp.conseille, 'renforce')
+
+const suiviDs = analyserSuiviAccompagnement({
+  demande: 'Suivi délégué à confirmer',
+  codeSituationOp2: 'DS',
+})
+assert.equal(suiviDs.conseille, 'renforce')
+assert.ok(suiviDs.aVerifier.some((item) => /AIJ, CEJ ou intensif FSE/.test(item)))
 
 const controlesSansSignal = analyserControlesAutomatiquesDossier({
   record: { identifiant: 'TEST001', profils: ['are'] },
@@ -112,5 +134,6 @@ assert.ok(sourcePage.includes('Je vous oriente vers le portefeuille GLO de Franc
 assert.ok(sourcePage.includes('Je vous oriente vers la prestation Regards croisés avec un psychologue du travail de France Travail afin d’approfondir votre situation et de préciser votre projet professionnel.'))
 assert.ok(sourcePortefeuille.includes('IA — ne pas convoquer'))
 assert.ok(sourcePortefeuille.includes('disabled={dossierInscriptionAdministrative}'))
+assert.ok(!sourcePage.includes('Suivi et prochaine action convenus : ${suiviPortefeuilleMutualise.commentaire.trim()}'))
 
 console.log('Copilote ADVP, catégories, suivi conseillé, contrôles automatiques M6/CRE, règle IA et anti-redondance vérifiés.')
