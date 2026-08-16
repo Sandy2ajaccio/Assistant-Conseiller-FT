@@ -2769,7 +2769,7 @@ function AssistantMissionPage() {
                       [`${actionsRetenues.length}`, 'Action(s)'],
                       [`${nombreAlertesPortefeuille + nombreAlertesSuivi + nombreAlertesRemobilisation}`, 'Alerte(s)'],
                     ].map(([value, label]) => (
-                      <Box key={label} sx={{ minWidth: 92, px: 1.25, py: 0.75, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                      <Box key={label} sx={{ minWidth: { xs: 68, sm: 92 }, flex: { xs: '1 1 68px', sm: '0 0 auto' }, px: 1.25, py: 0.75, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 950, lineHeight: 1 }}>{value}</Typography>
                         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)' }}>{label}</Typography>
                       </Box>
@@ -4568,18 +4568,19 @@ function AssistantMissionPage() {
             right: { xs: 12, md: 24 },
             bottom: { xs: 72, md: 74 },
             zIndex: 1350,
-            minHeight: 52,
-            px: { xs: 1.75, sm: 2.5 },
+            minHeight: { xs: 44, sm: 52 },
+            px: { xs: 1.4, sm: 2.5 },
             borderRadius: 999,
             bgcolor: '#6b3fa0',
             color: '#fff',
             fontWeight: 950,
-            fontSize: { xs: '0.82rem', sm: '0.95rem' },
+            fontSize: { xs: '0.76rem', sm: '0.95rem' },
             boxShadow: '0 10px 28px rgba(73,39,108,0.38)',
             '&:hover': { bgcolor: '#553080', transform: 'translateY(-1px)' },
           }}
         >
-          ✦ Synthèse automatique
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>✦ Synthèse automatique</Box>
+          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>✦ Synthèse</Box>
         </Button>
       ) : null}
     </Box>
