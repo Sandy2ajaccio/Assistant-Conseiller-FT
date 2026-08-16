@@ -348,12 +348,12 @@ const normaliserLibelleSynthese = (valeur) => {
 const ORIENTATIONS_SUIVI_SYNTHESE = {
   essentiel: 'Je vous oriente vers le suivi Essentiel de France Travail afin de soutenir vos démarches tout en maintenant votre autonomie.',
   renforce: 'Je vous oriente vers un suivi Renforcé de France Travail afin de structurer plus régulièrement votre projet et vos démarches.',
-  global: 'Je vous oriente vers le portefeuille Accompagnement Global (GLO) de France Travail afin de coordonner les dimensions sociales et professionnelles de votre parcours. Cette orientation sera mise en œuvre après confirmation du circuit interne et du professionnel référent.',
+  global: 'Je vous oriente vers le portefeuille GLO de France Travail afin de coordonner les aspects sociaux et professionnels de votre parcours.',
 }
 
 const formulerOrientationRetenue = (item = {}) => {
   if (/regards? croisés/i.test(item.nom || '')) {
-    return 'Je vous propose la prestation Regards croisés avec un psychologue du travail de France Travail afin d’approfondir votre situation professionnelle et de préciser la suite de votre parcours. Le rendez-vous et le circuit de liaison vous seront confirmés.'
+    return 'Je vous oriente vers la prestation Regards croisés avec un psychologue du travail de France Travail afin d’approfondir votre situation et de préciser votre projet professionnel.'
   }
 
   const nom = String(item.nom || '').trim()
