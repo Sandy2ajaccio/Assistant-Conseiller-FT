@@ -25,7 +25,7 @@ const categoryFor = (status, deadline) => {
 const buildItems = (dossiers) => dossiers.flatMap((entry) => {
   const dossier = entry.dossier || {}
   const record = entry.portfolioRecord || {}
-  const identity = [record.nom, record.prenom].filter(Boolean).join(' ') || entry.identifiant
+  const identity = entry.identifiant
   const deadline = normalize(record.echeance || record.dateRappel)
   const selected = Array.isArray(dossier.actionsRetenues) ? dossier.actionsRetenues : []
   const actions = selected.map((action) => {
@@ -163,7 +163,6 @@ export default function PrescriptionFollowUp({ dossiers, onOpen }) {
         >
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 900 }}>{item.identity}</Typography>
-            <Typography variant="caption" color="text.secondary">{item.identifiant}</Typography>
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.action}</Typography>
           <Chip size="small" variant="outlined" label={item.type} />

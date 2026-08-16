@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { syncPortfolioToCloud } from './cloudPersistenceService'
+import { syncPortfolioToCloud } from './cloudPersistenceService.js'
 
 const IMPORT_STORAGE_KEY = 'cap-decision:portefeuille-imports'
 const portefeuilleInitial = []
@@ -57,6 +57,19 @@ const normalizeHeader = (value) => String(value || '')
 
 const text = (value) => String(value ?? '').trim()
 const normalizeIdentifier = (value) => text(value).toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+export const anonymiserPortfolioRecord = (record = {}) => {
+  const {
+    nom: _nom,
+    prenom: _prenom,
+    prénom: _prenomAccentue,
+    name: _name,
+    firstName: _firstName,
+    lastName: _lastName,
+    ...recordAnonymise
+  } = record || {}
+  return recordAnonymise
+}
 const numberOrEmpty = (value) => {
   const raw = text(value).replace(',', '.')
   if (!raw) return ''
@@ -143,11 +156,9 @@ const normaliserCivilite = (value) => {
   return ''
 }
 
-const mapRow = (row) => ({
+export const mapPortfolioRow = (row) => ({
   priorite: readValue(row, 'Priorité'),
   civilite: normaliserCivilite(readValue(row, 'Civilité') || readValue(row, 'Civilite')),
-  nom: readValue(row, 'Nom'),
-  prenom: readValue(row, 'Prénom'),
   identifiant: normalizeIdentifier(readValue(row, 'Identifiant')),
   age: numberOrEmpty(readValue(row, 'Age') || readValue(row, 'Âge')),
   profils: readProfiles(row),
@@ -181,11 +192,11 @@ const mapRow = (row) => ({
 })
 
 const mergeNonEmptyFields = (existing = {}, incoming = {}) => {
-  const merged = { ...existing }
-  Object.entries(incoming).forEach(([key, value]) => {
+  const merged = { ...anonymiserPortfolioRecord(existing) }
+  Object.entries(anonymiserPortfolioRecord(incoming)).forEach(([key, value]) => {
     if (key === 'identifiant' || text(value)) merged[key] = value
   })
-  return merged
+  return anonymiserPortfolioRecord(merged)
 }
 
 const hasUsefulChange = (existing = {}, incoming = {}) => Object.entries(incoming)
@@ -194,9 +205,10 @@ const hasUsefulChange = (existing = {}, incoming = {}) => Object.entries(incomin
 const deduplicateRecords = (records) => {
   const byId = new Map()
   records.forEach((record) => {
-    const identifiant = normalizeIdentifier(record.identifiant)
+    const recordAnonymise = anonymiserPortfolioRecord(record)
+    const identifiant = normalizeIdentifier(recordAnonymise.identifiant)
     if (!identifiant) return
-    byId.set(identifiant, mergeNonEmptyFields(byId.get(identifiant), { ...record, identifiant }))
+    byId.set(identifiant, mergeNonEmptyFields(byId.get(identifiant), { ...recordAnonymise, identifiant }))
   })
   return [...byId.values()]
 }
@@ -204,7 +216,7 @@ const deduplicateRecords = (records) => {
 const readImportedRecords = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem(IMPORT_STORAGE_KEY) || '[]')
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map(anonymiserPortfolioRecord) : []
   } catch {
     return []
   }
@@ -223,8 +235,6 @@ export const listPortfolioRecords = () => {
 export const savePortfolioRecord = async (record) => {
   const identifiant = normalizeIdentifier(record?.identifiant)
   const civilite = text(record?.civilite)
-  const nom = text(record?.nom)
-  const prenom = text(record?.prenom)
   const age = numberOrEmpty(record?.age)
 
   if (!identifiant) throw new Error('Le numéro France Travail est obligatoire.')
@@ -235,11 +245,9 @@ export const savePortfolioRecord = async (record) => {
   const byId = new Map(previous.map((item) => [item.identifiant, item]))
   const existing = byId.get(identifiant)
   const savedRecord = mergeNonEmptyFields(existing, {
-    ...record,
+    ...anonymiserPortfolioRecord(record),
     identifiant,
     civilite,
-    nom,
-    prenom,
     age,
     updatedAt: new Date().toISOString(),
     source: existing?.source || 'saisie-manuelle',
@@ -360,8 +368,6 @@ export const exportPortfolioWorkbook = (filters = {}) => {
   const rows = records.map((record) => ({
     Identifiant: record.identifiant,
     Civilité: record.civilite,
-    Nom: record.nom,
-    Prénom: record.prenom,
     Âge: record.age,
     "Profils et situations": [...profileIdsForRecord(record)]
       .map((id) => PORTFOLIO_PROFILE_OPTIONS.find((option) => option.id === id)?.label || id)
@@ -382,7 +388,7 @@ export const exportPortfolioWorkbook = (filters = {}) => {
   }))
   const worksheet = XLSX.utils.json_to_sheet(rows)
   worksheet['!cols'] = [
-    { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 7 }, { wch: 48 }, { wch: 18 },
+    { wch: 18 }, { wch: 12 }, { wch: 7 }, { wch: 48 }, { wch: 18 },
     { wch: 24 }, { wch: 30 }, { wch: 18 }, { wch: 12 }, { wch: 24 }, { wch: 24 },
     { wch: 24 }, { wch: 24 }, { wch: 18 }, { wch: 28 }, { wch: 18 }, { wch: 40 },
   ]
@@ -401,7 +407,7 @@ export const importPortfolioWorkbook = async (file) => {
   if (!sheet) throw new Error('Le classeur ne contient aucune feuille exploitable.')
 
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false })
-  const mapped = rows.map(mapRow).filter((record) => record.identifiant)
+  const mapped = rows.map(mapPortfolioRow).filter((record) => record.identifiant)
   if (mapped.length === 0) {
     throw new Error('Aucun demandeur reconnu. Vérifiez la colonne Identifiant (numéro France Travail).')
   }
@@ -455,7 +461,7 @@ export const importPortfolioWorkbook = async (file) => {
 }
 
 export const portfolioRecordToDossier = (record) => ({
-  ...record,
+  ...anonymiserPortfolioRecord(record),
   dossierStatut: record.statut || 'importé',
   besoinIdentifieConseiller: [record.prestation, record.atelier, record.formation].filter(Boolean).join(' · '),
   ceQueDitLaPersonne: record.commentaires || record.motif || '',

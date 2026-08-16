@@ -36,8 +36,6 @@ const RETIREMENT_ALERT_STYLES = {
 const emptyRecord = {
   identifiant: '',
   civilite: '',
-  nom: '',
-  prenom: '',
   age: '',
   profils: [],
   dateInscription: '',
@@ -112,7 +110,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             Ajouter ou mettre à jour un demandeur
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Un identifiant déjà présent sera mis à jour, sans créer de doublon. Les profils sélectionnés alimentent les filtres d’export.
+            Un numéro France Travail déjà présent sera mis à jour sans doublon. Aucun nom ni prénom n’est affiché ou enregistré.
           </Typography>
           <Box
             sx={{
@@ -172,7 +170,7 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
             </Button>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-            Import Excel : utilisez une colonne « Profils et situations » séparée par des points-virgules, ou des colonnes RQTH, RSA, ARE, QPV, Mobilité… contenant « Oui ».
+            Import Excel anonymisé : seules les données de suivi rattachées au numéro FT sont conservées. Les colonnes « Nom » et « Prénom » sont ignorées.
           </Typography>
           {saveError ? <Alert severity="error" sx={{ mt: 1 }}>{saveError}</Alert> : null}
           {saveStatus ? <Alert severity="success" sx={{ mt: 1 }}>{saveStatus}</Alert> : null}

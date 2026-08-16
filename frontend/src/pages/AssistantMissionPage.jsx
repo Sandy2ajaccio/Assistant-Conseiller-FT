@@ -2935,6 +2935,59 @@ function AssistantMissionPage() {
           </Grid>
         </Paper>
 
+        <Paper
+          variant="outlined"
+          sx={{
+            position: 'sticky',
+            top: 8,
+            zIndex: 20,
+            p: 1,
+            borderRadius: 2.5,
+            borderWidth: 2,
+            borderColor: '#80a9cb',
+            bgcolor: 'rgba(255,255,255,0.97)',
+            boxShadow: '0 5px 18px rgba(15,55,88,0.16)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.8} alignItems={{ sm: 'center' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#173f67', mr: { sm: 1 } }}>
+              Suivi du dossier
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={enregistrerAnalyse}
+              disabled={workspaceTab === 'sauvegardes' || !identifiantDemandeur.trim()}
+              sx={{ fontWeight: 950, whiteSpace: 'nowrap' }}
+            >
+              Enregistrer maintenant
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => portfolioFileInputRef.current?.click()}
+              sx={{ fontWeight: 950, whiteSpace: 'nowrap' }}
+            >
+              Importer un fichier Excel
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => (workspaceTab === 'sauvegardes' ? setWorkspaceTab('entretien') : ouvrirListeAnalyses())}
+              sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}
+            >
+              {workspaceTab === 'sauvegardes' ? 'Retour au dossier' : 'Ouvrir mes sauvegardes'}
+            </Button>
+            <Typography variant="caption" sx={{ ml: { sm: 'auto' }, color: '#41637e', fontWeight: 800 }}>
+              Import anonymisé : aucun nom ni prénom conservé
+            </Typography>
+          </Stack>
+          {storageStatus || portfolioImportStatus ? (
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.6, color: '#173f67', fontWeight: 800 }}>
+              {portfolioImportStatus || storageStatus}
+            </Typography>
+          ) : null}
+        </Paper>
+
         {workspaceTab !== 'sauvegardes' ? (
           <PortefeuilleMissionStart
             onOpenPortfolio={() => allerASection('section-portefeuille-mutualise', 'portefeuilleMutualise')}

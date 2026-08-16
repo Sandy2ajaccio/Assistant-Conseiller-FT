@@ -73,7 +73,7 @@ const buildWorkItem = (entry) => {
     hasContact,
     callbackPending,
     hasNextAction,
-    identity: [record.nom, record.prenom].filter(Boolean).join(' ') || entry.identifiant,
+    identity: entry.identifiant,
     lastContact: record.historiqueEntretiens
       || record.historiqueAppels
       || record.historiqueMails
@@ -231,7 +231,7 @@ const DailyWorkQueue = ({ dossiers, selectedDossierId, onSelect, onOpen }) => {
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" noWrap sx={{ fontWeight: 900 }}>{item.identity}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {item.identifiant}{item.portfolioRecord?.age ? ` · ${item.portfolioRecord.age} ans` : ''}
+              {item.portfolioRecord?.age ? `${item.portfolioRecord.age} ans` : 'Dossier anonymisé'}
             </Typography>
           </Box>
           <Chip

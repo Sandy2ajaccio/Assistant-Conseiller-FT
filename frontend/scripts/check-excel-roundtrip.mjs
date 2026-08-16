@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import * as XLSX from 'xlsx'
+import { anonymiserPortfolioRecord, mapPortfolioRow } from '../src/services/portfolioImportService.js'
 
 const workbook = XLSX.utils.book_new()
 const worksheet = XLSX.utils.json_to_sheet([
@@ -25,4 +26,12 @@ assert.equal(parsedRows[0].Prénom, 'Camille')
 assert.equal(parsedRows[0].Âge, 42)
 assert.equal(parsedRows[0].RQTH, 'Oui')
 
-console.log('Import/export Excel vérifié avec SheetJS 0.20.3.')
+const mapped = mapPortfolioRow(parsedRows[0])
+assert.equal(mapped.identifiant, 'TEST123')
+assert.equal(mapped.nom, undefined)
+assert.equal(mapped.prenom, undefined)
+
+const anonymised = anonymiserPortfolioRecord({ identifiant: 'TEST123', nom: 'EXEMPLE', prenom: 'Camille', age: 42 })
+assert.deepEqual(anonymised, { identifiant: 'TEST123', age: 42 })
+
+console.log('Import/export Excel vérifié avec anonymisation Nom/Prénom et identifiant FT conservé.')
