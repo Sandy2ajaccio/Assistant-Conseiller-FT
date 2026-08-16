@@ -22,17 +22,11 @@ import {
 import {
   countPortfolioRecordsForExport,
   exportPortfolioWorkbook,
-  getRetirementAlertLevel,
   listPortfolioRecords,
   PORTFOLIO_PROFILE_OPTIONS,
   savePortfolioRecord,
 } from '../services/portfolioImportService'
-
-const RETIREMENT_ALERT_STYLES = {
-  imminente: { label: 'Retraite < 6 mois', color: 'error' },
-  proche: { label: 'Retraite 6-12 mois', color: 'warning' },
-  depassee: { label: 'Date dépassée', color: 'default' },
-}
+import { getPortfolioAlertSummary } from '../services/portfolioAlertsService'
 
 const emptyRecord = {
   identifiant: '',
@@ -63,6 +57,9 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
     profileMode: 'any',
   })
   const [exportStatus, setExportStatus] = useState('')
+  const [portfolioSearch, setPortfolioSearch] = useState('')
+  const [alertFilter, setAlertFilter] = useState('alerts')
+  const [expandedAlertId, setExpandedAlertId] = useState('')
 
   const exportCount = useMemo(
     () => countPortfolioRecordsForExport(filters),
@@ -73,6 +70,28 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
     () => listPortfolioRecords(),
     [portfolioVersion],
   )
+
+  const alertSummary = useMemo(
+    () => getPortfolioAlertSummary(allRecords),
+    [allRecords],
+  )
+
+  const displayedRecords = useMemo(() => {
+    const search = portfolioSearch.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    return alertSummary.details
+      .filter(({ record: item, alerts }) => {
+        if (search && !String(item.identifiant || '').toUpperCase().includes(search)) return false
+        if (alertFilter === 'urgent') return alerts.some((alert) => alert.niveau === 'error')
+        if (alertFilter === 'alerts') return alerts.length > 0
+        if (alertFilter === 'current') return alerts.length === 0
+        return true
+      })
+      .sort((a, b) => {
+        const priorityA = a.alerts[0]?.priorite || 0
+        const priorityB = b.alerts[0]?.priorite || 0
+        return priorityB - priorityA || String(a.record.identifiant).localeCompare(String(b.record.identifiant), 'fr')
+      })
+  }, [alertSummary, alertFilter, portfolioSearch])
 
   const updateRecord = (field) => (event) => {
     setRecord((current) => ({ ...current, [field]: event.target.value }))
@@ -291,6 +310,49 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
         <Typography variant="h6" sx={{ fontWeight: 900, color: '#173f67' }}>
           Demandeurs enregistrés ({allRecords.length})
         </Typography>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, minmax(0, 1fr))' },
+            gap: 1,
+            my: 1.25,
+          }}
+        >
+          {[
+            ['error', alertSummary.dossiersUrgents, 'Dossiers urgents'],
+            ['warning', alertSummary.dossiersAvecAlertes, 'Dossiers à traiter'],
+            ['primary', alertSummary.totalAlertes, 'Alertes détectées'],
+            ['success', alertSummary.dossiersAJour, 'Dossiers à jour'],
+          ].map(([color, value, label]) => (
+            <Paper key={label} variant="outlined" sx={{ p: 1, borderColor: `${color}.main` }}>
+              <Typography variant="h6" sx={{ fontWeight: 950, color: `${color}.main` }}>{value}</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 800 }}>{label}</Typography>
+            </Paper>
+          ))}
+        </Box>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mb: 1 }}>
+          <TextField
+            size="small"
+            label="Rechercher un numéro FT"
+            value={portfolioSearch}
+            onChange={(event) => setPortfolioSearch(event.target.value)}
+            sx={{ minWidth: 260 }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Priorité de suivi"
+            value={alertFilter}
+            onChange={(event) => setAlertFilter(event.target.value)}
+            sx={{ minWidth: 260 }}
+          >
+            <MenuItem value="alerts">À traiter en priorité</MenuItem>
+            <MenuItem value="urgent">Urgences uniquement</MenuItem>
+            <MenuItem value="current">Dossiers à jour</MenuItem>
+            <MenuItem value="all">Tous les dossiers</MenuItem>
+          </TextField>
+          <Chip label={`${displayedRecords.length} dossier(s) affiché(s)`} color="primary" variant="outlined" sx={{ alignSelf: { md: 'center' }, fontWeight: 850 }} />
+        </Stack>
         {allRecords.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Aucun demandeur enregistré pour le moment.
@@ -310,9 +372,8 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {allRecords.map((item) => {
-                  const alertLevel = getRetirementAlertLevel(item)
-                  const alertStyle = alertLevel ? RETIREMENT_ALERT_STYLES[alertLevel] : null
+                {displayedRecords.map(({ record: item, alerts }) => {
+                  const alertsToShow = expandedAlertId === item.identifiant ? alerts : alerts.slice(0, 2)
                   return (
                     <TableRow key={item.identifiant}>
                       <TableCell>{item.identifiant}</TableCell>
@@ -325,9 +386,28 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
                       <TableCell>{item.age || '—'}</TableCell>
                       <TableCell>{item.dateRetraitePrevisionnelle || '—'}</TableCell>
                       <TableCell>
-                        {alertStyle ? (
-                          <Chip size="small" label={alertStyle.label} color={alertStyle.color} sx={{ fontWeight: 700 }} />
-                        ) : '—'}
+                        {alerts.length === 0 ? (
+                          <Chip size="small" color="success" label="Suivi à jour" sx={{ fontWeight: 800 }} />
+                        ) : (
+                          <Stack spacing={0.65} sx={{ minWidth: 330 }}>
+                            {alertsToShow.map((alert) => (
+                              <Alert key={alert.id} severity={alert.niveau} sx={{ py: 0.2, px: 0.75, '& .MuiAlert-message': { py: 0.2 } }}>
+                                <Typography variant="caption" sx={{ display: 'block', fontWeight: 950 }}>{alert.titre}</Typography>
+                                <Typography variant="caption">{alert.action}</Typography>
+                              </Alert>
+                            ))}
+                            {alerts.length > 2 ? (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => setExpandedAlertId((current) => current === item.identifiant ? '' : item.identifiant)}
+                                sx={{ alignSelf: 'flex-start', fontWeight: 850 }}
+                              >
+                                {expandedAlertId === item.identifiant ? 'Réduire les alertes' : `Voir les ${alerts.length} alertes`}
+                              </Button>
+                            ) : null}
+                          </Stack>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.75}>

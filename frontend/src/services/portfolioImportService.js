@@ -294,6 +294,7 @@ export const savePortfolioRecord = async (record) => {
 }
 
 export const buildPortfolioPatchFromDossier = (dossier = {}) => ({
+  civilite: text(dossier.civilite),
   situationAdministrative: text(dossier.situationAdministrative),
   situationPersonnelle: text(dossier.situationPersonnelle),
   parcoursProfessionnel: text(dossier.parcoursProfessionnel),

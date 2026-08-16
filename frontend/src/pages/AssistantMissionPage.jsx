@@ -520,6 +520,7 @@ function AssistantMissionPage() {
 
   const [portfolioImportStatus, setPortfolioImportStatus] = useState('')
   const [identifiantDemandeur, setIdentifiantDemandeur] = useState('')
+  const [civiliteDemandeur, setCiviliteDemandeur] = useState('')
   const [typeEntretien, setTypeEntretien] = useState(DEFAULT_TYPE_ENTRETIEN)
 
   const sectionsOuvertesParDefaut = (type) => ({
@@ -707,6 +708,15 @@ function AssistantMissionPage() {
       String(item.identifiant || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === identifiantNormalise
     )) || null
   }, [identifiantDemandeur, portfolioImportStatus])
+  useEffect(() => {
+    if (!identifiantDemandeur.trim()) {
+      setCiviliteDemandeur('')
+      return
+    }
+    if (demandeurDuPortefeuille) {
+      setCiviliteDemandeur(demandeurDuPortefeuille.civilite || '')
+    }
+  }, [identifiantDemandeur, demandeurDuPortefeuille?.identifiant])
   const controlesAutomatiquesDossier = useMemo(() => analyserControlesAutomatiquesDossier({
     record: demandeurDuPortefeuille || {},
     dossier: {
@@ -2032,6 +2042,7 @@ function AssistantMissionPage() {
 
     const dossier = result.dossier || {}
     setIdentifiantDemandeur(entryId)
+    setCiviliteDemandeur(dossier.civilite || '')
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setCategorieActuelle(dossier.categorieActuelle || '')
@@ -2243,6 +2254,7 @@ function AssistantMissionPage() {
 
   const buildSnapshot = () => ({
     identifiant: identifiantDemandeur,
+    civilite: civiliteDemandeur,
     typeEntretien,
     situationAdministrative,
     categorieActuelle,
@@ -2309,6 +2321,7 @@ function AssistantMissionPage() {
       if (brut) {
         const dossier = JSON.parse(brut)
         setIdentifiantDemandeur(dossier.identifiant || '')
+        setCiviliteDemandeur(dossier.civilite || '')
         setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
         setSituationAdministrative(dossier.situationAdministrative || '')
         setCategorieActuelle(dossier.categorieActuelle || '')
@@ -2377,6 +2390,7 @@ function AssistantMissionPage() {
   }, [
     brouillonAutomatiquePret,
     identifiantDemandeur,
+    civiliteDemandeur,
     typeEntretien,
     situationAdministrative,
     categorieActuelle,
@@ -2471,6 +2485,7 @@ function AssistantMissionPage() {
 
     const dossier = result.dossier || {}
     setIdentifiantDemandeur(id)
+    setCiviliteDemandeur(dossier.civilite || '')
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setCategorieActuelle(dossier.categorieActuelle || '')
@@ -2562,6 +2577,7 @@ function AssistantMissionPage() {
       suppressionCloudSynced = suppression.cloudSynced !== false
     }
     setIdentifiantDemandeur('')
+    setCiviliteDemandeur('')
     setTypeEntretien(DEFAULT_TYPE_ENTRETIEN)
     setSituationAdministrative('')
     setCategorieActuelle('')
@@ -2839,17 +2855,34 @@ function AssistantMissionPage() {
           }}
         >
           <Grid container spacing={1} alignItems="center">
-            <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+            <Grid size={{ xs: 12, sm: 6, lg: 2.1 }}>
               <TextField
                 id="identifiant-france-travail"
                 label="Identifiant France Travail"
                 value={identifiantDemandeur}
-                onChange={(event) => setIdentifiantDemandeur(event.target.value)}
+                onChange={(event) => {
+                  setIdentifiantDemandeur(event.target.value)
+                  setCiviliteDemandeur('')
+                }}
                 fullWidth
                 size="small"
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.8 }}>
+            <Grid size={{ xs: 12, sm: 3, lg: 1.3 }}>
+              <TextField
+                select
+                label="Civilité"
+                value={civiliteDemandeur}
+                onChange={(event) => setCiviliteDemandeur(event.target.value)}
+                fullWidth
+                size="small"
+              >
+                <MenuItem value="">À renseigner</MenuItem>
+                <MenuItem value="Mr">Mr</MenuItem>
+                <MenuItem value="Mme">Mme</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, lg: 2.5 }}>
               <TextField
                 select
                 label="Type de rendez-vous"
@@ -2863,15 +2896,15 @@ function AssistantMissionPage() {
                 ))}
               </TextField>
             </Grid>
-            <Grid size={{ xs: 6, sm: 3, lg: 1.2 }}>
+            <Grid size={{ xs: 6, sm: 3, lg: 1 }}>
               <Typography variant="caption" color="text.secondary">Durée</Typography>
               <Typography variant="body2" sx={{ fontWeight: 900 }}>{dureeRendezVous}</Typography>
             </Grid>
-            <Grid size={{ xs: 6, sm: 3, lg: 1.5 }}>
+            <Grid size={{ xs: 6, sm: 3, lg: 1.3 }}>
               <Typography variant="caption" color="text.secondary">Conseiller</Typography>
               <Typography variant="body2" sx={{ fontWeight: 900 }}>Conseiller FT</Typography>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 2.1 }}>
+            <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Box>
                   <Typography variant="caption" color="text.secondary">Temps restant</Typography>
@@ -2901,7 +2934,7 @@ function AssistantMissionPage() {
                 </Button>
               </Stack>
             </Grid>
-            <Grid size={{ xs: 12, lg: 2 }}>
+            <Grid size={{ xs: 12, lg: 1.8 }}>
               <Stack direction="row" spacing={0.75} justifyContent={{ lg: 'flex-end' }} alignItems="center">
                 <Chip
                   size="small"
