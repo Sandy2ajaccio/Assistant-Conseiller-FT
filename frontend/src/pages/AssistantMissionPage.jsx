@@ -367,8 +367,11 @@ const conjuguerA3emePersonneVersVous = (segment) => {
     const radical = verbeMinuscule.slice(0, -1)
     return `vous ${radical}ez`
   })
+  if (/^envisage de se/i.test(resultat)) return resultat.replace(/^envisage de se/i, 'vous envisagez de vous')
   if (/^envisage/i.test(resultat)) return resultat.replace(/^envisage/i, 'vous envisagez')
+  if (/^ne souhaite se/i.test(resultat)) return resultat.replace(/^ne souhaite se/i, 'vous ne souhaitez vous')
   if (/^ne souhaite/i.test(resultat)) return resultat.replace(/^ne souhaite/i, 'vous ne souhaitez')
+  if (/^souhaite se/i.test(resultat)) return resultat.replace(/^souhaite se/i, 'vous souhaitez vous')
   if (/^souhaite/i.test(resultat)) return resultat.replace(/^souhaite/i, 'vous souhaitez')
   if (/^recherche/i.test(resultat)) return resultat.replace(/^recherche/i, 'vous recherchez')
   if (/^ne sait plus/i.test(resultat)) return resultat.replace(/^ne sait plus/i, 'vous ne savez plus')
@@ -381,13 +384,14 @@ const conjuguerA3emePersonneVersVous = (segment) => {
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
-    .replace(/\s*;\s*/g, '. ')
+    .replace(/\s*;\s*/g, ', ')
     .split(/[.!?]+/)
     .map((phrase) => phrase.trim())
     .filter(Boolean)
 
   const phrasesReformulees = phrases.map((phrase) => {
     const phraseNormalisee = phrase
+      .replace(/^personne\s+sans\s+emploi\b/i, 'vous êtes sans emploi')
       .replace(/\bRégion\b/g, 'région')
       .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
       .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
@@ -403,6 +407,8 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       if (index % 2 === 1) return partie
       const debutMinuscule = partie.charAt(0).toLowerCase() + partie.slice(1)
       if (/^\d+\s*ans?\b/i.test(debutMinuscule)) return `vous disposez de ${debutMinuscule}`
+      if (/^(disponible|indisponible|autonome)\b/i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
+      if (/^avec\s+une?\b/i.test(debutMinuscule)) return debutMinuscule.replace(/^avec\s+/i, 'vous avez ')
       if (/^sans /i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
       if (/^vous\b/i.test(debutMinuscule)) return debutMinuscule
       return conjuguerA3emePersonneVersVous(debutMinuscule)
@@ -411,7 +417,11 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     return propositionsReformulees.join('')
   })
 
-  return phrasesReformulees.join('. ')
+  return phrasesReformulees
+    .map((phrase, index) => (
+      index === 0 ? phrase : phrase.charAt(0).toLocaleUpperCase('fr-FR') + phrase.slice(1)
+    ))
+    .join('. ')
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
