@@ -354,9 +354,9 @@ const normaliserPourComparaison = (valeur) => String(valeur || '')
   .replace(/[\u0300-\u036f]/g, '')
 
 const ORIENTATIONS_SUIVI_SYNTHESE = {
-  essentiel: 'Je vous oriente vers le suivi Essentiel de France Travail afin de soutenir vos démarches tout en maintenant votre autonomie.',
-  renforce: 'Je vous oriente vers un suivi Renforcé de France Travail afin de structurer plus régulièrement votre projet et vos démarches.',
-  global: 'Je vous oriente vers le portefeuille GLO de France Travail afin de coordonner les aspects sociaux et professionnels de votre parcours.',
+  essentiel: 'Je demande votre transfert vers le mode d’accompagnement Essentiel, adapté à votre situation.',
+  renforce: 'Je demande votre transfert vers le mode d’accompagnement Renforcé, adapté à votre situation.',
+  global: 'Je demande votre transfert vers le mode d’accompagnement Global, adapté à votre situation.',
 }
 
 const formulerOrientationRetenue = (item = {}) => {
@@ -448,7 +448,8 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       // Les séparateurs capturés (indices impairs) sont réinjectés tels quels.
       if (index % 2 === 1) return partie
       const debutMinuscule = partie.charAt(0).toLowerCase() + partie.slice(1)
-      if (/^\d+\s*ans?\s+dans\b/i.test(debutMinuscule)) return `vous avez travaillé ${debutMinuscule}`
+      const experienceDans = debutMinuscule.match(/^(\d+\s*ans?)(?:\s+d['’]expérience)?\s+dans\s+(.+)$/i)
+      if (experienceDans) return `vous disposez de ${experienceDans[1]} d’expérience dans ${experienceDans[2]}`
       if (/^\d+\s*ans?\b/i.test(debutMinuscule)) return `vous disposez de ${debutMinuscule}`
       if (/^(disponible|indisponible|autonome)\b/i.test(debutMinuscule)) return `vous êtes ${debutMinuscule}`
       if (/^avec\s+une?\b/i.test(debutMinuscule)) return debutMinuscule.replace(/^avec\s+/i, 'vous avez ')
@@ -467,6 +468,7 @@ const reformulerRecitPourDemandeur = (texteSource) => {
     .join('. ')
     .replace(/,\s*vous ne souhaitez/gi, ' et que vous ne souhaitez')
     .replace(/vous n'avez pas de projet,\s*vous ne savez pas encore où vous en êtes,\s*vous avez besoin de réfléchir/gi, "Vous n'avez pas encore de projet défini et vous avez besoin de temps pour y réfléchir")
+    .replace(/\. Vous n'avez pas encore de projet défini et vous avez besoin de temps pour y réfléchir/gi, ", que vous n'avez pas encore de projet défini et que vous avez besoin de temps pour y réfléchir")
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
@@ -546,6 +548,7 @@ function AssistantMissionPage() {
   }
   const [situationAdministrative, setSituationAdministrative] = useState('')
   const [categorieActuelle, setCategorieActuelle] = useState('')
+  const [categorieDemandee, setCategorieDemandee] = useState('')
   const [situationPersonnelle, setSituationPersonnelle] = useState('')
   const [parcoursProfessionnel, setParcoursProfessionnel] = useState('')
   const [ceQueDitLaPersonne, setCeQueDitLaPersonne] = useState('')
@@ -1659,7 +1662,6 @@ function AssistantMissionPage() {
   const syntheseEntretien = useMemo(() => {
     const paragraphes = []
     const demande = ceQueDitLaPersonne.trim() || besoinIdentifieConseiller.trim()
-    const contexte = [situationAdministrative, situationPersonnelle].map((item) => item.trim()).filter(Boolean).join(' · ')
 
     paragraphes.push(
       demande
@@ -1667,101 +1669,59 @@ function AssistantMissionPage() {
         : "Vous avez été reçu(e) ce jour dans le cadre de votre accompagnement par France Travail.",
     )
 
-    // Les champs multi-sélection (parcours, situations) sont stockés en interne comme une
-    // liste jointe par « · » pour un affichage compact côté cockpit. Pour la synthèse en
-    // prose destinée à la personne, on les remet en forme comme une liste naturelle
-    // ("A, B et C") avec formatListeCourte plutôt que de recopier les puces telles quelles.
-    const enListeNaturelle = (texteAvecPuces) =>
-      formatListeCourte(
-        String(texteAvecPuces || '')
-          .split('·')
-          .map(normaliserLibelleSynthese)
-          .filter(Boolean),
-      )
-
-    // Statuts purement administratifs ou déjà évidents pour la personne : ils sont utiles
-    // au conseiller dans le cockpit mais n'apportent rien dans une synthèse qui lui est lue.
-    // On ne garde dans "Votre situation actuelle" que les éléments concrets (mobilité,
-    // logement, garde d'enfants, santé, permis, RQTH...).
-    const LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE = new Set([
-      'Inscription France Travail active',
-      'Actualisation à jour',
-      'Contrat d’engagement signé',
-      'Contrat d’engagement à signer',
-      'Indemnisation ARE',
-      'Allocation ASS',
-      'Bénéficiaire du RSA',
-      'BRSA sans orientation enregistrée',
-      'Primo-inscrit',
-      'Réinscrit après plus de 10 ans',
-      'Catégorie 1',
-      'Catégorie 2',
-      'Catégorie 3',
-      'Orientation Collectivité / Conseil départemental',
-      'Sans indemnisation',
-      'Titre de séjour valide',
-      'Titre de séjour à renouveler',
-      'Manquement ou absence à traiter',
-      'Démarche administrative en cours',
-      'À l’aise avec le numérique',
-      'Maîtrise du français',
-      'Disponible immédiatement',
-    ])
-    const situationUtileALaSynthese = (texteAvecPuces) =>
-      String(texteAvecPuces || '')
-        .split('·')
-        .map((item) => item.trim())
-        .filter((item) => item && !LIBELLES_ADMINISTRATIFS_EXCLUS_DE_LA_SYNTHESE.has(item))
-        .join(' · ')
-
-    const contexteUtile = situationUtileALaSynthese(contexte)
-
-    const demandeNormalisee = normaliserPourComparaison(ceQueDitLaPersonne)
-    const parcoursUtile = String(parcoursProfessionnel || '')
+    const parcoursItems = String(parcoursProfessionnel || '')
       .split('·')
       .map((item) => item.trim())
       .filter(Boolean)
-      .filter((item) => !(/experience professionnelle significative/i.test(item) && /\d+\s*ans|experience|parcours/.test(demandeNormalisee)))
-      .filter((item) => !(/projet professionnel a preciser/i.test(normaliserPourComparaison(item)) && /sans projet|pas de projet|projet.*(?:definir|preciser)/.test(demandeNormalisee)))
-      .join(' · ')
-
-    const parcoursEtProjet = [
-      parcoursUtile ? `Votre parcours fait ressortir ${enListeNaturelle(parcoursUtile)}.` : '',
-      projet.trim() ? `Votre projet est de ${retirerAgeDeSynthese(projet.trim()).replace(/[.]+$/, '')}.` : '',
-      contexteUtile ? `Concernant votre situation actuelle, nous retenons ${enListeNaturelle(contexteUtile)}.` : '',
-    ].filter(Boolean).join(' ')
-    if (parcoursEtProjet) paragraphes.push(parcoursEtProjet)
-
-    const freinsSynthese = Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins]))
-    // « Autres ressources » est un libellé générique de la liste de points d'appui : il n'est
-    // repris dans la synthèse que s'il accompagne au moins un point d'appui plus précis.
-    const ressourcesSyntheseUtiles = ressourcesSelectionnees.length > 1
-      ? ressourcesSelectionnees
-      : ressourcesSelectionnees.filter((item) => item !== 'Autres ressources')
-    const texteDejaExpose = normaliserPourComparaison(`${demande} ${contexteUtile} ${parcoursProfessionnel}`)
-    const motsClesFreins = {
-      mobilite: ['mobilite', 'transport'],
-      sante: ['sante', 'rqth', 'handicap'],
-      'sante / rqth': ['sante', 'rqth', 'handicap'],
-      finances: ['financ', 'budget', 'dette'],
-      'projet professionnel': ['projet'],
-      disponibilite: ['disponibilite', 'disponible'],
-      'competences numeriques': ['numerique', 'informatique'],
+    const parcoursPhrases = []
+    if (parcoursItems.some((item) => /expérience professionnelle significative/i.test(item))) {
+      parcoursPhrases.push('Votre parcours fait ressortir une expérience professionnelle significative.')
     }
-    const freinsNonDejaCites = freinsSynthese.filter((frein) => {
-      const freinNormalise = normaliserPourComparaison(frein)
-      const cles = motsClesFreins[freinNormalise] || [freinNormalise]
-      return !cles.some((cle) => texteDejaExpose.includes(normaliserPourComparaison(cle)))
-    })
-    if (freinsNonDejaCites.length > 0) {
-      paragraphes.push(`Nous avons également repéré des points de vigilance concernant ${formatListeCourte(freinsNonDejaCites.map(normaliserLibelleSynthese))}.`)
+    const cvATravailler = parcoursItems.some((item) => /travailler le cv|actualiser le cv|besoin.*cv/i.test(item))
+    const projetATravailler = parcoursItems.some((item) => /projet professionnel.*(?:préciser|clarifier)|besoin.*projet/i.test(item))
+    if (cvATravailler && projetATravailler) {
+      parcoursPhrases.push('Vous avez besoin de travailler votre CV ainsi que votre projet professionnel.')
+    } else if (cvATravailler) {
+      parcoursPhrases.push('Vous avez besoin de travailler votre CV.')
+    } else if (projetATravailler) {
+      parcoursPhrases.push('Vous avez besoin de travailler votre projet professionnel.')
     }
-    if (ressourcesSyntheseUtiles.length > 0) {
-      paragraphes.push(`Vos points d’appui sont ${formatListeCourte(ressourcesSyntheseUtiles.map(normaliserLibelleSynthese))}.`)
+    const autresElementsParcours = parcoursItems
+      .filter((item) => !/expérience professionnelle significative|travailler le cv|actualiser le cv|besoin.*cv|projet professionnel.*(?:préciser|clarifier)|besoin.*projet/i.test(item))
+      .map(normaliserLibelleSynthese)
+    if (autresElementsParcours.length > 0) {
+      parcoursPhrases.push(`Votre parcours fait également ressortir ${formatListeCourte(autresElementsParcours)}.`)
+    }
+    if (projet.trim() && !projetATravailler) {
+      parcoursPhrases.push(`Votre projet est de ${retirerAgeDeSynthese(projet.trim()).replace(/[.]+$/, '')}.`)
+    }
+    if (parcoursPhrases.length > 0) paragraphes.push(parcoursPhrases.join(' '))
+
+    const difficultesSituation = Array.from(new Set(
+      String(situationPersonnelle || '')
+        .split('·')
+        .map((item) => normaliserPourComparaison(item))
+        .map((item) => {
+          if (/mobilite|transport/.test(item)) return 'des difficultés de mobilité'
+          if (/sante|rqth|handicap/.test(item)) return 'une problématique de santé'
+          if (/logement.*(?:diffic|instable)|(?:diffic|instable).*logement/.test(item)) return 'des difficultés de logement'
+          if (/garde.*enfant/.test(item)) return 'des difficultés de garde d’enfants'
+          if (/numerique|informatique/.test(item)) return 'des difficultés avec le numérique'
+          if (/francais|fle|linguistique/.test(item)) return 'des difficultés de maîtrise du français'
+          return ''
+        })
+        .filter(Boolean),
+    ))
+    if (difficultesSituation.length > 0) {
+      paragraphes.push(`Concernant votre situation actuelle, nous retenons ${formatListeCourte(difficultesSituation)}.`)
     }
 
     if (ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi]) {
       paragraphes.push(ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi])
+    }
+    if (categorieDemandee && String(categorieDemandee) !== String(categorieActuelle)) {
+      const categorie = CATEGORIES_DEMANDEURS_EMPLOI.find((item) => String(item.numero) === String(categorieDemandee))
+      paragraphes.push(`Je demande également votre passage en catégorie ${categorieDemandee}${categorie?.libelle ? ` — ${categorie.libelle}` : ''}, adaptée à votre situation actuelle.`)
     }
 
     const actions = actionsImmediatesValidees
@@ -1789,16 +1749,14 @@ function AssistantMissionPage() {
   }, [
     ceQueDitLaPersonne,
     besoinIdentifieConseiller,
-    situationAdministrative,
     situationPersonnelle,
     parcoursProfessionnel,
     projet,
-    freinsSelectionnes,
-    ressourcesSelectionnees,
     actionsImmediatesValidees,
-    analyseDemandeAutomatique.freins,
     actionsRetenues,
     suiviAccompagnementChoisi,
+    categorieActuelle,
+    categorieDemandee,
     formalitesEntretien,
   ])
 
@@ -2071,6 +2029,7 @@ function AssistantMissionPage() {
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setCategorieActuelle(dossier.categorieActuelle || '')
+    setCategorieDemandee(dossier.categorieDemandee || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2281,6 +2240,7 @@ function AssistantMissionPage() {
     typeEntretien,
     situationAdministrative,
     categorieActuelle,
+    categorieDemandee,
     situationPersonnelle,
     parcoursProfessionnel,
     ceQueDitLaPersonne,
@@ -2345,7 +2305,8 @@ function AssistantMissionPage() {
         setIdentifiantDemandeur(dossier.identifiant || '')
         setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
         setSituationAdministrative(dossier.situationAdministrative || '')
-    setCategorieActuelle(dossier.categorieActuelle || '')
+        setCategorieActuelle(dossier.categorieActuelle || '')
+        setCategorieDemandee(dossier.categorieDemandee || '')
         setSituationPersonnelle(dossier.situationPersonnelle || '')
         setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
         setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2412,6 +2373,8 @@ function AssistantMissionPage() {
     identifiantDemandeur,
     typeEntretien,
     situationAdministrative,
+    categorieActuelle,
+    categorieDemandee,
     situationPersonnelle,
     parcoursProfessionnel,
     ceQueDitLaPersonne,
@@ -2499,6 +2462,7 @@ function AssistantMissionPage() {
     setTypeEntretien(normaliserTypeEntretien(dossier.typeEntretien))
     setSituationAdministrative(dossier.situationAdministrative || '')
     setCategorieActuelle(dossier.categorieActuelle || '')
+    setCategorieDemandee(dossier.categorieDemandee || '')
     setSituationPersonnelle(dossier.situationPersonnelle || '')
     setParcoursProfessionnel(dossier.parcoursProfessionnel || '')
     setCeQueDitLaPersonne(dossier.ceQueDitLaPersonne || '')
@@ -2587,6 +2551,8 @@ function AssistantMissionPage() {
     setIdentifiantDemandeur('')
     setTypeEntretien(DEFAULT_TYPE_ENTRETIEN)
     setSituationAdministrative('')
+    setCategorieActuelle('')
+    setCategorieDemandee('')
     setSituationPersonnelle('')
     setParcoursProfessionnel('')
     setCeQueDitLaPersonne('')
@@ -3423,18 +3389,35 @@ function AssistantMissionPage() {
               </Typography>
               {coherenceCategorie.candidats.length > 0 ? (
                 <Grid container spacing={1}>
-                  {coherenceCategorie.candidats.map((candidat) => (
+                  {coherenceCategorie.candidats.map((candidat) => {
+                    const estActuelle = String(candidat.numero) === String(categorieActuelle)
+                    const estDemandee = String(candidat.numero) === String(categorieDemandee)
+                    return (
                     <Grid key={candidat.numero} size={{ xs: 12, md: 6, xl: 4 }}>
-                      <Paper variant="outlined" sx={{ height: '100%', p: 1.1, borderLeft: `5px solid ${String(candidat.numero) === String(categorieActuelle) ? '#2e7d32' : '#00796b'}` }}>
+                      <Paper variant="outlined" sx={{ height: '100%', p: 1.1, borderLeft: `5px solid ${estActuelle ? '#2e7d32' : estDemandee ? '#6a1b9a' : '#00796b'}` }}>
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
-                          <Chip size="small" color={String(candidat.numero) === String(categorieActuelle) ? 'success' : 'primary'} label={`Catégorie ${candidat.numero}`} sx={{ fontWeight: 950 }} />
+                          <Chip size="small" color={estActuelle ? 'success' : estDemandee ? 'secondary' : 'primary'} label={`Catégorie ${candidat.numero}`} sx={{ fontWeight: 950 }} />
                           <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>{candidat.reference?.libelle}</Typography>
                         </Stack>
                         {candidat.raisons.map((raison) => <Typography key={raison} variant="body2">✓ {raison}</Typography>)}
                         {candidat.aVerifier.map((point) => <Typography key={point} variant="caption" sx={{ display: 'block', mt: 0.4, color: '#9a5900', fontWeight: 700 }}>À vérifier : {point}</Typography>)}
+                        {estActuelle ? (
+                          <Chip size="small" color="success" variant="outlined" label="Catégorie actuelle" sx={{ mt: 0.8, fontWeight: 900 }} />
+                        ) : (
+                          <Button
+                            size="small"
+                            variant={estDemandee ? 'contained' : 'outlined'}
+                            color="secondary"
+                            onClick={() => setCategorieDemandee(estDemandee ? '' : String(candidat.numero))}
+                            sx={{ mt: 0.8, fontWeight: 900 }}
+                          >
+                            {estDemandee ? 'Changement retenu ✓' : 'Demander cette catégorie'}
+                          </Button>
+                        )}
                       </Paper>
                     </Grid>
-                  ))}
+                    )
+                  })}
                 </Grid>
               ) : (
                 <Alert severity="info" sx={{ py: 0 }}>
