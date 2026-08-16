@@ -434,6 +434,7 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       .replace(/^reconversion\s+bloquée\b/i, 'votre reconversion est bloquée')
       .replace(/^perte\s+de\s+confiance\b/i, 'vous exprimez une perte de confiance')
       .replace(/\bRégion\b/g, 'région')
+      .replace(/\bfaire ce métier\b/gi, 'exercer ce métier')
       .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
       .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
       .replace(/\bau regard de son profil\b/gi, 'au regard de votre profil')
@@ -464,7 +465,8 @@ const reformulerRecitPourDemandeur = (texteSource) => {
       index === 0 ? phrase : phrase.charAt(0).toLocaleUpperCase('fr-FR') + phrase.slice(1)
     ))
     .join('. ')
-    .replace(/vous n'avez pas de projet,\s*vous ne savez pas encore où vous en êtes,\s*vous avez besoin de réfléchir/gi, "vous n'avez pas encore de projet défini et vous avez besoin de temps pour y réfléchir")
+    .replace(/,\s*vous ne souhaitez/gi, ' et que vous ne souhaitez')
+    .replace(/vous n'avez pas de projet,\s*vous ne savez pas encore où vous en êtes,\s*vous avez besoin de réfléchir/gi, "Vous n'avez pas encore de projet défini et vous avez besoin de temps pour y réfléchir")
 }
 
 function SectionRepliable({ id, title, expanded, onChange, children }) {
