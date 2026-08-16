@@ -4,10 +4,14 @@ Assistant personnel d’aide à la décision pour les conseillers France Travail
 
 ## Ouvrir le logiciel
 
-- Site public sécurisé : https://cap-decision-ft.web.app
+- Site public sécurisé : https://cap-decision-ft.firebaseapp.com
 - Sous Windows, double-cliquer sur `DEMARRER_CAP_DECISION.cmd` ou `Cap Decision FT.url`.
 
 Le lanceur principal ouvre directement la version Firebase. Il ne nécessite ni installation de Node.js, ni serveur local, et sa fenêtre peut être fermée immédiatement.
+
+## Sauvegarder et publier
+
+Après une modification, double-cliquer sur `SAUVEGARDER_ET_PUBLIER.cmd`. Le script vérifie et construit le site, enregistre les changements sur GitHub, puis publie Firebase. Si une vérification échoue, la publication est arrêtée automatiquement.
 
 ## Développement local
 

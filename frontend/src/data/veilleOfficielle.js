@@ -1,4 +1,4 @@
-export const VEILLE_DERNIERE_VERIFICATION = '6 août 2026'
+export const VEILLE_DERNIERE_VERIFICATION = '16 août 2026'
 
 export const sourcesOfficielles = [
   { nom: 'Légifrance', role: 'Lois, décrets et dates d’entrée en vigueur', url: 'https://www.legifrance.gouv.fr/' },
