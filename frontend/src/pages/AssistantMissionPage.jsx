@@ -542,6 +542,31 @@ function AssistantMissionPage() {
     })
   }
 
+  const executerActionPrioritaire = () => {
+    if (!identifiantDemandeur.trim()) {
+      document.getElementById('identifiant-france-travail')?.focus()
+      return
+    }
+
+    if (!ceQueDitLaPersonne.trim() && !besoinIdentifieConseiller.trim()) {
+      allerASection('section-entretien')
+      window.setTimeout(() => document.getElementById('demande-rendez-vous')?.focus(), 450)
+      return
+    }
+
+    if (!formalitesCompletes) {
+      allerASection('section-synthese', 'synthese')
+      return
+    }
+
+    if (actionsRetenues.length === 0) {
+      allerASection('section-prescriptions', 'offreServices')
+      return
+    }
+
+    allerASection('section-cloture')
+  }
+
   const speechSupported = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
   const regionBaremePreferee = useMemo(() => lireRegionBaremePreferee(), [])
   const alertesSuiviObligations = useMemo(
@@ -2582,6 +2607,15 @@ function AssistantMissionPage() {
         ? 'Élevé'
         : recommandationsMoteur.niveauConfiance || 'Moyen'
   const confianceSousReserve = niveauConfianceAffiche !== 'Élevé'
+  const prochaineAction = dossierCoherentEtComplet
+    ? 'Le dossier est prêt : relisez la synthèse puis clôturez.'
+    : (controleDecision.bloquants > 0
+      ? controleDecision.prochaineAction
+      : controleCloture.find((item) => !item.ok)?.label)
+      || 'Décrivez la situation pour lancer l’analyse.'
+  const syntheseApercu = syntheseEntretien.trim()
+    ? `${syntheseEntretien.trim().slice(0, 170)}${syntheseEntretien.trim().length > 170 ? '…' : ''}`
+    : 'La synthèse se construit automatiquement pendant votre saisie.'
 
   return (
     <Box
@@ -2609,6 +2643,7 @@ function AssistantMissionPage() {
           <Grid container spacing={1} alignItems="center">
             <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
               <TextField
+                id="identifiant-france-travail"
                 label="Identifiant France Travail"
                 value={identifiantDemandeur}
                 onChange={(event) => setIdentifiantDemandeur(event.target.value)}
@@ -2685,230 +2720,170 @@ function AssistantMissionPage() {
           </Grid>
         </Paper>
 
-        <Paper
-          variant="outlined"
-          sx={{
-            position: 'sticky',
-            top: 8,
-            zIndex: 20,
-            bgcolor: 'rgba(255,255,255,0.97)',
-            borderRadius: 2,
-            p: { xs: 0.75, md: 1 },
-            boxShadow: '0 4px 16px rgba(15,35,65,0.12)',
-          }}
-        >
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} alignItems={{ md: 'center' }}>
-            <Box sx={{ minWidth: 112 }}>
-              <Typography variant="caption" sx={{ display: 'block', fontWeight: 950, color: '#173f67', lineHeight: 1.1 }}>
-                ACCÈS DIRECTS
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>
-                Toujours visibles
-              </Typography>
+        {workspaceTab !== 'sauvegardes' ? (
+          <Paper
+            id="section-entretien"
+            sx={{
+              p: { xs: 1.5, md: 2 },
+              borderRadius: 3,
+              scrollMarginTop: '24px',
+              color: '#fff',
+              background: 'linear-gradient(125deg, #102f4f 0%, #0b6fb8 62%, #5b3b91 100%)',
+              boxShadow: '0 12px 30px rgba(15,47,79,0.22)',
+            }}
+          >
+            <Grid container spacing={1.5} alignItems="stretch">
+              <Grid size={{ xs: 12, lg: 7 }}>
+                <Stack spacing={1.25} sx={{ height: '100%' }}>
+                  <Box>
+                    <Typography variant="overline" sx={{ fontWeight: 950, letterSpacing: 1.2, color: '#bfe2ff' }}>
+                      MODE URGENCE · PROCHAINE ACTION
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 950, lineHeight: 1.15, maxWidth: 780 }}>
+                      {prochaineAction}
+                    </Typography>
+                  </Box>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={executerActionPrioritaire}
+                      sx={{
+                        bgcolor: '#fff',
+                        color: '#123d64',
+                        fontWeight: 950,
+                        px: 2.5,
+                        '&:hover': { bgcolor: '#eaf5ff' },
+                      }}
+                    >
+                      Faire maintenant →
+                    </Button>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.82)', fontWeight: 700 }}>
+                      Priorité métier : {orientationPrioritaire}
+                    </Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 'auto' }}>
+                    {[
+                      [`${missionCompletion}%`, 'Dossier'],
+                      [niveauConfianceAffiche, 'Confiance'],
+                      [`${actionsRetenues.length}`, 'Action(s)'],
+                      [`${nombreAlertesPortefeuille + nombreAlertesSuivi + nombreAlertesRemobilisation}`, 'Alerte(s)'],
+                    ].map(([value, label]) => (
+                      <Box key={label} sx={{ minWidth: 92, px: 1.25, py: 0.75, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 950, lineHeight: 1 }}>{value}</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)' }}>{label}</Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Stack>
+              </Grid>
+
+              <Grid size={{ xs: 12, lg: 5 }}>
+                <Box
+                  sx={{
+                    height: '100%',
+                    p: { xs: 1.5, md: 2 },
+                    borderRadius: 2.5,
+                    bgcolor: '#fff',
+                    color: '#281843',
+                    boxShadow: '0 8px 24px rgba(23,12,48,0.2)',
+                  }}
+                >
+                  <Typography variant="overline" sx={{ fontWeight: 950, color: '#6b3fa0', letterSpacing: 1 }}>
+                    GÉNÉRÉE EN TEMPS RÉEL
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 950, mb: 0.75 }}>
+                    Synthèse automatique
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5f5370', mb: 1.5, minHeight: 42 }}>
+                    {syntheseApercu}
+                  </Typography>
+                  <Button
+                    fullWidth
+                    size="large"
+                    variant="contained"
+                    onClick={() => allerASection('section-synthese', 'synthese')}
+                    sx={{
+                      py: 1.15,
+                      bgcolor: '#6b3fa0',
+                      fontWeight: 950,
+                      fontSize: '1rem',
+                      '&:hover': { bgcolor: '#553080' },
+                    }}
+                  >
+                    Ouvrir la synthèse automatique →
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        ) : null}
+
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2.5, borderColor: '#c8d7e5', bgcolor: '#fff' }}>
+          <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} alignItems={{ lg: 'center' }}>
+            <Box sx={{ minWidth: 132 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 950, color: '#173f67' }}>Parcours express</Typography>
+              <Typography variant="caption" color="text.secondary">3 gestes essentiels</Typography>
             </Box>
-            <Stack
-              direction="row"
-              spacing={0.75}
-              sx={{
-                minWidth: 0,
-                flex: 1,
-                overflowX: 'auto',
-                pb: 0.25,
-                '&::-webkit-scrollbar': { height: 4 },
-              }}
-            >
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => allerASection('section-entretien')}
-                sx={{ minWidth: 126, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
-              >
-                1 · Entretien
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                onClick={() => allerASection('section-prescriptions', 'offreServices')}
-                sx={{ minWidth: 176, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
-              >
-                2 · Offre de services
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => allerASection('section-synthese', 'synthese')}
-                sx={{
-                  minWidth: 132,
-                  flexShrink: 0,
-                  fontWeight: 900,
-                  whiteSpace: 'nowrap',
-                  bgcolor: '#6b3fa0',
-                  '&:hover': { bgcolor: '#553080' },
-                }}
-              >
-                3 · Synthèse
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="warning"
-                onClick={() => allerASection('section-cloture')}
-                sx={{ minWidth: 124, flexShrink: 0, fontWeight: 900, whiteSpace: 'nowrap' }}
-              >
-                4 · Clôturer
-              </Button>
-            </Stack>
+            <Grid container spacing={0.75} sx={{ flex: 1, width: '100%' }}>
+              {[
+                ['1', 'Saisir la situation', 'section-entretien', '', '#1976d2'],
+                ['2', 'Choisir une solution', 'section-prescriptions', 'offreServices', '#2e7d32'],
+                ['3', 'Finaliser la synthèse', 'section-synthese', 'synthese', '#6b3fa0'],
+              ].map(([numero, label, anchorId, sectionId, color]) => (
+                <Grid key={numero} size={{ xs: 12, sm: 4 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={() => allerASection(anchorId, sectionId)}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      minHeight: 48,
+                      borderWidth: 2,
+                      borderColor: color,
+                      color,
+                      fontWeight: 900,
+                      '&:hover': { borderWidth: 2, borderColor: color, bgcolor: `${color}0A` },
+                    }}
+                  >
+                    <Box component="span" sx={{ display: 'grid', placeItems: 'center', width: 26, height: 26, mr: 1, borderRadius: '50%', bgcolor: color, color: '#fff', fontWeight: 950 }}>
+                      {numero}
+                    </Box>
+                    {label}
+                  </Button>
+                </Grid>
+              ))}
+            </Grid>
           </Stack>
 
-          <Stack
-            direction="row"
-            spacing={0.6}
-            useFlexGap
-            alignItems="center"
-            sx={{ mt: 0.75, overflowX: 'auto', pb: 0.25 }}
-          >
-            <Typography variant="caption" sx={{ fontWeight: 900, color: '#60758a', mr: 0.25, flexShrink: 0 }}>
-              Outils :
-            </Typography>
+          <Stack direction="row" spacing={0.6} useFlexGap alignItems="center" sx={{ mt: 1, pt: 1, borderTop: '1px solid #e2e8ef', overflowX: 'auto' }}>
+            <Typography variant="caption" sx={{ fontWeight: 900, color: '#60758a', flexShrink: 0 }}>Outils :</Typography>
             {[
               ['section-portefeuille-mutualise', 'portefeuilleMutualise', nombreAlertesPortefeuille > 0 ? `Portefeuille (${nombreAlertesPortefeuille})` : 'Portefeuille'],
               ['section-suivi-obligations', 'suiviObligations', nombreAlertesSuivi > 0 ? `Suivi M6 (${nombreAlertesSuivi})` : 'Suivi M6'],
               ['section-remobilisation', 'faisceauCre', nombreAlertesRemobilisation > 0 ? `Faisceau CRE (${nombreAlertesRemobilisation})` : 'Faisceau CRE'],
             ].map(([anchorId, sectionId, label]) => (
-              <Chip
-                key={anchorId}
-                clickable
-                size="small"
-                onClick={() => allerASection(anchorId, sectionId)}
-                label={label}
-                sx={{ fontWeight: 700, flexShrink: 0 }}
-              />
+              <Chip key={anchorId} clickable size="small" onClick={() => allerASection(anchorId, sectionId)} label={label} sx={{ fontWeight: 700, flexShrink: 0 }} />
             ))}
-            <Chip
-              clickable
-              size="small"
-              component={Link}
-              to="/demandeurs"
-              label="Demandeurs"
-              sx={{ fontWeight: 700, flexShrink: 0 }}
-            />
-            <input
-              ref={portfolioFileInputRef}
-              hidden
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handlePortfolioImport}
-            />
+            <Chip clickable size="small" component={Link} to="/demandeurs" label="Demandeurs" sx={{ fontWeight: 700, flexShrink: 0 }} />
+            <input ref={portfolioFileInputRef} hidden type="file" accept=".xlsx,.xls,.csv" onChange={handlePortfolioImport} />
+            <Button size="small" variant="text" color="success" onClick={() => portfolioFileInputRef.current?.click()} sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap', flexShrink: 0 }}>Importer Excel</Button>
             <Button
               size="small"
-              variant="outlined"
-              color="success"
-              onClick={() => portfolioFileInputRef.current?.click()}
-              sx={{ ml: { md: 'auto' }, whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              Importer Excel
-            </Button>
-            <Button
-              size="small"
-              variant={workspaceTab === 'sauvegardes' ? 'contained' : 'outlined'}
-              onClick={() => {
-                if (workspaceTab === 'sauvegardes') {
-                  setWorkspaceTab('entretien')
-                } else {
-                  ouvrirListeAnalyses()
-                }
-              }}
+              variant="text"
+              onClick={() => (workspaceTab === 'sauvegardes' ? setWorkspaceTab('entretien') : ouvrirListeAnalyses())}
               sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
             >
-              {workspaceTab === 'sauvegardes' ? 'Fermer les sauvegardes' : 'Sauvegardes'}
+              {workspaceTab === 'sauvegardes' ? 'Retour au cockpit' : 'Sauvegardes'}
             </Button>
           </Stack>
-          {portfolioImportStatus ? (
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#173f67', fontWeight: 700 }}>
-              {portfolioImportStatus}
-            </Typography>
-          ) : null}
+          {portfolioImportStatus ? <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: '#173f67', fontWeight: 700 }}>{portfolioImportStatus}</Typography> : null}
         </Paper>
-
-        {workspaceTab !== 'sauvegardes' ? (
-          <Box
-            sx={{
-              px: 1.5,
-              py: 1,
-              borderRadius: 2,
-              bgcolor: dossierCoherentEtComplet ? '#edf7ed' : '#fff5e6',
-              border: '1px solid',
-              borderColor: dossierCoherentEtComplet ? '#8bc593' : '#efb45d',
-            }}
-          >
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} justifyContent="space-between">
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: 900, color: dossierCoherentEtComplet ? '#1f6b36' : '#9a5100', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                  {dossierCoherentEtComplet ? '✓ Dossier prêt' : 'À faire maintenant'}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {dossierCoherentEtComplet
-                    ? 'Dossier complet, cohérent et prêt à être clôturé.'
-                    : (controleDecision.bloquants > 0 ? controleDecision.prochaineAction : controleCloture.find((item) => !item.ok)?.label) || 'Compléter la demande exprimée pour démarrer.'}
-                </Typography>
-              </Box>
-              <Button size="small" variant="outlined" component="a" href="#section-cloture" sx={{ whiteSpace: 'nowrap' }}>
-                Voir le détail et clôturer ↓
-              </Button>
-            </Stack>
-          </Box>
-        ) : null}
-
-        {workspaceTab !== 'sauvegardes' ? (
-          <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2, bgcolor: '#f9fbfd', scrollMarginTop: '130px' }} id="section-entretien">
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
-              <Chip size="small" color={missionCompletion >= 70 ? 'success' : missionCompletion >= 40 ? 'warning' : 'default'} label={`Complétude ${missionCompletion}%`} />
-              <Chip size="small" variant="outlined" label={`Confiance ${niveauConfianceAffiche}`} />
-              <Chip size="small" variant="outlined" color={controleDecision.couleur === 'rouge' ? 'error' : controleDecision.couleur === 'orange' ? 'warning' : 'success'} label={controleDecision.statut} />
-              <Chip size="small" variant="outlined" label={`Freins ${Array.from(new Set([...freinsSelectionnes, ...analyseDemandeAutomatique.freins])).length}`} />
-              <Chip size="small" variant="outlined" label={`Actions ${actionsRetenues.length}`} />
-              <Chip
-                clickable
-                size="small"
-                component="a"
-                href="#section-portefeuille-mutualise"
-                color={nombreAlertesPortefeuille > 0 ? 'error' : 'success'}
-                variant={nombreAlertesPortefeuille > 0 ? 'filled' : 'outlined'}
-                label={nombreAlertesPortefeuille > 0
-                  ? `Portefeuille ${nombreAlertesPortefeuille}`
-                  : 'Portefeuille à jour'}
-              />
-              <Chip
-                clickable
-                size="small"
-                component="a"
-                href="#section-suivi-obligations"
-                color={nombreAlertesSuivi > 0 ? 'error' : 'success'}
-                variant={nombreAlertesSuivi > 0 ? 'filled' : 'outlined'}
-                label={nombreAlertesSuivi > 0 ? `Alertes M6 ${nombreAlertesSuivi}` : 'Suivi M6 à jour'}
-              />
-              <Chip
-                clickable
-                size="small"
-                component="a"
-                href="#section-remobilisation"
-                color={nombreAlertesRemobilisation > 0 ? 'error' : 'success'}
-                variant={nombreAlertesRemobilisation > 0 ? 'filled' : 'outlined'}
-                label={nombreAlertesRemobilisation > 0
-                  ? `Alertes CRE ${nombreAlertesRemobilisation}`
-                  : 'Faisceau CRE à jour'}
-              />
-              <Typography variant="caption" sx={{ ml: { md: 'auto' }, fontWeight: 800, color: '#244d78' }}>
-                Priorité : {orientationPrioritaire}
-              </Typography>
-            </Stack>
-          </Paper>
-        ) : null}
 
         {workspaceTab !== 'sauvegardes' ? (
           <CockpitBlockCard title="2. Demande exprimée" sx={{ minHeight: CARD_MIN_HEIGHT, borderTop: '3px solid #1976d2' }}>
               <TextField
+                id="demande-rendez-vous"
                 label="Demande ou objectif du rendez-vous"
                 value={ceQueDitLaPersonne}
                 onChange={(event) => {
@@ -4126,7 +4101,43 @@ function AssistantMissionPage() {
           </CockpitBlockCard>
         ) : null}
 
-        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab !== 'sauvegardes' ? 'flex' : 'none' }}>
+        {workspaceTab !== 'sauvegardes' ? (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              borderRadius: 2.5,
+              borderColor: modeApprofondi ? '#9d7bc3' : '#cbd6e2',
+              bgcolor: modeApprofondi ? '#faf7fd' : '#fff',
+            }}
+          >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} justifyContent="space-between">
+              <Box>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                  <Chip size="small" label={modeApprofondi ? 'MODE DÉTAILLÉ' : 'MODE SIMPLE ACTIF'} color={modeApprofondi ? 'secondary' : 'success'} sx={{ fontWeight: 900 }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 950, color: '#173f67' }}>
+                    Analyse approfondie
+                  </Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Les grilles techniques, l’ADVP, le MAP et les recommandations détaillées restent disponibles sans encombrer le parcours urgent.
+                </Typography>
+              </Box>
+              <Button
+                variant={modeApprofondi ? 'contained' : 'outlined'}
+                color="secondary"
+                onClick={() => setModeApprofondi((previous) => !previous)}
+                sx={{ whiteSpace: 'nowrap', fontWeight: 900 }}
+              >
+                {modeApprofondi ? 'Masquer les détails' : 'Afficher si nécessaire'}
+              </Button>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {workspaceTab !== 'sauvegardes' && modeApprofondi ? (
+          <>
+        <Grid container spacing={1} alignItems="flex-start">
           <Grid size={{ xs: 12, md: 6 }}>
             <Stack
   spacing={1}
@@ -4401,7 +4412,7 @@ function AssistantMissionPage() {
           </Grid>
         </Grid>
 
-        <Grid container spacing={1} alignItems="flex-start" sx={{ display: workspaceTab !== 'sauvegardes' ? 'flex' : 'none' }}>
+        <Grid container spacing={1} alignItems="flex-start">
           <Grid size={{ xs: 12, md: 6 }}>
             <CockpitBlockCard title="9. MAP" defaultExpanded sx={{ minHeight: 0, borderTop: '3px solid #2e7d32', bgcolor: '#f4fbf6' }}>
                   <Grid container spacing={1}>
@@ -4539,11 +4550,38 @@ function AssistantMissionPage() {
                 </CockpitBlockCard>
           </Grid>
         </Grid>
+          </>
+        ) : null}
 
         {speechStatus ? <Typography variant="caption" color="text.secondary">{speechStatus}</Typography> : null}
         {storageStatus ? <Typography variant="caption" color="text.secondary">{storageStatus}</Typography> : null}
 
       </Stack>
+      {workspaceTab !== 'sauvegardes' ? (
+        <Button
+          aria-label="Ouvrir la synthèse automatique"
+          variant="contained"
+          size="large"
+          onClick={() => allerASection('section-synthese', 'synthese')}
+          sx={{
+            position: 'fixed',
+            right: { xs: 12, md: 24 },
+            bottom: { xs: 72, md: 74 },
+            zIndex: 1350,
+            minHeight: 52,
+            px: { xs: 1.75, sm: 2.5 },
+            borderRadius: 999,
+            bgcolor: '#6b3fa0',
+            color: '#fff',
+            fontWeight: 950,
+            fontSize: { xs: '0.82rem', sm: '0.95rem' },
+            boxShadow: '0 10px 28px rgba(73,39,108,0.38)',
+            '&:hover': { bgcolor: '#553080', transform: 'translateY(-1px)' },
+          }}
+        >
+          ✦ Synthèse automatique
+        </Button>
+      ) : null}
     </Box>
   )
 }
