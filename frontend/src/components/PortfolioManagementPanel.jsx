@@ -346,6 +346,9 @@ const PortfolioManagementPanel = ({ portfolioVersion, onPortfolioChanged }) => {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
             Import Excel anonymisé : tous les DE importés sont rattachés à votre portefeuille. Seules les données de suivi rattachées au numéro FT sont conservées ; les colonnes « Nom » et « Prénom » sont ignorées.
           </Typography>
+          <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 0.5, fontWeight: 700 }}>
+            Le motif est repris automatiquement lorsque le nom du fichier est explicite ; il reste modifiable dans chaque dossier.
+          </Typography>
           {saveError ? <Alert severity="error" sx={{ mt: 1 }}>{saveError}</Alert> : null}
           {saveStatus ? <Alert severity="success" sx={{ mt: 1 }}>{saveStatus}</Alert> : null}
         </Box>

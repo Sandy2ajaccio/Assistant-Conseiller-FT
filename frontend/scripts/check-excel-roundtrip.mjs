@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 import {
   anonymiserPortfolioRecord,
   buildPortfolioPatchFromDossier,
+  inferImportMotifFromFilename,
   mapPortfolioRow,
   PORTFOLIO_TRACKING_STATUS_OPTIONS,
   portfolioRecordToDossier,
@@ -81,6 +82,9 @@ assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb:
 assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: 'FF0000' } }), 'action_requise')
 assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: { rgb: 'CAEEFB' } }), 'a_recontacter')
 assert.equal(trackingStatusFromCellStyle({ patternType: 'solid', fgColor: {} }), 'a_qualifier')
+assert.equal(inferImportMotifFromFilename('Convo atelier CPF senior.xlsx'), 'atelier CPF senior')
+assert.equal(inferImportMotifFromFilename('atelier mobilité.xlsx'), 'atelier mobilité')
+assert.equal(inferImportMotifFromFilename('Portefeuille.xlsx'), '')
 
 const dossierModifie = {
   situationAdministrative: 'Sans emploi',
@@ -110,6 +114,7 @@ assert.ok(sourcePortfolioPanel.includes('Informations importées et suivi du por
 assert.ok(sourcePortfolioPanel.includes('Motif du prochain jalon'))
 assert.ok(sourcePortfolioPanel.includes('Suivi immédiat des imports'))
 assert.ok(sourcePortfolioPanel.includes('Motif particulier (facultatif)'))
+assert.ok(sourcePortfolioPanel.includes('Le motif est repris automatiquement lorsque le nom du fichier est explicite'))
 assert.ok(sourcePortfolioPanel.includes('Laissez vide pour un portefeuille général.'))
 assert.ok(PORTFOLIO_TRACKING_STATUS_OPTIONS.some((option) => option.label === 'À signaler au CRE'))
 assert.ok(PORTFOLIO_TRACKING_STATUS_OPTIONS.some((option) => option.label === 'À avertir · procédure à confirmer'))

@@ -120,6 +120,32 @@ const normalizeHeader = (value) => String(value || '')
   .toLowerCase()
 
 const text = (value) => String(value ?? '').trim()
+
+export const inferImportMotifFromFilename = (filename) => {
+  let candidate = text(filename)
+    .replace(/\.(?:xlsx?|xlsm|csv)$/i, '')
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const genericPrefix = /^(?:convo(?:cation)?s?|liste|fichier|export|import|suivi|portefeuille|demandeurs?(?: d['’]emploi)?|de)\b[\s:.-]*/i
+  let previous = ''
+  while (candidate && candidate !== previous) {
+    previous = candidate
+    candidate = candidate.replace(genericPrefix, '').trim()
+  }
+
+  const normalized = candidate
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+  if (!normalized || /^(?:r\d+|general|tous|tout)$/.test(normalized)) return ''
+  return candidate
+}
 const normalizeIdentifier = (value) => text(value).toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 export const anonymiserPortfolioRecord = (record = {}) => {
@@ -637,8 +663,9 @@ export const importPortfolioWorkbook = async (file, options = {}) => {
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) throw new Error('Le classeur ne contient aucune feuille exploitable.')
 
-  const motifImport = text(options.motifImport)
   const fichierImport = text(file.name).replace(/[^\p{L}\p{N} ._()-]/gu, '')
+  const motifImportSaisi = text(options.motifImport)
+  const motifImport = motifImportSaisi || inferImportMotifFromFilename(fichierImport)
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }).map((row, index) => ({
     ...row,
     __motifImport: motifImport,
@@ -698,6 +725,7 @@ export const importPortfolioWorkbook = async (file, options = {}) => {
     cloudSynced,
     rattachesPortefeuille: incomingById.size,
     motifImport,
+    motifImportAutomatique: !motifImportSaisi && Boolean(motifImport),
     libelleImport: motifImport || fichierImport || 'Import général',
     suiviCouleurs: {
       aQualifier: mapped.filter((record) => record.statutSuiviImport === 'a_qualifier').length,
