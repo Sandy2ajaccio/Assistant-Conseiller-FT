@@ -421,6 +421,8 @@ const reformulerRecitPourDemandeur = (texteSource) => {
   const phrasesReformulees = phrases.map((phrase) => {
     const phraseNormalisee = phrase
       .replace(/^personne\s+sans\s+emploi\b/i, 'vous êtes sans emploi')
+      .replace(/^reconversion\s+bloquée\b/i, 'votre reconversion est bloquée')
+      .replace(/^perte\s+de\s+confiance\b/i, 'vous exprimez une perte de confiance')
       .replace(/\bRégion\b/g, 'région')
       .replace(/\bde sonder les potentiels\b/gi, "d’évaluer les perspectives d'emploi")
       .replace(/\bsonder les potentiels\b/gi, "évaluer les perspectives d'emploi")
