@@ -139,5 +139,8 @@ assert.ok(!sourcePage.includes('Suivi et prochaine action convenus : ${suiviPort
 assert.ok(sourcePage.includes('Vous avez besoin de travailler votre CV ainsi que votre projet professionnel.'))
 assert.ok(sourcePage.includes('Demander cette catégorie'))
 assert.ok(sourcePage.includes('Je demande également votre passage en catégorie'))
+assert.ok(sourcePage.includes('suiviAccompagnementChoisi || conseilSuiviAccompagnement.conseille'))
+assert.ok(sourcePage.includes("o[uù] il en (?:ai|est)"))
+assert.ok(sourcePage.includes("^[aà]\\s+"))
 
 console.log('Copilote ADVP, catégories, suivi conseillé, contrôles automatiques M6/CRE, règle IA et anti-redondance vérifiés.')

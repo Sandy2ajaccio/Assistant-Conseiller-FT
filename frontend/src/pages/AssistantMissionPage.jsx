@@ -397,7 +397,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
   // Présent négatif : "n'est pas" -> "vous n'êtes pas"
   resultat = resultat.replace(/^n['’]est\s+pas\b/i, "vous n'êtes pas")
   // Passé composé affirmatif : "a réalisé", "a travaillé", "a suivi" -> "vous avez réalisé", etc.
-  resultat = resultat.replace(/^a\s+(?=\w)/i, 'vous avez ')
+  resultat = resultat.replace(/^[aà]\s+(?=\w)/i, 'vous avez ')
   // Présent 3e personne courant : "travaille", "cherche", "occupe", "possède", "dispose", "connaît"
   resultat = resultat.replace(/^(travaille|cherche|occupe|possède|dispose|connaît|maîtrise|habite|vit|réside)\b/i, (m, verbe) => {
     const verbeMinuscule = verbe.toLowerCase()
@@ -422,7 +422,7 @@ const conjuguerA3emePersonneVersVous = (segment) => {
 const reformulerRecitPourDemandeur = (texteSource) => {
   const phrases = String(texteSource || '')
     .trim()
-    .replace(/\bne sais pas où il en (?:ai|est)\b/gi, 'ne sait pas encore où il en est')
+    .replace(/\bne sais pas o[uù] il en (?:ai|est)\b/gi, 'ne sait pas encore où il en est')
     .replace(/\s*;\s*/g, ', ')
     .split(/[.!?]+/)
     .map((phrase) => phrase.trim())
@@ -1716,8 +1716,9 @@ function AssistantMissionPage() {
       paragraphes.push(`Concernant votre situation actuelle, nous retenons ${formatListeCourte(difficultesSituation)}.`)
     }
 
-    if (ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi]) {
-      paragraphes.push(ORIENTATIONS_SUIVI_SYNTHESE[suiviAccompagnementChoisi])
+    const suiviPourSynthese = suiviAccompagnementChoisi || conseilSuiviAccompagnement.conseille
+    if (ORIENTATIONS_SUIVI_SYNTHESE[suiviPourSynthese]) {
+      paragraphes.push(ORIENTATIONS_SUIVI_SYNTHESE[suiviPourSynthese])
     }
     if (categorieDemandee && String(categorieDemandee) !== String(categorieActuelle)) {
       const categorie = CATEGORIES_DEMANDEURS_EMPLOI.find((item) => String(item.numero) === String(categorieDemandee))
@@ -1755,6 +1756,7 @@ function AssistantMissionPage() {
     actionsImmediatesValidees,
     actionsRetenues,
     suiviAccompagnementChoisi,
+    conseilSuiviAccompagnement.conseille,
     categorieActuelle,
     categorieDemandee,
     formalitesEntretien,
